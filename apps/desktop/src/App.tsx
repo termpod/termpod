@@ -1,48 +1,100 @@
-import { useCallback, useEffect, useRef } from 'react';
-import { Terminal } from '@termpod/ui';
-import type { TerminalHandle } from '@termpod/ui';
-import type { PtySize } from '@termpod/protocol';
-import { spawn } from 'tauri-pty';
-import type { IPty } from 'tauri-pty';
-import { DEFAULT_SHELL } from '@termpod/shared';
+import { useCallback, useEffect } from 'react';
+import { listen } from '@tauri-apps/api/event';
+import { useSessionManager } from './hooks/useSessionManager';
+import { TabBar } from './components/TabBar';
+import { TerminalPanel } from './components/TerminalPanel';
 
 export function App() {
-  const termRef = useRef<TerminalHandle>(null);
-  const ptyRef = useRef<IPty | null>(null);
+  const {
+    sessions,
+    activeId,
+    createSession,
+    closeSession,
+    switchSession,
+  } = useSessionManager();
 
-  const handleData = useCallback((data: string) => {
-    ptyRef.current?.write(data);
-  }, []);
+  // Create initial session on mount
+  useEffect(() => {
+    if (sessions.length === 0) {
+      createSession();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleResize = useCallback((size: PtySize) => {
-    ptyRef.current?.resize(size.cols, size.rows);
-  }, []);
+  // Listen for Tauri menu events
+  const handleMenuEvent = useCallback(
+    (menuId: string) => {
+      switch (menuId) {
+        case 'new_tab':
+          createSession();
+          break;
+
+        case 'close_tab':
+          if (activeId) {
+            closeSession(activeId);
+          }
+          break;
+
+        case 'next_tab': {
+          const idx = sessions.findIndex((s) => s.id === activeId);
+          const next = sessions[(idx + 1) % sessions.length];
+
+          if (next) {
+            switchSession(next.id);
+          }
+          break;
+        }
+
+        case 'prev_tab': {
+          const idx = sessions.findIndex((s) => s.id === activeId);
+          const prev = sessions[(idx - 1 + sessions.length) % sessions.length];
+
+          if (prev) {
+            switchSession(prev.id);
+          }
+          break;
+        }
+
+        default:
+          if (menuId.startsWith('tab_')) {
+            const tabIdx = parseInt(menuId.slice(4), 10) - 1;
+
+            if (tabIdx < sessions.length) {
+              switchSession(sessions[tabIdx].id);
+            }
+          }
+      }
+    },
+    [activeId, sessions, createSession, closeSession, switchSession],
+  );
 
   useEffect(() => {
-    const pty = spawn(DEFAULT_SHELL, [], {
-      cols: 120,
-      rows: 40,
-    });
-
-    ptyRef.current = pty;
-
-    pty.onData((data) => {
-      termRef.current?.write(data);
-    });
-
-    pty.onExit(({ exitCode }) => {
-      termRef.current?.write(`\r\n[Process exited with code ${exitCode}]\r\n`);
+    const unlisten = listen<string>('menu-event', (event) => {
+      handleMenuEvent(event.payload);
     });
 
     return () => {
-      pty.kill();
-      ptyRef.current = null;
+      unlisten.then((fn) => fn());
     };
-  }, []);
+  }, [handleMenuEvent]);
 
   return (
     <div className="app">
-      <Terminal ref={termRef} onData={handleData} onResize={handleResize} />
+      <TabBar
+        sessions={sessions}
+        activeId={activeId}
+        onSelect={switchSession}
+        onClose={closeSession}
+        onCreate={() => createSession()}
+      />
+      <div className="terminal-area">
+        {sessions.map((session) => (
+          <TerminalPanel
+            key={session.id}
+            session={session}
+            visible={session.id === activeId}
+          />
+        ))}
+      </div>
     </div>
   );
 }

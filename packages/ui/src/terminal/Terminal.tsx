@@ -16,12 +16,13 @@ export interface TerminalHandle {
 export interface TerminalProps {
   onData?: (data: string) => void;
   onResize?: (size: PtySize) => void;
+  onTitleChange?: (title: string) => void;
   fontSize?: number;
   fontFamily?: string;
 }
 
 export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
-  ({ onData, onResize, fontSize = 14, fontFamily = 'Menlo, monospace' }, ref) => {
+  ({ onData, onResize, onTitleChange, fontSize = 14, fontFamily = 'Menlo, monospace' }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const terminalRef = useRef<XTerm | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -88,6 +89,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         term.onData(onData);
       }
 
+      if (onTitleChange) {
+        term.onTitleChange(onTitleChange);
+      }
+
       const resizeObserver = new ResizeObserver(handleResize);
       resizeObserver.observe(containerRef.current);
 
@@ -97,7 +102,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         terminalRef.current = null;
         fitAddonRef.current = null;
       };
-    }, [fontSize, fontFamily, onData, handleResize]);
+    }, [fontSize, fontFamily, onData, onTitleChange, handleResize]);
 
     return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
   },
