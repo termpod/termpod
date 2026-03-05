@@ -19,12 +19,12 @@ const TERMINAL_HTML = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { height: 100%; background: #1a1b26; overflow: hidden; }
-  #terminal { width: 100%; height: 100%; }
+  html, body { height: 100%; background: #1a1b26; overflow: auto; -webkit-overflow-scrolling: touch; }
+  #terminal { width: max-content; min-width: 100%; }
   .xterm { padding: 2px; }
 </style>
 </head>
@@ -145,7 +145,7 @@ export const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(
         domStorageEnabled
         allowsInlineMediaPlayback
         mediaPlaybackRequiresUserAction={false}
-        scrollEnabled={false}
+        scrollEnabled
         bounces={false}
         overScrollMode="never"
         keyboardDisplayRequiresUserAction={false}
