@@ -6,8 +6,28 @@ interface Env {
   TERMINAL_SESSION: DurableObjectNamespace;
 }
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+function corsJson(data: unknown, init?: ResponseInit): Response {
+  const res = Response.json(data, init);
+
+  for (const [k, v] of Object.entries(CORS_HEADERS)) {
+    res.headers.set(k, v);
+  }
+
+  return res;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+
     const url = new URL(request.url);
 
     if (url.pathname === '/sessions' && request.method === 'POST') {
@@ -37,7 +57,7 @@ async function handleCreateSession(request: Request, env: Env): Promise<Response
   const sessionId = crypto.randomUUID();
   const token = generateToken();
 
-  return Response.json(
+  return corsJson(
     {
       sessionId,
       token,
@@ -50,7 +70,7 @@ async function handleCreateSession(request: Request, env: Env): Promise<Response
 
 async function handleListSessions(_request: Request, _env: Env): Promise<Response> {
   // TODO: Implement session listing with storage
-  return Response.json({ sessions: [] });
+  return corsJson({ sessions: [] });
 }
 
 async function handleWebSocket(request: Request, env: Env, sessionId: string): Promise<Response> {
@@ -70,7 +90,7 @@ async function handlePair(request: Request, _env: Env): Promise<Response> {
   // TODO: Implement token validation
   const body = (await request.json()) as { token: string };
 
-  return Response.json({
+  return corsJson({
     sessionId: 'placeholder',
     viewerToken: generateToken(),
     wsUrl: 'wss://relay.termpod.dev/sessions/placeholder/ws',

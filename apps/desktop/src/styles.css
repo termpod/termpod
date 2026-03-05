@@ -125,6 +125,31 @@ body,
   background: #292e42;
 }
 
+/* Relay Status */
+.relay-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  background: #16161e;
+  border-bottom: 1px solid #292e42;
+  flex-shrink: 0;
+}
+
+.relay-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.relay-label {
+  font-size: 11px;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #565f89;
+  text-transform: capitalize;
+}
+
 /* Terminal Area */
 .terminal-area {
   display: flex;

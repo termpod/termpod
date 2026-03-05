@@ -1,17 +1,22 @@
 import { useCallback, useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { useSessionManager } from './hooks/useSessionManager';
+import { useRelayBridge } from './hooks/useRelayBridge';
 import { TabBar } from './components/TabBar';
 import { TerminalPanel } from './components/TerminalPanel';
+import { RelayStatus } from './components/RelayStatus';
 
 export function App() {
   const {
     sessions,
     activeId,
+    activeSession,
     createSession,
     closeSession,
     switchSession,
   } = useSessionManager();
+
+  const relay = useRelayBridge(activeSession);
 
   // Create initial session on mount
   useEffect(() => {
@@ -86,6 +91,7 @@ export function App() {
         onClose={closeSession}
         onCreate={() => createSession()}
       />
+      <RelayStatus status={relay.status} viewers={relay.viewers} sessionId={relay.sessionId} />
       <div className="terminal-area">
         {sessions.map((session) => (
           <TerminalPanel

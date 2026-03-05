@@ -5,12 +5,15 @@ import { invoke } from '@tauri-apps/api/core';
 import { DEFAULT_SHELL, DEFAULT_PTY_SIZE } from '@termpod/shared';
 import type { TerminalHandle } from '@termpod/ui';
 
+export type PtyDataListener = (data: Uint8Array | number[]) => void;
+
 export interface TerminalSession {
   id: string;
   name: string;
   cwd: string;
   pty: IPty;
   termRef: React.RefObject<TerminalHandle | null>;
+  dataListeners: Set<PtyDataListener>;
   createdAt: number;
   exited: boolean;
   exitCode?: number;
@@ -120,18 +123,25 @@ export function useSessionManager() {
 
       const termRef = { current: null } as React.RefObject<TerminalHandle | null>;
 
+      const dataListeners = new Set<PtyDataListener>();
+
       const session: TerminalSession = {
         id,
         name: nameFromCwd(sessionCwd),
         cwd: sessionCwd,
         pty,
         termRef,
+        dataListeners,
         createdAt: Date.now(),
         exited: false,
       };
 
       pty.onData((data) => {
         session.termRef.current?.write(data);
+
+        for (const listener of dataListeners) {
+          listener(data);
+        }
       });
 
       pty.onExit(({ exitCode }) => {

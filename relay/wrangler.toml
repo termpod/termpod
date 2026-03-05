@@ -10,4 +10,3 @@ bindings = [
 [[migrations]]
 tag = "v1"
 new_classes = ["TerminalSession"]
-new_sqlite_classes = ["TerminalSession"]
