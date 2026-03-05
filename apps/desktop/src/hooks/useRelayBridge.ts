@@ -14,6 +14,23 @@ export function useRelayBridge(session: TerminalSession | null) {
         s.pty.write(data);
       }
     },
+    onViewerJoined: () => {
+      // Nudge-resize: briefly change PTY size to trigger SIGWINCH,
+      // causing TUI apps (Claude Code, vim, etc.) to fully redraw.
+      const s = sessionRef.current;
+
+      if (s && !s.exited) {
+        const term = s.termRef.current;
+        const cols = term?.cols ?? 120;
+        const rows = term?.rows ?? 40;
+
+        s.pty.resize(cols - 1, rows);
+
+        setTimeout(() => {
+          s.pty.resize(cols, rows);
+        }, 50);
+      }
+    },
   });
 
   const { connect, disconnect, sendTerminalData, sendResize } = relay;

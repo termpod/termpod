@@ -20,6 +20,7 @@ interface RelaySession {
 interface UseRelayConnectionOptions {
   onViewerInput?: (data: string) => void;
   onStatusChange?: (status: RelayStatus) => void;
+  onViewerJoined?: () => void;
 }
 
 const RELAY_BASE = RELAY_URL.production;
@@ -111,6 +112,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
         case 'client_joined':
           if (msg.role === 'viewer') {
             setViewers((v) => v + 1);
+            optionsRef.current.onViewerJoined?.();
           }
           break;
 

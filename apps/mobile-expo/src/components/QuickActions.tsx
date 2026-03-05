@@ -12,6 +12,10 @@ const ACTIONS = [
   { label: 'Up', value: '\x1b[A' },
   { label: 'Down', value: '\x1b[B' },
   { label: 'Esc', value: '\x1b' },
+  { label: 'y', value: 'y' },
+  { label: 'n', value: 'n' },
+  { label: 'Ctrl+D', value: '\x04' },
+  { label: 'Ctrl+L', value: '\x0c' },
 ];
 
 export function QuickActions({ onAction }: QuickActionsProps) {

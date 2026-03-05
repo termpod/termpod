@@ -9,4 +9,4 @@ export const Channel = {
 export type ChannelId = (typeof Channel)[keyof typeof Channel];
 
 export const MAX_FRAME_SIZE = 64 * 1024; // 64KB
-export const SCROLLBACK_BUFFER_SIZE = 100 * 1024; // 100KB
+export const SCROLLBACK_BUFFER_SIZE = 512 * 1024; // 512KB — enough for TUI app screen state
