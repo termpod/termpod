@@ -61,6 +61,10 @@ pub fn run() {
                 tab_items.push(item);
             }
 
+            let find = MenuItemBuilder::with_id("find", "Find...")
+                .accelerator("CmdOrCtrl+F")
+                .build(app)?;
+
             let edit_menu = SubmenuBuilder::new(app, "Edit")
                 .undo()
                 .redo()
@@ -69,6 +73,8 @@ pub fn run() {
                 .copy()
                 .paste()
                 .select_all()
+                .separator()
+                .item(&find)
                 .build()?;
 
             let mut session_menu = SubmenuBuilder::new(app, "Session")

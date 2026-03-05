@@ -41,6 +41,12 @@ export function App() {
           }
           break;
 
+        case 'find':
+          if (activeSession) {
+            activeSession.termRef.current?.openSearch();
+          }
+          break;
+
         case 'next_tab': {
           const idx = sessions.findIndex((s) => s.id === activeId);
           const next = sessions[(idx + 1) % sessions.length];
