@@ -34,28 +34,18 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
   const connectingRef = useRef(false);
   const intentionalCloseRef = useRef(false);
   const sessionRef = useRef<RelaySession | null>(null);
-  const ptySizeRef = useRef({ cols: 120, rows: 40 });
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const reconnectDelayRef = useRef<number>(RECONNECT.initialDelay);
   const pingIntervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
+  // Use a ref for connectWebSocket so onclose can always call the latest version
+  const connectWebSocketRef = useRef<(session: RelaySession) => void>(() => {});
+
   const updateStatus = useCallback((s: RelayStatus) => {
     setStatus(s);
     optionsRef.current.onStatusChange?.(s);
-  }, []);
-
-  const startPing = useCallback((ws: WebSocket) => {
-    if (pingIntervalRef.current) {
-      clearInterval(pingIntervalRef.current);
-    }
-
-    pingIntervalRef.current = setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
-      }
-    }, PING_INTERVAL);
   }, []);
 
   const stopPing = useCallback(() => {
@@ -65,7 +55,16 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     }
   }, []);
 
-  const connectWebSocket = useCallback((session: RelaySession) => {
+  // Define connectWebSocket as a regular function, store in ref
+  connectWebSocketRef.current = (session: RelaySession) => {
+    // Close any existing WebSocket to prevent duplicate connections
+    if (wsRef.current) {
+      wsRef.current.onclose = null;
+      wsRef.current.onerror = null;
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
     const wsUrl = `${RELAY_BASE}/sessions/${session.sessionId}/ws`;
     const ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
@@ -84,7 +83,11 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
         clientId: crypto.randomUUID(),
       }));
 
-      startPing(ws);
+      pingIntervalRef.current = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
+        }
+      }, PING_INTERVAL);
     };
 
     ws.onmessage = (event) => {
@@ -128,42 +131,36 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
 
       if (!intentionalCloseRef.current && sessionRef.current) {
         updateStatus('reconnecting');
-        scheduleReconnect();
+
+        reconnectTimeoutRef.current = setTimeout(() => {
+          const s = sessionRef.current;
+
+          if (s) {
+            reconnectDelayRef.current = Math.min(
+              reconnectDelayRef.current * RECONNECT.backoffMultiplier,
+              RECONNECT.maxDelay,
+            );
+            connectWebSocketRef.current(s);
+          }
+        }, reconnectDelayRef.current);
       } else {
         updateStatus('disconnected');
       }
     };
 
     ws.onerror = () => {
-      // onclose will fire after onerror, handle reconnect there
+      // onclose will fire after onerror
     };
-  }, [updateStatus, startPing, stopPing]);
+  };
 
-  const scheduleReconnect = useCallback(() => {
-    reconnectTimeoutRef.current = setTimeout(() => {
-      const session = sessionRef.current;
+  const ptySizeRef = useRef<{ cols: number; rows: number } | null>(null);
 
-      if (!session) {
-        return;
-      }
+  const createSession = useCallback(async () => {
+    const ptySize = ptySizeRef.current;
 
-      reconnectDelayRef.current = Math.min(
-        reconnectDelayRef.current * RECONNECT.backoffMultiplier,
-        RECONNECT.maxDelay,
-      );
-
-      connectWebSocket(session);
-    }, reconnectDelayRef.current);
-  }, [connectWebSocket]);
-
-  const connect = useCallback(async (ptySize: { cols: number; rows: number }) => {
-    if (wsRef.current || connectingRef.current) {
+    if (!ptySize) {
       return;
     }
-
-    connectingRef.current = true;
-    ptySizeRef.current = ptySize;
-    updateStatus('connecting');
 
     try {
       const res = await fetch(`${RELAY_HTTP}/sessions`, {
@@ -184,13 +181,36 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
       sessionRef.current = session;
       setSessionId(session.sessionId);
 
-      connectWebSocket(session);
+      connectWebSocketRef.current(session);
     } catch (err) {
       console.error('Relay connection failed:', err);
-      connectingRef.current = false;
-      updateStatus('error');
+
+      if (connectingRef.current) {
+        updateStatus('reconnecting');
+
+        reconnectTimeoutRef.current = setTimeout(() => {
+          reconnectDelayRef.current = Math.min(
+            reconnectDelayRef.current * RECONNECT.backoffMultiplier,
+            RECONNECT.maxDelay,
+          );
+          createSession();
+        }, reconnectDelayRef.current);
+      }
     }
-  }, [updateStatus, connectWebSocket]);
+  }, [updateStatus]);
+
+  const connect = useCallback(async (ptySize: { cols: number; rows: number }) => {
+    if (wsRef.current || connectingRef.current) {
+      return;
+    }
+
+    connectingRef.current = true;
+    ptySizeRef.current = ptySize;
+    reconnectDelayRef.current = RECONNECT.initialDelay;
+    updateStatus('connecting');
+
+    await createSession();
+  }, [updateStatus, createSession]);
 
   const disconnect = useCallback(() => {
     intentionalCloseRef.current = true;
