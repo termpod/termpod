@@ -118,6 +118,7 @@ export function useSessionManager() {
       const shell = options?.shell || DEFAULT_SHELL;
 
       const pty = spawn(shell, [], {
+        name: 'xterm-256color',
         cols: DEFAULT_PTY_SIZE.cols,
         rows: DEFAULT_PTY_SIZE.rows,
         cwd: sessionCwd,
