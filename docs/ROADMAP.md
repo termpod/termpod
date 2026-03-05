@@ -83,7 +83,7 @@
 
 ### Week 6: Mobile Shell + Terminal Viewer
 
-- [ ] Initialize Tauri 2.0 iOS target in `apps/mobile`
+- [ ] Initialize Expo app in `apps/mobile-expo`
 - [ ] Share `packages/ui` components with desktop
 - [ ] Configure xterm.js for iOS WebView (WKWebView quirks)
 - [ ] Connect to relay via WebSocket
@@ -185,9 +185,9 @@ These are post-launch features based on user feedback:
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| Tauri iOS maturity | Mobile app may have rough edges | Fall back to React Native + WebView |
+| Expo/RN maturity for terminal UX | Mobile terminal rendering may have quirks | Custom WebView-based terminal renderer |
 | tauri-plugin-pty is v0.1.1 | API may change, bugs likely | Pin version, contribute fixes upstream, keep portable-pty as backup |
-| xterm.js in WKWebView | iOS WebView quirks with keyboard, selection | Test early (Week 6), custom input handling |
+| Terminal rendering on mobile | iOS WebView quirks with keyboard, selection | Test early (Week 6), custom input handling |
 | Durable Object cold starts | First connection after hibernation may lag | Pre-warm with alarm, optimize DO init |
 | App Store review | Apple may reject terminal apps | Emphasize "developer tool" category, comply with guidelines |
 

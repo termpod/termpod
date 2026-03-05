@@ -17,8 +17,8 @@
 # Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-# Add iOS targets (for mobile development)
-rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+# (Optional) Add iOS targets for Tauri desktop iOS testing
+# rustup target add aarch64-apple-ios aarch64-apple-ios-sim
 
 # Clone the repo
 git clone https://github.com/user/termpod.git
@@ -40,7 +40,7 @@ pnpm dev:desktop
 # Relay (local dev with Miniflare)
 pnpm dev:relay
 
-# iOS app (requires Xcode, opens simulator)
+# iOS app (Expo, opens simulator)
 pnpm dev:mobile
 
 # Run all (desktop + relay)
@@ -66,7 +66,7 @@ pnpm test:e2e
 ```
 termpod/
 ├── apps/desktop/       → Tauri macOS app
-├── apps/mobile/        → Tauri iOS app
+├── apps/mobile-expo/   → Expo iOS app
 ├── packages/ui/        → Shared React components
 ├── packages/protocol/  → WebSocket message types
 ├── packages/shared/    → Shared utilities and constants
