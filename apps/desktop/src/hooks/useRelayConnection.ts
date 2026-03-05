@@ -60,6 +60,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
   connectWebSocketRef.current = (session: RelaySession) => {
     // Close any existing WebSocket to prevent duplicate connections
     if (wsRef.current) {
+      wsRef.current.onmessage = null;
       wsRef.current.onclose = null;
       wsRef.current.onerror = null;
       wsRef.current.close();

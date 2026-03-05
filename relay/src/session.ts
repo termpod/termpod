@@ -57,8 +57,17 @@ export class TerminalSession extends DurableObject {
     const channel = data[0];
 
     if (channel === Channel.TERMINAL_DATA) {
-      this.appendScrollback(data);
-      this.broadcast(ws, message);
+      const senderTag = getTag(ws);
+      const senderRole = senderTag?.role ?? 'unknown';
+
+      if (senderRole === 'desktop') {
+        // Desktop terminal output → store in scrollback, send to viewers only
+        this.appendScrollback(data);
+        this.broadcastToRole(ws, 'viewer', message);
+      } else {
+        // Viewer input → send to desktop only
+        this.broadcastToRole(ws, 'desktop', message);
+      }
     } else if (channel === Channel.TERMINAL_RESIZE) {
       const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
       this.ptyCols = view.getUint16(1, false);
@@ -195,6 +204,20 @@ export class TerminalSession extends DurableObject {
   private broadcast(sender: WebSocket, message: string | ArrayBuffer): void {
     for (const ws of this.ctx.getWebSockets()) {
       if (ws !== sender) {
+        ws.send(message);
+      }
+    }
+  }
+
+  private broadcastToRole(sender: WebSocket, targetRole: string, message: string | ArrayBuffer): void {
+    for (const ws of this.ctx.getWebSockets()) {
+      if (ws === sender) {
+        continue;
+      }
+
+      const tag = getTag(ws);
+
+      if (tag?.role === targetRole) {
         ws.send(message);
       }
     }
