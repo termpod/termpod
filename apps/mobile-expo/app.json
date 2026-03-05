@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Termpod",
+    "slug": "termpod",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#1a1b26",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a1b26"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "dev.termpod.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Termpod uses the camera to scan QR codes for session pairing",
+        "NSLocalNetworkUsageDescription": "Termpod connects to the relay server on your local network",
+        "NSBonjourServices": ["_http._tcp", "_https._tcp"]
+      }
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Termpod uses the camera to scan QR codes for session pairing"
+        }
+      ]
+    ]
+  }
+}
