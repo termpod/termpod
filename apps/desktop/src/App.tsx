@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useSessionManager } from './hooks/useSessionManager';
 import { TabBar } from './components/TabBar';
 import { TerminalPanel } from './components/TerminalPanel';
@@ -20,6 +21,17 @@ export function App() {
   const [showQR, setShowQR] = useState(false);
   const initializedRef = useRef(false);
   const [relayMap, setRelayMap] = useState<Map<string, RelayInfo>>(new Map());
+
+  const handleCloseSession = useCallback(
+    (id: string) => {
+      const { wasLast } = closeSession(id);
+
+      if (wasLast) {
+        getCurrentWindow().close();
+      }
+    },
+    [closeSession],
+  );
 
   const activeRelay = activeId ? relayMap.get(activeId) : null;
 
@@ -79,7 +91,7 @@ export function App() {
 
         case 'close_tab':
           if (activeId) {
-            closeSession(activeId);
+            handleCloseSession(activeId);
           }
           break;
 
@@ -119,7 +131,7 @@ export function App() {
           }
       }
     },
-    [activeId, sessions, createSession, closeSession, switchSession],
+    [activeId, sessions, createSession, handleCloseSession, switchSession],
   );
 
   useEffect(() => {
@@ -138,7 +150,7 @@ export function App() {
         sessions={sessions}
         activeId={activeId}
         onSelect={switchSession}
-        onClose={closeSession}
+        onClose={handleCloseSession}
         onCreate={() => createSession()}
       />
       <RelayStatus

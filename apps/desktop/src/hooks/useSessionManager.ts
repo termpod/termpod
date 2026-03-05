@@ -16,6 +16,7 @@ export interface TerminalSession {
   dataListeners: Set<PtyDataListener>;
   createdAt: number;
   exited: boolean;
+  closing: boolean;
   exitCode?: number;
 }
 
@@ -134,9 +135,14 @@ export function useSessionManager() {
         dataListeners,
         createdAt: Date.now(),
         exited: false,
+        closing: false,
       };
 
       pty.onData((data) => {
+        if (session.closing) {
+          return;
+        }
+
         session.termRef.current?.write(data);
 
         for (const listener of dataListeners) {
@@ -145,6 +151,10 @@ export function useSessionManager() {
       });
 
       pty.onExit(({ exitCode }) => {
+        if (session.closing) {
+          return;
+        }
+
         updateStore((prev) => ({
           ...prev,
           sessions: prev.sessions.map((s) =>
@@ -165,28 +175,48 @@ export function useSessionManager() {
   );
 
   const closeSession = useCallback(
-    (id: string) => {
+    (id: string): { wasLast: boolean } => {
       const session = storeRef.current.sessions.find((s) => s.id === id);
 
       if (!session) {
-        return;
+        return { wasLast: false };
       }
 
-      if (!session.exited) {
-        session.pty.kill();
-      }
+      const wasLast = storeRef.current.sessions.length === 1;
 
+      session.closing = true;
+
+      // Phase 1: Hide the panel and switch active tab (panel stays in DOM but hidden)
       updateStore((prev) => {
-        const remaining = prev.sessions.filter((s) => s.id !== id);
         let newActiveId = prev.activeId;
 
         if (prev.activeId === id) {
+          const remaining = prev.sessions.filter((s) => s.id !== id);
           const idx = prev.sessions.findIndex((s) => s.id === id);
           newActiveId = remaining[Math.min(idx, remaining.length - 1)]?.id ?? null;
         }
 
-        return { sessions: remaining, activeId: newActiveId };
+        return {
+          sessions: prev.sessions.map((s) =>
+            s.id === id ? { ...s, closing: true } : s,
+          ),
+          activeId: newActiveId,
+        };
       });
+
+      // Phase 2: Kill PTY and remove from DOM after browser paints the hidden state
+      setTimeout(() => {
+        if (!session.exited) {
+          session.pty.kill();
+        }
+
+        updateStore((prev) => ({
+          ...prev,
+          sessions: prev.sessions.filter((s) => s.id !== id),
+        }));
+      }, 50);
+
+      return { wasLast };
     },
     [updateStore],
   );

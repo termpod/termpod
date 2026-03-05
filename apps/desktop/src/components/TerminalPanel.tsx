@@ -57,7 +57,10 @@ export function TerminalPanel({ session, visible, onRelayChange }: TerminalPanel
   return (
     <div
       className="terminal-panel"
-      style={{ display: visible ? 'flex' : 'none', flex: 1 }}
+      style={{
+        visibility: visible && !session.closing ? 'visible' : 'hidden',
+        zIndex: visible && !session.closing ? 1 : 0,
+      }}
     >
       <Terminal ref={session.termRef} onData={handleData} onResize={handleResize} />
     </div>
