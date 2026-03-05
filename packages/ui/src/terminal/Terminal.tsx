@@ -26,6 +26,7 @@ export interface TerminalProps {
   onReady?: () => void;
   fontSize?: number;
   fontFamily?: string;
+  scrollbackLines?: number;
 }
 
 const SEARCH_DECORATIONS = {
@@ -38,7 +39,7 @@ const SEARCH_DECORATIONS = {
 };
 
 export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
-  ({ onData, onResize, onTitleChange, onReady, fontSize = 14, fontFamily = 'Menlo, monospace' }, ref) => {
+  ({ onData, onResize, onTitleChange, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', scrollbackLines = 5000 }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const terminalRef = useRef<XTerm | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -154,6 +155,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       const term = new XTerm({
         fontSize,
         fontFamily,
+        scrollback: scrollbackLines,
         cursorBlink: true,
         allowProposedApi: true,
         theme: {
@@ -236,7 +238,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         fitAddonRef.current = null;
         searchAddonRef.current = null;
       };
-    }, [fontSize, fontFamily]);
+    }, [fontSize, fontFamily, scrollbackLines]);
 
     return (
       <div style={{ width: '100%', height: '100%', position: 'relative' }}>

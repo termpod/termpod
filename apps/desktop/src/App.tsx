@@ -2,11 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useSessionManager } from './hooks/useSessionManager';
+import { useSettings } from './hooks/useSettings';
 import { TabBar } from './components/TabBar';
 import { TerminalPanel } from './components/TerminalPanel';
 import type { RelayInfo } from './components/TerminalPanel';
 import { RelayStatus } from './components/RelayStatus';
 import { QRPairing } from './components/QRPairing';
+import { SettingsPanel } from './components/SettingsPanel';
 
 export function App() {
   const {
@@ -19,7 +21,9 @@ export function App() {
     focusActive,
   } = useSessionManager();
 
+  const { settings, update: updateSettings, reset: resetSettings, defaults: settingsDefaults } = useSettings();
   const [showQR, setShowQR] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const initializedRef = useRef(false);
   const [relayMap, setRelayMap] = useState<Map<string, RelayInfo>>(new Map());
 
@@ -51,7 +55,7 @@ export function App() {
     }
 
     initializedRef.current = true;
-    createSession();
+    createSession({ shell: settings.shellPath });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Clean up relay info for closed sessions
@@ -88,7 +92,7 @@ export function App() {
   menuHandlerRef.current = (menuId: string) => {
     switch (menuId) {
       case 'new_tab':
-        createSession();
+        createSession({ shell: settings.shellPath });
         break;
 
       case 'close_tab':
@@ -101,6 +105,10 @@ export function App() {
         if (activeSession) {
           activeSession.termRef.current?.openSearch();
         }
+        break;
+
+      case 'settings':
+        setShowSettings((v) => !v);
         break;
 
       case 'next_tab': {
@@ -154,7 +162,7 @@ export function App() {
         activeId={activeId}
         onSelect={switchSession}
         onClose={handleCloseSession}
-        onCreate={() => createSession()}
+        onCreate={() => createSession({ shell: settings.shellPath })}
       />
       <RelayStatus
         status={activeRelay?.status ?? 'disconnected'}
@@ -168,12 +176,23 @@ export function App() {
             key={session.id}
             session={session}
             visible={session.id === activeId}
+            fontSize={settings.fontSize}
+            fontFamily={settings.fontFamily}
             onRelayChange={(info) => handleRelayChange(session.id, info)}
           />
         ))}
       </div>
       {showQR && (
         <QRPairing sessionId={activeRelay?.sessionId ?? null} onClose={() => setShowQR(false)} />
+      )}
+      {showSettings && (
+        <SettingsPanel
+          settings={settings}
+          defaults={settingsDefaults}
+          onUpdate={updateSettings}
+          onReset={resetSettings}
+          onClose={() => setShowSettings(false)}
+        />
       )}
     </div>
   );

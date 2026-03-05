@@ -65,6 +65,10 @@ pub fn run() {
                 .accelerator("CmdOrCtrl+F")
                 .build(app)?;
 
+            let settings = MenuItemBuilder::with_id("settings", "Settings...")
+                .accelerator("CmdOrCtrl+,")
+                .build(app)?;
+
             let edit_menu = SubmenuBuilder::new(app, "Edit")
                 .undo()
                 .redo()
@@ -94,6 +98,8 @@ pub fn run() {
             let menu = MenuBuilder::new(app)
                 .item(&SubmenuBuilder::new(app, "Termpod")
                     .about(None)
+                    .separator()
+                    .item(&settings)
                     .separator()
                     .quit()
                     .build()?)

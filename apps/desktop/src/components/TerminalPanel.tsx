@@ -14,10 +14,12 @@ export interface RelayInfo {
 interface TerminalPanelProps {
   session: TerminalSession;
   visible: boolean;
+  fontSize?: number;
+  fontFamily?: string;
   onRelayChange?: (info: RelayInfo) => void;
 }
 
-export function TerminalPanel({ session, visible, onRelayChange }: TerminalPanelProps) {
+export function TerminalPanel({ session, visible, fontSize, fontFamily, onRelayChange }: TerminalPanelProps) {
   const relay = useRelayBridge(session.exited ? null : session);
   const onRelayChangeRef = useRef(onRelayChange);
   onRelayChangeRef.current = onRelayChange;
@@ -72,7 +74,7 @@ export function TerminalPanel({ session, visible, onRelayChange }: TerminalPanel
         pointerEvents: active ? 'auto' : 'none',
       }}
     >
-      <Terminal ref={session.termRef} onData={handleData} onResize={handleResize} />
+      <Terminal ref={session.termRef} onData={handleData} onResize={handleResize} fontSize={fontSize} fontFamily={fontFamily} />
     </div>
   );
 }

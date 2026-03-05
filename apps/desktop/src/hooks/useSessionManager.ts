@@ -112,11 +112,12 @@ export function useSessionManager() {
   }, [updateStore]);
 
   const createSession = useCallback(
-    async (cwd?: string) => {
+    async (options?: { cwd?: string; shell?: string }) => {
       const id = generateSessionId();
-      const sessionCwd = cwd || await invoke<string>('get_home_dir');
+      const sessionCwd = options?.cwd || await invoke<string>('get_home_dir');
+      const shell = options?.shell || DEFAULT_SHELL;
 
-      const pty = spawn(DEFAULT_SHELL, [], {
+      const pty = spawn(shell, [], {
         cols: DEFAULT_PTY_SIZE.cols,
         rows: DEFAULT_PTY_SIZE.rows,
         cwd: sessionCwd,
