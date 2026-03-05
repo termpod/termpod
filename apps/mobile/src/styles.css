@@ -19,56 +19,169 @@ body,
   width: 100%;
   background: #1a1b26;
   color: #c0caf5;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+/* Connect Screen */
+.connect-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 24px;
+  gap: 16px;
+}
+
+.connect-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: #c0caf5;
+}
+
+.connect-subtitle {
+  font-size: 14px;
+  color: #565f89;
+}
+
+.connect-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 320px;
+  margin-top: 8px;
+}
+
+.connect-input {
+  padding: 10px 14px;
+  background: #16161e;
+  border: 1px solid #292e42;
+  border-radius: 8px;
+  color: #c0caf5;
+  font-size: 14px;
+  font-family: 'Menlo', monospace;
+  text-align: center;
+}
+
+.connect-input::placeholder {
+  color: #565f89;
+}
+
+.connect-input:focus {
+  outline: none;
+  border-color: #3d59a1;
+}
+
+.connect-btn {
+  padding: 10px;
+  background: #3d59a1;
+  border: none;
+  border-radius: 8px;
+  color: #c0caf5;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.connect-btn:hover {
+  background: #4d6ab1;
+}
+
+.connect-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.connect-hint {
+  font-size: 12px;
+  color: #565f89;
+  text-align: center;
+  margin-top: 8px;
+}
+
+/* Status Bar */
 .status-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  font-size: 12px;
+  gap: 6px;
+  padding: 6px 12px;
   background: #16161e;
+  border-bottom: 1px solid #292e42;
+  flex-shrink: 0;
 }
 
-.status-indicator {
-  width: 8px;
-  height: 8px;
+.status-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #565f89;
+  background: #888;
 }
 
-.status-indicator.connected {
-  background: #9ece6a;
+.status-dot.connected {
+  background: #50c878;
 }
 
-.status-indicator.connecting,
-.status-indicator.reconnecting {
-  background: #e0af68;
+.status-dot.connecting,
+.status-dot.reconnecting {
+  background: #f0a030;
 }
 
+.status-text {
+  font-size: 12px;
+  color: #565f89;
+  text-transform: capitalize;
+}
+
+.disconnect-btn {
+  margin-left: auto;
+  padding: 2px 10px;
+  border: 1px solid #292e42;
+  border-radius: 4px;
+  background: transparent;
+  color: #565f89;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.disconnect-btn:hover {
+  color: #c0caf5;
+  border-color: #e05050;
+}
+
+/* Terminal Container */
 .terminal-container {
   flex: 1;
   overflow: hidden;
 }
 
+/* Quick Actions */
 .quick-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   padding: 8px 12px;
-  overflow-x: auto;
   background: #16161e;
   border-top: 1px solid #292e42;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.quick-actions::-webkit-scrollbar {
+  display: none;
 }
 
 .quick-action-btn {
-  flex-shrink: 0;
-  padding: 8px 16px;
+  padding: 6px 12px;
   border: 1px solid #292e42;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #1a1b26;
-  color: #c0caf5;
-  font-size: 14px;
+  color: #a9b1d6;
+  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .quick-action-btn:active {

@@ -2,25 +2,32 @@ import { DurableObject } from 'cloudflare:workers';
 import type {
   HelloMessage,
   ClientMessage,
-  ClientRole,
-  DeviceType,
   ClientInfo,
 } from '@termpod/protocol';
 import { SCROLLBACK_BUFFER_SIZE, Channel } from '@termpod/protocol';
 
-interface ConnectedClient {
+// WebSocket tags store client metadata as JSON so it survives hibernation
+interface ClientTag {
   clientId: string;
-  role: ClientRole;
-  device: DeviceType;
+  role: string;
+  device: string;
   connectedAt: string;
 }
 
+function setTag(ws: WebSocket, tag: ClientTag): void {
+  // Cloudflare WebSocket tags are attached via serializeAttachment
+  (ws as unknown as { serializeAttachment: (v: unknown) => void }).serializeAttachment(tag);
+}
+
+function getTag(ws: WebSocket): ClientTag | null {
+  const tag = (ws as unknown as { deserializeAttachment: () => unknown }).deserializeAttachment();
+
+  return tag as ClientTag | null;
+}
+
 export class TerminalSession extends DurableObject {
-  private clients: Map<WebSocket, ConnectedClient> = new Map();
   private scrollback: Uint8Array[] = [];
   private scrollbackSize = 0;
-  private sessionName = '';
-  private cwd = '';
   private ptyCols = 120;
   private ptyRows = 40;
 
@@ -65,27 +72,25 @@ export class TerminalSession extends DurableObject {
     }
   }
 
-  async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean): Promise<void> {
-    const client = this.clients.get(ws);
+  async webSocketClose(ws: WebSocket): Promise<void> {
+    const tag = getTag(ws);
 
-    if (client) {
-      this.clients.delete(ws);
+    if (tag) {
       this.broadcastJson(ws, {
         type: 'client_left',
-        clientId: client.clientId,
+        clientId: tag.clientId,
         reason: 'closed',
       });
     }
   }
 
-  async webSocketError(ws: WebSocket, error: unknown): Promise<void> {
-    const client = this.clients.get(ws);
+  async webSocketError(ws: WebSocket): Promise<void> {
+    const tag = getTag(ws);
 
-    if (client) {
-      this.clients.delete(ws);
+    if (tag) {
       this.broadcastJson(ws, {
         type: 'client_left',
-        clientId: client.clientId,
+        clientId: tag.clientId,
         reason: 'error',
       });
     }
@@ -110,28 +115,38 @@ export class TerminalSession extends DurableObject {
   }
 
   private handleHello(ws: WebSocket, msg: HelloMessage): void {
-    const client: ConnectedClient = {
+    const tag: ClientTag = {
       clientId: msg.clientId,
       role: msg.role,
       device: msg.device,
       connectedAt: new Date().toISOString(),
     };
 
-    this.clients.set(ws, client);
+    setTag(ws, tag);
 
-    const clientInfos: ClientInfo[] = Array.from(this.clients.values()).map((c) => ({
-      clientId: c.clientId,
-      role: c.role,
-      device: c.device,
-      connectedAt: c.connectedAt,
-    }));
+    // Build client list from all connected WebSockets
+    const allSockets = this.ctx.getWebSockets();
+    const clientInfos: ClientInfo[] = [];
+
+    for (const sock of allSockets) {
+      const t = getTag(sock);
+
+      if (t) {
+        clientInfos.push({
+          clientId: t.clientId,
+          role: t.role as ClientInfo['role'],
+          device: t.device as ClientInfo['device'],
+          connectedAt: t.connectedAt,
+        });
+      }
+    }
 
     ws.send(
       JSON.stringify({
         type: 'session_info',
         sessionId: this.ctx.id.toString(),
-        name: this.sessionName,
-        cwd: this.cwd,
+        name: '',
+        cwd: '',
         ptySize: { cols: this.ptyCols, rows: this.ptyRows },
         createdAt: new Date().toISOString(),
         clients: clientInfos,
@@ -171,14 +186,14 @@ export class TerminalSession extends DurableObject {
       const view = new DataView(frame.buffer);
       frame[0] = Channel.SCROLLBACK_CHUNK;
       view.setUint32(1, offset, false);
-      frame.set(chunk.subarray(1), 5); // strip channel byte from stored data
+      frame.set(chunk.subarray(1), 5);
       ws.send(frame.buffer);
       offset += chunk.length - 1;
     }
   }
 
   private broadcast(sender: WebSocket, message: string | ArrayBuffer): void {
-    for (const [ws] of this.clients) {
+    for (const ws of this.ctx.getWebSockets()) {
       if (ws !== sender) {
         ws.send(message);
       }
@@ -188,7 +203,7 @@ export class TerminalSession extends DurableObject {
   private broadcastJson(sender: WebSocket, data: Record<string, unknown>): void {
     const json = JSON.stringify(data);
 
-    for (const [ws] of this.clients) {
+    for (const ws of this.ctx.getWebSockets()) {
       if (ws !== sender) {
         ws.send(json);
       }
