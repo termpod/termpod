@@ -22,7 +22,7 @@ interface UseRelayConnectionOptions {
   onStatusChange?: (status: RelayStatus) => void;
 }
 
-const RELAY_BASE = RELAY_URL.development;
+const RELAY_BASE = RELAY_URL.production;
 const RELAY_HTTP = RELAY_BASE.replace('ws://', 'http://').replace('wss://', 'https://');
 const PING_INTERVAL = 30_000;
 

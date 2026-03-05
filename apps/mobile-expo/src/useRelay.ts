@@ -8,8 +8,8 @@ const RECONNECT_INITIAL = 1000;
 const RECONNECT_MAX = 30000;
 const RECONNECT_MULTIPLIER = 2;
 
-// Default to local network relay; override via env
-const RELAY_BASE = process.env.EXPO_PUBLIC_RELAY_URL || 'ws://10.66.66.209:8787';
+// Production relay; override via env for local dev
+const RELAY_BASE = process.env.EXPO_PUBLIC_RELAY_URL || 'wss://termpod-relay.iamswap.workers.dev';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
