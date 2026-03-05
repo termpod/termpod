@@ -25,7 +25,7 @@ export function useRelayBridge(session: TerminalSession | null) {
 
     connect({ cols: 120, rows: 40 });
 
-    const listener = (data: Uint8Array) => {
+    const listener = (data: Uint8Array | number[]) => {
       sendTerminalData(data);
     };
 

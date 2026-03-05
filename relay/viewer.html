@@ -41,12 +41,18 @@
       dot.className = 'dot' + (state ? ' ' + state : '');
     }
 
+    // Auto-connect if session param in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const autoSession = urlParams.get('session');
+    if (autoSession) {
+      document.getElementById('sessionInput').value = autoSession;
+      window.addEventListener('DOMContentLoaded', () => connectViewer());
+    }
+
     async function connectViewer() {
       let sessionId = document.getElementById('sessionInput').value.trim();
 
       if (!sessionId) {
-        // Try to create a new session to get the relay working, but we need
-        // the desktop's session ID. Let's ask the user.
         setStatus('Enter a session ID (check desktop app console)', 'error');
         return;
       }

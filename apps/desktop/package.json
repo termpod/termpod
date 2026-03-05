@@ -13,12 +13,14 @@
     "@termpod/protocol": "workspace:*",
     "@termpod/shared": "workspace:*",
     "@termpod/ui": "workspace:*",
+    "qrcode": "^1.5.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tauri-pty": "^0.2.1"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.10.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^4.4.1",

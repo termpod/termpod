@@ -136,6 +136,23 @@ body,
   flex-shrink: 0;
 }
 
+.relay-share {
+  margin-left: auto;
+  padding: 1px 8px;
+  border: 1px solid #292e42;
+  border-radius: 3px;
+  background: transparent;
+  color: #565f89;
+  font-size: 11px;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  cursor: pointer;
+}
+
+.relay-share:hover {
+  color: #c0caf5;
+  border-color: #3d59a1;
+}
+
 .relay-dot {
   width: 7px;
   height: 7px;
@@ -148,6 +165,98 @@ body,
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   color: #565f89;
   text-transform: capitalize;
+}
+
+/* QR Pairing Modal */
+.qr-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.qr-modal {
+  background: #1a1b26;
+  border: 1px solid #292e42;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 260px;
+}
+
+.qr-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #c0caf5;
+}
+
+.qr-close {
+  background: none;
+  border: none;
+  color: #565f89;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.qr-close:hover {
+  color: #c0caf5;
+}
+
+.qr-canvas {
+  border-radius: 8px;
+}
+
+.qr-hint {
+  font-size: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #565f89;
+}
+
+.qr-session-id {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #16161e;
+  border-radius: 6px;
+  width: 100%;
+}
+
+.qr-session-id code {
+  flex: 1;
+  font-size: 10px;
+  color: #565f89;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qr-copy {
+  padding: 2px 8px;
+  border: 1px solid #292e42;
+  border-radius: 3px;
+  background: transparent;
+  color: #565f89;
+  font-size: 11px;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.qr-copy:hover {
+  color: #c0caf5;
+  border-color: #3d59a1;
 }
 
 /* Terminal Area */

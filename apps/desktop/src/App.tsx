@@ -1,10 +1,11 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { useSessionManager } from './hooks/useSessionManager';
 import { useRelayBridge } from './hooks/useRelayBridge';
 import { TabBar } from './components/TabBar';
 import { TerminalPanel } from './components/TerminalPanel';
 import { RelayStatus } from './components/RelayStatus';
+import { QRPairing } from './components/QRPairing';
 
 export function App() {
   const {
@@ -17,6 +18,7 @@ export function App() {
   } = useSessionManager();
 
   const relay = useRelayBridge(activeSession);
+  const [showQR, setShowQR] = useState(false);
 
   // Create initial session on mount
   useEffect(() => {
@@ -91,7 +93,12 @@ export function App() {
         onClose={closeSession}
         onCreate={() => createSession()}
       />
-      <RelayStatus status={relay.status} viewers={relay.viewers} sessionId={relay.sessionId} />
+      <RelayStatus
+        status={relay.status}
+        viewers={relay.viewers}
+        sessionId={relay.sessionId}
+        onShare={() => setShowQR(true)}
+      />
       <div className="terminal-area">
         {sessions.map((session) => (
           <TerminalPanel
@@ -101,6 +108,9 @@ export function App() {
           />
         ))}
       </div>
+      {showQR && (
+        <QRPairing sessionId={relay.sessionId} onClose={() => setShowQR(false)} />
+      )}
     </div>
   );
 }

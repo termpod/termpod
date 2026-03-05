@@ -4,6 +4,7 @@ interface RelayStatusProps {
   status: RelayStatusType;
   viewers: number;
   sessionId: string | null;
+  onShare?: () => void;
 }
 
 const STATUS_COLORS: Record<RelayStatusType, string> = {
@@ -13,7 +14,7 @@ const STATUS_COLORS: Record<RelayStatusType, string> = {
   error: '#e05050',
 };
 
-export function RelayStatus({ status, viewers, sessionId }: RelayStatusProps) {
+export function RelayStatus({ status, viewers, sessionId, onShare }: RelayStatusProps) {
   return (
     <div className="relay-status">
       <span
@@ -22,9 +23,14 @@ export function RelayStatus({ status, viewers, sessionId }: RelayStatusProps) {
       />
       <span className="relay-label">
         {status === 'connected' && sessionId
-          ? `Sharing (${viewers} viewer${viewers !== 1 ? 's' : ''}) — ${sessionId}`
+          ? `Sharing (${viewers} viewer${viewers !== 1 ? 's' : ''})`
           : status}
       </span>
+      {status === 'connected' && (
+        <button className="relay-share" onClick={onShare}>
+          QR Code
+        </button>
+      )}
     </div>
   );
 }
