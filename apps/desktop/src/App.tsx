@@ -1,21 +1,48 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Terminal } from '@termpod/ui';
+import type { TerminalHandle } from '@termpod/ui';
 import type { PtySize } from '@termpod/protocol';
+import { spawn } from 'tauri-pty';
+import type { IPty } from 'tauri-pty';
+import { DEFAULT_SHELL } from '@termpod/shared';
 
 export function App() {
+  const termRef = useRef<TerminalHandle>(null);
+  const ptyRef = useRef<IPty | null>(null);
+
   const handleData = useCallback((data: string) => {
-    // TODO: Write data to PTY via Tauri command
-    console.log('terminal input:', data);
+    ptyRef.current?.write(data);
   }, []);
 
   const handleResize = useCallback((size: PtySize) => {
-    // TODO: Resize PTY via Tauri command
-    console.log('terminal resize:', size);
+    ptyRef.current?.resize(size.cols, size.rows);
+  }, []);
+
+  useEffect(() => {
+    const pty = spawn(DEFAULT_SHELL, [], {
+      cols: 120,
+      rows: 40,
+    });
+
+    ptyRef.current = pty;
+
+    pty.onData((data) => {
+      termRef.current?.write(data);
+    });
+
+    pty.onExit(({ exitCode }) => {
+      termRef.current?.write(`\r\n[Process exited with code ${exitCode}]\r\n`);
+    });
+
+    return () => {
+      pty.kill();
+      ptyRef.current = null;
+    };
   }, []);
 
   return (
     <div className="app">
-      <Terminal onData={handleData} onResize={handleResize} />
+      <Terminal ref={termRef} onData={handleData} onResize={handleResize} />
     </div>
   );
 }

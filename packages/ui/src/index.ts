@@ -1,5 +1,5 @@
-export { Terminal, useTerminal } from './terminal/Terminal.js';
-export type { TerminalProps } from './terminal/Terminal.js';
+export { Terminal } from './terminal/Terminal.js';
+export type { TerminalProps, TerminalHandle } from './terminal/Terminal.js';
 
 export { SessionList } from './session-list/SessionList.js';
 export type { SessionListProps } from './session-list/SessionList.js';

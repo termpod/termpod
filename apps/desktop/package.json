@@ -15,7 +15,7 @@
     "@termpod/ui": "workspace:*",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "tauri-pty": "^0.1.1"
+    "tauri-pty": "^0.2.1"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.10.0",
