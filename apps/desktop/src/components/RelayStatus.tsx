@@ -10,6 +10,7 @@ interface RelayStatusProps {
 const STATUS_COLORS: Record<RelayStatusType, string> = {
   disconnected: '#888',
   connecting: '#f0a030',
+  reconnecting: '#f0a030',
   connected: '#50c878',
   error: '#e05050',
 };

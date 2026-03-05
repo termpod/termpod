@@ -10,9 +10,10 @@ import {
 } from '@termpod/protocol';
 import type { RelayMessage } from '@termpod/protocol';
 import type { ConnectionStatus } from '@termpod/shared';
-import { RELAY_URL } from '@termpod/shared';
+import { RELAY_URL, RECONNECT } from '@termpod/shared';
 
 const RELAY_BASE = RELAY_URL.development;
+const PING_INTERVAL = 30_000;
 
 export function App() {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
@@ -22,6 +23,11 @@ export function App() {
   const wsRef = useRef<WebSocket | null>(null);
   const pendingDataRef = useRef<Uint8Array[]>([]);
   const termReadyRef = useRef(false);
+  const intentionalCloseRef = useRef(false);
+  const activeSessionIdRef = useRef<string | null>(null);
+  const reconnectDelayRef = useRef<number>(RECONNECT.initialDelay);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const pingIntervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
   const writeToTerminal = useCallback((data: Uint8Array) => {
     if (termReadyRef.current && termRef.current) {
@@ -48,11 +54,9 @@ export function App() {
     sendToRelay(value);
   }, [sendToRelay]);
 
-  // Called when Terminal component mounts and is ready
   const onTerminalReady = useCallback(() => {
     termReadyRef.current = true;
 
-    // Flush buffered data
     for (const data of pendingDataRef.current) {
       termRef.current?.write(data);
     }
@@ -61,21 +65,22 @@ export function App() {
     termRef.current?.focus();
   }, []);
 
-  const connectToSession = useCallback((id: string) => {
-    if (wsRef.current) {
-      wsRef.current.close();
+  const stopPing = useCallback(() => {
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = undefined;
     }
+  }, []);
 
-    termReadyRef.current = false;
-    pendingDataRef.current = [];
-    setStatus('connecting');
-    setConnected(true); // Show terminal immediately so it can mount
-
+  const openWebSocket = useCallback((id: string) => {
     const ws = new WebSocket(`${RELAY_BASE}/sessions/${id}/ws`);
     ws.binaryType = 'arraybuffer';
     wsRef.current = ws;
+    intentionalCloseRef.current = false;
 
     ws.onopen = () => {
+      reconnectDelayRef.current = RECONNECT.initialDelay;
+
       ws.send(JSON.stringify({
         type: 'hello',
         version: PROTOCOL_VERSION,
@@ -83,6 +88,12 @@ export function App() {
         device: 'iphone',
         clientId: `mobile-${crypto.randomUUID().slice(0, 8)}`,
       }));
+
+      pingIntervalRef.current = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
+        }
+      }, PING_INTERVAL);
     };
 
     ws.onmessage = (event) => {
@@ -106,21 +117,62 @@ export function App() {
           break;
 
         case 'session_ended':
+          intentionalCloseRef.current = true;
           setStatus('disconnected');
+          termRef.current?.write('\r\n[Session ended]\r\n');
           break;
       }
     };
 
     ws.onclose = () => {
       wsRef.current = null;
-      setStatus('disconnected');
+      stopPing();
+
+      if (!intentionalCloseRef.current && activeSessionIdRef.current) {
+        setStatus('reconnecting');
+        termRef.current?.write('\r\n[Reconnecting...]\r\n');
+
+        reconnectTimeoutRef.current = setTimeout(() => {
+          reconnectDelayRef.current = Math.min(
+            reconnectDelayRef.current * RECONNECT.backoffMultiplier,
+            RECONNECT.maxDelay,
+          );
+
+          const sid = activeSessionIdRef.current;
+
+          if (sid) {
+            openWebSocket(sid);
+          }
+        }, reconnectDelayRef.current);
+      } else {
+        setStatus('disconnected');
+      }
     };
 
     ws.onerror = () => {
-      wsRef.current = null;
-      setStatus('disconnected');
+      // onclose will handle reconnect
     };
-  }, [writeToTerminal]);
+  }, [writeToTerminal, stopPing]);
+
+  const connectToSession = useCallback((id: string) => {
+    if (wsRef.current) {
+      intentionalCloseRef.current = true;
+      wsRef.current.close();
+    }
+
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+
+    activeSessionIdRef.current = id;
+    reconnectDelayRef.current = RECONNECT.initialDelay;
+    pendingDataRef.current = [];
+    termReadyRef.current = false;
+    setStatus('connecting');
+    setConnected(true);
+
+    openWebSocket(id);
+  }, [openWebSocket]);
 
   // Check URL params for auto-connect
   useEffect(() => {
@@ -135,9 +187,16 @@ export function App() {
 
   useEffect(() => {
     return () => {
+      intentionalCloseRef.current = true;
+      stopPing();
+
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+
       wsRef.current?.close();
     };
-  }, []);
+  }, [stopPing]);
 
   const handleConnect = () => {
     const id = sessionId.trim();
@@ -148,6 +207,14 @@ export function App() {
   };
 
   const handleDisconnect = () => {
+    intentionalCloseRef.current = true;
+    activeSessionIdRef.current = null;
+    stopPing();
+
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+
     wsRef.current?.close();
     setConnected(false);
     setStatus('disconnected');
