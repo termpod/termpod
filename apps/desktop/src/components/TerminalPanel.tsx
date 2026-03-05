@@ -6,9 +6,10 @@ import type { TerminalSession } from '../hooks/useSessionManager';
 interface TerminalPanelProps {
   session: TerminalSession;
   visible: boolean;
+  onResize?: (size: PtySize) => void;
 }
 
-export function TerminalPanel({ session, visible }: TerminalPanelProps) {
+export function TerminalPanel({ session, visible, onResize }: TerminalPanelProps) {
   const handleData = useCallback(
     (data: string) => {
       if (!session.exited) {
@@ -23,8 +24,10 @@ export function TerminalPanel({ session, visible }: TerminalPanelProps) {
       if (!session.exited) {
         session.pty.resize(size.cols, size.rows);
       }
+
+      onResize?.(size);
     },
-    [session.pty, session.exited],
+    [session.pty, session.exited, onResize],
   );
 
   useEffect(() => {

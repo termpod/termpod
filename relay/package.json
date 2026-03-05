@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --ip 0.0.0.0",
     "build": "wrangler deploy --dry-run",
     "deploy": "wrangler deploy",
     "lint": "tsc --noEmit"

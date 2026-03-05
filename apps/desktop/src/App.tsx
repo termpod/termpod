@@ -105,6 +105,7 @@ export function App() {
             key={session.id}
             session={session}
             visible={session.id === activeId}
+            onResize={session.id === activeId ? (size) => relay.sendResize(size.cols, size.rows) : undefined}
           />
         ))}
       </div>

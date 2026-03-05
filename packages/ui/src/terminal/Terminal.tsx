@@ -11,6 +11,8 @@ export interface TerminalHandle {
   write: (data: string | Uint8Array) => void;
   clear: () => void;
   focus: () => void;
+  readonly cols: number;
+  readonly rows: number;
 }
 
 export interface TerminalProps {
@@ -37,6 +39,12 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       },
       focus: () => {
         terminalRef.current?.focus();
+      },
+      get cols() {
+        return terminalRef.current?.cols ?? 120;
+      },
+      get rows() {
+        return terminalRef.current?.rows ?? 40;
       },
     }));
 

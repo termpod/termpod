@@ -16,14 +16,19 @@ export function useRelayBridge(session: TerminalSession | null) {
     },
   });
 
-  const { connect, disconnect, sendTerminalData } = relay;
+  const { connect, disconnect, sendTerminalData, sendResize } = relay;
 
   useEffect(() => {
     if (!session || session.exited) {
       return;
     }
 
-    connect({ cols: 120, rows: 40 });
+    // Get actual terminal size from xterm, fall back to PTY defaults
+    const term = session.termRef.current;
+    const cols = term?.cols ?? 120;
+    const rows = term?.rows ?? 40;
+
+    connect({ cols, rows });
 
     const listener = (data: Uint8Array | number[]) => {
       sendTerminalData(data);
@@ -37,5 +42,5 @@ export function useRelayBridge(session: TerminalSession | null) {
     };
   }, [session?.id, session?.exited, connect, disconnect, sendTerminalData]);
 
-  return relay;
+  return { ...relay, sendResize };
 }
