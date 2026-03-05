@@ -23,7 +23,7 @@ interface UseRelayConnectionOptions {
   onViewerJoined?: () => void;
 }
 
-const RELAY_BASE = RELAY_URL.production;
+const RELAY_BASE = import.meta.env.VITE_RELAY_URL || RELAY_URL.production;
 const RELAY_HTTP = RELAY_BASE.replace('ws://', 'http://').replace('wss://', 'https://');
 const PING_INTERVAL = 30_000;
 
