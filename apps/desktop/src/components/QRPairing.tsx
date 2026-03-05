@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
+import { RELAY_URL } from '@termpod/shared';
 
 interface QRPairingProps {
   sessionId: string | null;
@@ -11,7 +12,7 @@ export function QRPairing({ sessionId, onClose }: QRPairingProps) {
   const [copied, setCopied] = useState(false);
 
   const pairingUrl = sessionId
-    ? `termpod://pair?relay=ws://localhost:8787&session=${sessionId}`
+    ? `termpod://pair?relay=${RELAY_URL.production}&session=${sessionId}`
     : null;
 
   useEffect(() => {

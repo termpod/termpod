@@ -261,14 +261,14 @@ body,
 
 /* Terminal Area */
 .terminal-area {
-  display: flex;
+  position: relative;
   flex: 1;
   overflow: hidden;
 }
 
 .terminal-panel {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
 }
 
 /* Terminal Search Bar */

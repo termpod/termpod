@@ -1,14 +1,35 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Terminal } from '@termpod/ui';
 import type { PtySize } from '@termpod/protocol';
 import type { TerminalSession } from '../hooks/useSessionManager';
+import { useRelayBridge } from '../hooks/useRelayBridge';
+import type { RelayStatus } from '../hooks/useRelayConnection';
+
+export interface RelayInfo {
+  status: RelayStatus;
+  viewers: number;
+  sessionId: string | null;
+}
 
 interface TerminalPanelProps {
   session: TerminalSession;
   visible: boolean;
+  onRelayChange?: (info: RelayInfo) => void;
 }
 
-export function TerminalPanel({ session, visible }: TerminalPanelProps) {
+export function TerminalPanel({ session, visible, onRelayChange }: TerminalPanelProps) {
+  const relay = useRelayBridge(session.exited ? null : session);
+  const onRelayChangeRef = useRef(onRelayChange);
+  onRelayChangeRef.current = onRelayChange;
+
+  useEffect(() => {
+    onRelayChangeRef.current?.({
+      status: relay.status,
+      viewers: relay.viewers,
+      sessionId: relay.sessionId,
+    });
+  }, [relay.status, relay.viewers, relay.sessionId]);
+
   const handleData = useCallback(
     (data: string) => {
       if (!session.exited) {
@@ -23,29 +44,32 @@ export function TerminalPanel({ session, visible }: TerminalPanelProps) {
       if (!session.exited) {
         session.pty.resize(size.cols, size.rows);
       }
+
+      relay.sendResize(size.cols, size.rows);
     },
-    [session.pty, session.exited],
+    [session.pty, session.exited, relay.sendResize],
   );
 
+  const active = visible && !session.closing;
+
   useEffect(() => {
-    if (!visible) {
+    if (!active) {
       return;
     }
 
     const timer = setTimeout(() => {
-      session.termRef.current?.fit();
       session.termRef.current?.focus();
     }, 16);
 
     return () => clearTimeout(timer);
-  }, [visible, session.termRef]);
+  }, [active, session.termRef]);
 
   return (
     <div
       className="terminal-panel"
       style={{
-        display: visible && !session.closing ? 'flex' : 'none',
-        flex: 1,
+        visibility: active ? 'visible' : 'hidden',
+        pointerEvents: active ? 'auto' : 'none',
       }}
     >
       <Terminal ref={session.termRef} onData={handleData} onResize={handleResize} />
