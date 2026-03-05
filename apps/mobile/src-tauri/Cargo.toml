@@ -3,6 +3,10 @@ name = "termpod-mobile"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "termpod_mobile"
+crate-type = ["staticlib", "cdylib", "lib"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

@@ -93,11 +93,161 @@ body,
   cursor: not-allowed;
 }
 
+.scan-btn {
+  width: 100%;
+  max-width: 320px;
+  padding: 12px;
+  font-size: 16px;
+  background: #7aa2f7;
+  color: #1a1b26;
+  font-weight: 600;
+}
+
+.scan-btn:hover {
+  background: #89b4fa;
+}
+
+.connect-divider {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 320px;
+  gap: 12px;
+  color: #565f89;
+  font-size: 12px;
+}
+
+.connect-divider::before,
+.connect-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #292e42;
+}
+
 .connect-hint {
   font-size: 12px;
   color: #565f89;
   text-align: center;
   margin-top: 8px;
+}
+
+/* QR Scanner */
+.qr-scanner-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.qr-scanner-modal {
+  background: #1a1b26;
+  border: 1px solid #292e42;
+  border-radius: 12px;
+  padding: 16px;
+  width: 90%;
+  max-width: 340px;
+}
+
+.qr-scanner-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.qr-scanner-close {
+  background: none;
+  border: none;
+  color: #565f89;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.qr-scanner-viewport {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  aspect-ratio: 1;
+  background: #000;
+}
+
+.qr-scanner-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.qr-scanner-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200px;
+  height: 200px;
+  transform: translate(-50%, -50%);
+  border: 2px solid rgba(122, 162, 247, 0.6);
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+.qr-scanner-error {
+  color: #e05050;
+  font-size: 13px;
+  text-align: center;
+  margin-top: 10px;
+}
+
+.qr-scanner-hint {
+  color: #565f89;
+  font-size: 12px;
+  text-align: center;
+  margin-top: 10px;
+}
+
+.paste-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.paste-instructions {
+  font-size: 13px;
+  color: #a9b1d6;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.paste-instructions strong {
+  color: #7aa2f7;
+}
+
+.paste-btn {
+  width: 100%;
+  padding: 12px;
+  background: #7aa2f7;
+  color: #1a1b26;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.paste-btn:active {
+  background: #5d8af0;
+}
+
+.paste-btn:disabled {
+  opacity: 0.5;
 }
 
 /* Status Bar */
@@ -186,4 +336,72 @@ body,
 
 .quick-action-btn:active {
   background: #292e42;
+}
+
+/* Prompt Actions (Claude Code permission prompts) */
+.prompt-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #1e2030;
+  border-top: 1px solid #3d59a1;
+  flex-shrink: 0;
+}
+
+.prompt-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.prompt-tool {
+  font-size: 12px;
+  font-weight: 600;
+  color: #7aa2f7;
+  font-family: 'Menlo', monospace;
+}
+
+.prompt-detail {
+  font-size: 11px;
+  color: #a9b1d6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prompt-buttons {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.prompt-btn {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.prompt-accept {
+  background: #50c878;
+  color: #1a1b26;
+}
+
+.prompt-accept:active {
+  background: #3da860;
+}
+
+.prompt-deny {
+  background: #e05050;
+  color: #fff;
+}
+
+.prompt-deny:active {
+  background: #c04040;
 }

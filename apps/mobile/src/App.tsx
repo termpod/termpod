@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Terminal } from '@termpod/ui';
 import type { TerminalHandle } from '@termpod/ui';
 import { QuickActions } from '@termpod/ui';
+import { QRScanner } from './components/QRScanner';
+import { PromptActions } from './components/PromptActions';
+import { PromptDetector } from '@termpod/shared';
+import type { DetectedPrompt } from '@termpod/shared';
 import {
   PROTOCOL_VERSION,
   Channel,
@@ -12,13 +16,17 @@ import type { RelayMessage } from '@termpod/protocol';
 import type { ConnectionStatus } from '@termpod/shared';
 import { RELAY_URL, RECONNECT } from '@termpod/shared';
 
-const RELAY_BASE = RELAY_URL.development;
+// Use Mac's local IP so the iPhone can reach the relay
+const RELAY_BASE = import.meta.env.VITE_RELAY_URL || RELAY_URL.development;
 const PING_INTERVAL = 30_000;
 
 export function App() {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [sessionId, setSessionId] = useState('');
   const [connected, setConnected] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [activePrompt, setActivePrompt] = useState<DetectedPrompt | null>(null);
+  const promptDetectorRef = useRef(new PromptDetector());
   const termRef = useRef<TerminalHandle>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const pendingDataRef = useRef<Uint8Array[]>([]);
@@ -29,12 +37,19 @@ export function App() {
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pingIntervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
+  useEffect(() => {
+    promptDetectorRef.current.setListener(setActivePrompt);
+  }, []);
+
   const writeToTerminal = useCallback((data: Uint8Array) => {
     if (termReadyRef.current && termRef.current) {
       termRef.current.write(data);
     } else {
       pendingDataRef.current.push(data);
     }
+
+    // Feed to prompt detector
+    promptDetectorRef.current.feed(new TextDecoder().decode(data));
   }, []);
 
   const sendToRelay = useCallback((data: string) => {
@@ -52,6 +67,18 @@ export function App() {
 
   const handleQuickAction = useCallback((value: string) => {
     sendToRelay(value);
+  }, [sendToRelay]);
+
+  const handleAcceptPrompt = useCallback(() => {
+    sendToRelay('y');
+    setActivePrompt(null);
+    promptDetectorRef.current.clear();
+  }, [sendToRelay]);
+
+  const handleDenyPrompt = useCallback(() => {
+    sendToRelay('n');
+    setActivePrompt(null);
+    promptDetectorRef.current.clear();
   }, [sendToRelay]);
 
   const onTerminalReady = useCallback(() => {
@@ -228,6 +255,15 @@ export function App() {
         <div className="connect-screen">
           <h1 className="connect-title">Termpod</h1>
           <p className="connect-subtitle">Connect to a terminal session</p>
+          <button
+            className="connect-btn scan-btn"
+            onClick={() => setShowScanner(true)}
+          >
+            Paste from Desktop
+          </button>
+          <div className="connect-divider">
+            <span>or enter session ID</span>
+          </div>
           <div className="connect-form">
             <input
               className="connect-input"
@@ -245,9 +281,16 @@ export function App() {
               {status === 'connecting' ? 'Connecting...' : 'Connect'}
             </button>
           </div>
-          <p className="connect-hint">
-            Scan the QR code in the desktop app or paste the session ID
-          </p>
+          {showScanner && (
+            <QRScanner
+              onScan={(id) => {
+                setShowScanner(false);
+                setSessionId(id);
+                connectToSession(id);
+              }}
+              onClose={() => setShowScanner(false)}
+            />
+          )}
         </div>
       </div>
     );
@@ -265,6 +308,13 @@ export function App() {
       <div className="terminal-container">
         <Terminal ref={termRef} onData={handleData} fontSize={13} onReady={onTerminalReady} />
       </div>
+      {activePrompt && (
+        <PromptActions
+          prompt={activePrompt}
+          onAccept={handleAcceptPrompt}
+          onDeny={handleDenyPrompt}
+        />
+      )}
       <QuickActions onAction={handleQuickAction} />
     </div>
   );

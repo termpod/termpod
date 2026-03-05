@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1430",
-    "beforeDevCommand": "pnpm vite",
-    "beforeBuildCommand": "pnpm vite build"
+    "beforeDevCommand": "/Users/swapnil/.nvm/versions/node/v22.19.0/bin/pnpm vite",
+    "beforeBuildCommand": "/Users/swapnil/.nvm/versions/node/v22.19.0/bin/pnpm vite build"
   },
   "app": {
     "windows": [
