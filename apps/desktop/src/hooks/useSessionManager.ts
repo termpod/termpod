@@ -118,10 +118,10 @@ export function useSessionManager() {
       const shell = options?.shell || DEFAULT_SHELL;
 
       const pty = spawn(shell, [], {
-        name: 'xterm-256color',
         cols: DEFAULT_PTY_SIZE.cols,
         rows: DEFAULT_PTY_SIZE.rows,
         cwd: sessionCwd,
+        env: { TERM: 'xterm-256color' },
       });
 
       const termRef = { current: null } as React.RefObject<TerminalHandle | null>;
@@ -140,11 +140,17 @@ export function useSessionManager() {
         closing: false,
       };
 
+      // Guard against duplicate PTY data fires (tauri-pty IPC bug in
+      // certain launch conditions). Same reference = same read result
+      // fired twice; different reference = legitimate new data.
+      let lastData: unknown = null;
+
       pty.onData((data) => {
-        if (session.closing) {
+        if (data === lastData || session.closing) {
           return;
         }
 
+        lastData = data;
         session.termRef.current?.write(data);
 
         for (const listener of dataListeners) {
