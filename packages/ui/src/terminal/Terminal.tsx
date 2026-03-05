@@ -12,6 +12,7 @@ export interface TerminalHandle {
   write: (data: string | Uint8Array) => void;
   clear: () => void;
   focus: () => void;
+  fit: () => void;
   openSearch: () => void;
   closeSearch: () => void;
   readonly cols: number;
@@ -46,6 +47,17 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     const [searchQuery, setSearchQuery] = useState('');
     const searchInputRef = useRef<HTMLInputElement>(null);
 
+    // Store callbacks in refs so the xterm instance never needs to be
+    // destroyed just because a callback reference changed.
+    const onDataRef = useRef(onData);
+    onDataRef.current = onData;
+    const onResizeRef = useRef(onResize);
+    onResizeRef.current = onResize;
+    const onTitleChangeRef = useRef(onTitleChange);
+    onTitleChangeRef.current = onTitleChange;
+    const onReadyRef = useRef(onReady);
+    onReadyRef.current = onReady;
+
     useImperativeHandle(ref, () => ({
       write: (data: string | Uint8Array) => {
         terminalRef.current?.write(data);
@@ -56,6 +68,13 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       focus: () => {
         terminalRef.current?.focus();
       },
+      fit: () => {
+        try {
+          fitAddonRef.current?.fit();
+        } catch {
+          // ignore fit errors (e.g. 0-dimension container)
+        }
+      },
       openSearch: () => {
         setSearchVisible(true);
       },
@@ -63,7 +82,6 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         setSearchVisible(false);
         searchAddonRef.current?.clearDecorations();
         setSearchQuery('');
-
         terminalRef.current?.focus();
       },
       get cols() {
@@ -103,7 +121,6 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         setSearchVisible(false);
         searchAddonRef.current?.clearDecorations();
         setSearchQuery('');
-
         terminalRef.current?.focus();
       } else if (e.key === 'Enter') {
         if (e.shiftKey) {
@@ -122,25 +139,13 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
 
       if (!searchQuery) {
         searchAddonRef.current.clearDecorations();
-
         return;
       }
 
       searchAddonRef.current.findNext(searchQuery, { decorations: SEARCH_DECORATIONS });
     }, [searchQuery, searchVisible]);
 
-    const handleResize = useCallback(() => {
-      const fit = fitAddonRef.current;
-      const term = terminalRef.current;
-
-      if (!fit || !term) {
-        return;
-      }
-
-      fit.fit();
-      onResize?.({ cols: term.cols, rows: term.rows });
-    }, [onResize]);
-
+    // Create the xterm instance once. Only recreate on font changes.
     useEffect(() => {
       if (!containerRef.current) {
         return;
@@ -199,17 +204,29 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         return true;
       });
 
-      if (onData) {
-        term.onData(onData);
-      }
+      // Use refs for callbacks so they always call the latest version
+      term.onData((data) => onDataRef.current?.(data));
+      term.onTitleChange((title) => onTitleChangeRef.current?.(title));
 
-      if (onTitleChange) {
-        term.onTitleChange(onTitleChange);
-      }
+      onReadyRef.current?.();
 
-      onReady?.();
+      const resizeObserver = new ResizeObserver((entries) => {
+        if (!fitAddonRef.current || !terminalRef.current) {
+          return;
+        }
 
-      const resizeObserver = new ResizeObserver(handleResize);
+        const entry = entries[0];
+        if (!entry || entry.contentRect.width === 0 || entry.contentRect.height === 0) {
+          return;
+        }
+
+        try {
+          fitAddonRef.current.fit();
+        } catch {
+          return;
+        }
+        onResizeRef.current?.({ cols: terminalRef.current.cols, rows: terminalRef.current.rows });
+      });
       resizeObserver.observe(containerRef.current);
 
       return () => {
@@ -219,7 +236,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         fitAddonRef.current = null;
         searchAddonRef.current = null;
       };
-    }, [fontSize, fontFamily, onData, onTitleChange, onReady, handleResize]);
+    }, [fontSize, fontFamily]);
 
     return (
       <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -247,7 +264,6 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
                 setSearchVisible(false);
                 searchAddonRef.current?.clearDecorations();
                 setSearchQuery('');
-        
                 terminalRef.current?.focus();
               }}
               type="button"

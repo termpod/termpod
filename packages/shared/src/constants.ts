@@ -2,7 +2,7 @@ export const DEFAULT_PTY_SIZE = { cols: 120, rows: 40 };
 export const DEFAULT_SHELL = '/bin/zsh';
 
 export const RELAY_URL = {
-  production: 'wss://termpod-relay.iamswap.workers.dev',
+  production: 'wss://termpod.swapnil.dev',
   development: 'ws://localhost:8787',
 } as const;
 

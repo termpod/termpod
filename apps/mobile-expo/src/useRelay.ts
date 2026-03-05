@@ -9,7 +9,7 @@ const RECONNECT_MAX = 30000;
 const RECONNECT_MULTIPLIER = 2;
 
 // Production relay; override via env for local dev
-const RELAY_BASE = process.env.EXPO_PUBLIC_RELAY_URL || 'wss://termpod-relay.iamswap.workers.dev';
+const RELAY_BASE = process.env.EXPO_PUBLIC_RELAY_URL || 'wss://termpod.swapnil.dev';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
@@ -96,119 +96,127 @@ export function useRelay() {
     }
   }, []);
 
-  const openWebSocket = useCallback((sessionId: string) => {
-    // Close existing
-    if (wsRef.current) {
-      wsRef.current.onclose = null;
-      wsRef.current.onerror = null;
-      wsRef.current.close();
-    }
-
-    const ws = new WebSocket(`${RELAY_BASE}/sessions/${sessionId}/ws`);
-    ws.binaryType = 'arraybuffer';
-    wsRef.current = ws;
-    intentionalCloseRef.current = false;
-
-    ws.onopen = () => {
-      reconnectDelayRef.current = RECONNECT_INITIAL;
-
-      ws.send(JSON.stringify({
-        type: 'hello',
-        version: PROTOCOL_VERSION,
-        role: 'viewer',
-        device: 'iphone',
-        clientId: `expo-${Math.random().toString(36).slice(2, 10)}`,
-      }));
-
-      pingIntervalRef.current = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
-        }
-      }, PING_INTERVAL);
-    };
-
-    ws.onmessage = (event: MessageEvent) => {
-      if (event.data instanceof ArrayBuffer) {
-        const frame = decodeBinaryFrame(new Uint8Array(event.data));
-
-        if (frame.channel === CHANNEL_TERMINAL_DATA) {
-          onDataRef.current?.(frame.data);
-          feedPromptDetector(frame.data);
-        } else if (frame.channel === CHANNEL_SCROLLBACK_CHUNK) {
-          // Scrollback frames have a 4-byte offset header after the channel byte
-          const termData = frame.data.subarray(4);
-          onDataRef.current?.(termData);
-          feedPromptDetector(termData);
-        }
-
-        return;
+  const openWebSocket = useCallback(
+    (sessionId: string) => {
+      // Close existing
+      if (wsRef.current) {
+        wsRef.current.onclose = null;
+        wsRef.current.onerror = null;
+        wsRef.current.close();
       }
 
-      try {
-        const msg = JSON.parse(event.data as string);
+      const ws = new WebSocket(`${RELAY_BASE}/sessions/${sessionId}/ws`);
+      ws.binaryType = 'arraybuffer';
+      wsRef.current = ws;
+      intentionalCloseRef.current = false;
 
-        switch (msg.type) {
-          case 'session_info':
-            if (msg.ptySize) {
-              setPtySize({ cols: msg.ptySize.cols, rows: msg.ptySize.rows });
-              // Synchronously notify terminal BEFORE scrollback arrives
-              onResizeRef.current?.(msg.ptySize.cols, msg.ptySize.rows);
-            }
-            break;
-          case 'ready':
-            setStatus('connected');
-            break;
-          case 'pty_resize':
-            if (msg.cols && msg.rows) {
-              setPtySize({ cols: msg.cols, rows: msg.rows });
-              onResizeRef.current?.(msg.cols, msg.rows);
-            }
-            break;
-          case 'session_ended':
-            intentionalCloseRef.current = true;
-            setStatus('disconnected');
-            break;
-        }
-      } catch {
-        // ignore
-      }
-    };
+      ws.onopen = () => {
+        reconnectDelayRef.current = RECONNECT_INITIAL;
 
-    ws.onclose = () => {
-      wsRef.current = null;
-      stopPing();
+        ws.send(
+          JSON.stringify({
+            type: 'hello',
+            version: PROTOCOL_VERSION,
+            role: 'viewer',
+            device: 'iphone',
+            clientId: `expo-${Math.random().toString(36).slice(2, 10)}`,
+          }),
+        );
 
-      if (!intentionalCloseRef.current && activeSessionRef.current) {
-        setStatus('reconnecting');
-
-        reconnectTimeoutRef.current = setTimeout(() => {
-          reconnectDelayRef.current = Math.min(
-            reconnectDelayRef.current * RECONNECT_MULTIPLIER,
-            RECONNECT_MAX,
-          );
-
-          const sid = activeSessionRef.current;
-
-          if (sid) {
-            openWebSocket(sid);
+        pingIntervalRef.current = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
           }
-        }, reconnectDelayRef.current);
-      } else {
-        setStatus('disconnected');
-      }
-    };
+        }, PING_INTERVAL);
+      };
 
-    ws.onerror = () => {};
-  }, [stopPing, feedPromptDetector]);
+      ws.onmessage = (event: MessageEvent) => {
+        if (event.data instanceof ArrayBuffer) {
+          const frame = decodeBinaryFrame(new Uint8Array(event.data));
 
-  const connect = useCallback((sessionId: string) => {
-    activeSessionRef.current = sessionId;
-    reconnectDelayRef.current = RECONNECT_INITIAL;
-    promptBufferRef.current = '';
-    setPrompt(null);
-    setStatus('connecting');
-    openWebSocket(sessionId);
-  }, [openWebSocket]);
+          if (frame.channel === CHANNEL_TERMINAL_DATA) {
+            onDataRef.current?.(frame.data);
+            feedPromptDetector(frame.data);
+          } else if (frame.channel === CHANNEL_SCROLLBACK_CHUNK) {
+            // Scrollback frames have a 4-byte offset header after the channel byte
+            const termData = frame.data.subarray(4);
+            onDataRef.current?.(termData);
+            feedPromptDetector(termData);
+          }
+
+          return;
+        }
+
+        try {
+          const msg = JSON.parse(event.data as string);
+
+          switch (msg.type) {
+            case 'session_info':
+              if (msg.ptySize) {
+                setPtySize({ cols: msg.ptySize.cols, rows: msg.ptySize.rows });
+                // Synchronously notify terminal BEFORE scrollback arrives
+                onResizeRef.current?.(msg.ptySize.cols, msg.ptySize.rows);
+              }
+              break;
+            case 'ready':
+              setStatus('connected');
+              break;
+            case 'pty_resize':
+              if (msg.cols && msg.rows) {
+                setPtySize({ cols: msg.cols, rows: msg.rows });
+                onResizeRef.current?.(msg.cols, msg.rows);
+              }
+              break;
+            case 'session_ended':
+              intentionalCloseRef.current = true;
+              setStatus('disconnected');
+              break;
+          }
+        } catch {
+          // ignore
+        }
+      };
+
+      ws.onclose = () => {
+        wsRef.current = null;
+        stopPing();
+
+        if (!intentionalCloseRef.current && activeSessionRef.current) {
+          setStatus('reconnecting');
+
+          reconnectTimeoutRef.current = setTimeout(() => {
+            reconnectDelayRef.current = Math.min(
+              reconnectDelayRef.current * RECONNECT_MULTIPLIER,
+              RECONNECT_MAX,
+            );
+
+            const sid = activeSessionRef.current;
+
+            if (sid) {
+              openWebSocket(sid);
+            }
+          }, reconnectDelayRef.current);
+        } else {
+          setStatus('disconnected');
+        }
+      };
+
+      ws.onerror = () => {};
+    },
+    [stopPing, feedPromptDetector],
+  );
+
+  const connect = useCallback(
+    (sessionId: string) => {
+      activeSessionRef.current = sessionId;
+      reconnectDelayRef.current = RECONNECT_INITIAL;
+      promptBufferRef.current = '';
+      setPrompt(null);
+      setStatus('connecting');
+      openWebSocket(sessionId);
+    },
+    [openWebSocket],
+  );
 
   const disconnect = useCallback(() => {
     intentionalCloseRef.current = true;

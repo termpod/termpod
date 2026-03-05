@@ -238,6 +238,12 @@ export function useSessionManager() {
     [updateStore],
   );
 
+  const focusActive = useCallback(() => {
+    const { sessions: s, activeId: id } = storeRef.current;
+    const active = s.find((sess) => sess.id === id);
+    active?.termRef.current?.focus();
+  }, []);
+
   const activeSession = store.sessions.find((s) => s.id === store.activeId) ?? null;
 
   return {
@@ -247,6 +253,7 @@ export function useSessionManager() {
     createSession,
     closeSession,
     switchSession,
+    focusActive,
     renameSession,
   };
 }
