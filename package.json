@@ -1,0 +1,25 @@
+{
+  "name": "termpod",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "turbo run dev --filter=@termpod/desktop --filter=@termpod/relay",
+    "dev:desktop": "turbo run dev --filter=@termpod/desktop",
+    "dev:relay": "turbo run dev --filter=@termpod/relay",
+    "dev:mobile": "turbo run dev --filter=@termpod/mobile",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,json,md}\""
+  },
+  "devDependencies": {
+    "turbo": "^2.8.13",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2"
+  },
+  "packageManager": "pnpm@10.29.3",
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "workerd", "sharp"]
+  }
+}

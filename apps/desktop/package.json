@@ -1,0 +1,28 @@
+{
+  "name": "@termpod/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.10.1",
+    "@termpod/protocol": "workspace:*",
+    "@termpod/shared": "workspace:*",
+    "@termpod/ui": "workspace:*",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tauri-pty": "^0.1.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.10.0",
+    "@types/react": "^19.0.12",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.4.1",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.4"
+  }
+}

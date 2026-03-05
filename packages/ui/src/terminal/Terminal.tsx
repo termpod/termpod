@@ -1,0 +1,98 @@
+import { useEffect, useRef, useCallback } from 'react';
+import { Terminal as XTerm } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import { WebglAddon } from '@xterm/addon-webgl';
+import { WebLinksAddon } from '@xterm/addon-web-links';
+import type { PtySize } from '@termpod/protocol';
+
+import '@xterm/xterm/css/xterm.css';
+
+export interface TerminalProps {
+  onData?: (data: string) => void;
+  onResize?: (size: PtySize) => void;
+  fontSize?: number;
+  fontFamily?: string;
+}
+
+export function Terminal({ onData, onResize, fontSize = 14, fontFamily = 'Menlo, monospace' }: TerminalProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const terminalRef = useRef<XTerm | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
+
+  const handleResize = useCallback(() => {
+    const fit = fitAddonRef.current;
+    const term = terminalRef.current;
+
+    if (!fit || !term) {
+      return;
+    }
+
+    fit.fit();
+    onResize?.({ cols: term.cols, rows: term.rows });
+  }, [onResize]);
+
+  useEffect(() => {
+    if (!containerRef.current) {
+      return;
+    }
+
+    const term = new XTerm({
+      fontSize,
+      fontFamily,
+      cursorBlink: true,
+      allowProposedApi: true,
+      theme: {
+        background: '#1a1b26',
+        foreground: '#c0caf5',
+        cursor: '#c0caf5',
+        selectionBackground: '#33467c',
+      },
+    });
+
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    term.loadAddon(new WebLinksAddon());
+
+    term.open(containerRef.current);
+
+    try {
+      term.loadAddon(new WebglAddon());
+    } catch {
+      // WebGL not available, fall back to canvas renderer
+    }
+
+    fitAddon.fit();
+    terminalRef.current = term;
+    fitAddonRef.current = fitAddon;
+
+    if (onData) {
+      term.onData(onData);
+    }
+
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+      term.dispose();
+      terminalRef.current = null;
+      fitAddonRef.current = null;
+    };
+  }, [fontSize, fontFamily, onData, handleResize]);
+
+  return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
+}
+
+export function useTerminal() {
+  const terminalRef = useRef<XTerm | null>(null);
+
+  const write = useCallback((data: string | Uint8Array) => {
+    terminalRef.current?.write(data);
+  }, []);
+
+  const clear = useCallback(() => {
+    terminalRef.current?.clear();
+  }, []);
+
+  return { terminalRef, write, clear };
+}

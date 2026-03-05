@@ -1,0 +1,20 @@
+{
+  "name": "@termpod/relay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@termpod/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250310.0",
+    "typescript": "^5.8.2",
+    "wrangler": "^4.70.0"
+  }
+}

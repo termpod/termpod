@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.turbo/
+target/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Tauri
+apps/desktop/src-tauri/target/
+apps/mobile/src-tauri/target/
+
+# Wrangler
+relay/.wrangler/
+
+# Logs
+*.log

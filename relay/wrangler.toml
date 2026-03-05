@@ -1,0 +1,13 @@
+name = "termpod-relay"
+main = "src/worker.ts"
+compatibility_date = "2025-03-05"
+
+[durable_objects]
+bindings = [
+  { name = "TERMINAL_SESSION", class_name = "TerminalSession" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["TerminalSession"]
+new_sqlite_classes = ["TerminalSession"]
