@@ -213,6 +213,30 @@ export const THEMES: Record<string, TerminalTheme> = {
     brightWhite: '#ebdbb2',
   },
 
+  'cobalt2': {
+    name: 'Cobalt2',
+    background: '#193549',
+    foreground: '#ffffff',
+    cursor: '#ffc600',
+    selectionBackground: '#0050a4',
+    black: '#000000',
+    red: '#ff0000',
+    green: '#38de21',
+    yellow: '#ffc600',
+    blue: '#1460d2',
+    magenta: '#ff005d',
+    cyan: '#00bbbb',
+    white: '#bbbbbb',
+    brightBlack: '#555555',
+    brightRed: '#f40e17',
+    brightGreen: '#3bd01d',
+    brightYellow: '#edc809',
+    brightBlue: '#5555ff',
+    brightMagenta: '#ff55ff',
+    brightCyan: '#6ae3fa',
+    brightWhite: '#ffffff',
+  },
+
   // ── Light Themes ──
 
   'github-light': {
