@@ -1164,22 +1164,20 @@ body,
   opacity: var(--terminal-opacity, 1);
 }
 
-/* Style terminal scrollbar */
-.xterm .xterm-viewport::-webkit-scrollbar {
-  width: 8px !important;
+/* Style xterm custom scrollbar */
+.xterm .xterm-scrollable-element > .scrollbar {
+  width: 10px !important;
 }
 
-.xterm .xterm-viewport::-webkit-scrollbar-track {
-  background: transparent !important;
-}
-
-.xterm .xterm-viewport::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15) !important;
+.xterm .xterm-scrollable-element > .scrollbar > .slider {
   border-radius: 4px !important;
+  left: 2px !important;
+  width: calc(100% - 4px) !important;
 }
 
-.xterm .xterm-viewport::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3) !important;
+/* Hide native scrollbar — xterm uses custom one */
+.xterm .xterm-viewport::-webkit-scrollbar {
+  display: none;
 }
 
 /* ── Terminal Search Bar ── */
