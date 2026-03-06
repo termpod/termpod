@@ -273,6 +273,10 @@ async fn handle_connection(
                         clients.write().await.insert(cid.clone(), client);
                         registered_id = Some(cid.clone());
 
+                        // Send "ready" to the viewer so it knows the handshake is complete
+                        let ready = serde_json::json!({ "type": "ready" });
+                        let _ = tx.send(Message::Text(ready.to_string().into()));
+
                         if let Some(sid) = &hello.session_id {
                             let _ = app.emit(
                                 "local-ws-viewer-joined",
