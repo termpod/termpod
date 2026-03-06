@@ -9,10 +9,8 @@
 /* Begin PBXBuildFile section */
 		1234934A076E56B8166F2552 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8948D2B6BB4DE432E45FDF85 /* AppState.swift */; };
 		1445A370B77B55BB02860C02 /* DeviceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A6E06FDBC8530CA0DFBB26 /* DeviceService.swift */; };
-		368122F3D266655DDCC9BAB8 /* PairingScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77BC9E3B7B159002CA384F47 /* PairingScannerView.swift */; };
 		3D14295C8E631AC552F0192D /* termpod.icon in Resources */ = {isa = PBXBuildFile; fileRef = D1D96200DB31D2D1B62299EC /* termpod.icon */; };
 		3F48D2371CC04B57BF7AB89C /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56584326DFB96229495153E1 /* KeychainService.swift */; };
-		4760C0B9543F1FFA69D65DFD /* PairingToken.swift in Sources */ = {isa = PBXBuildFile; fileRef = C409810E1EB1B88E22C7D6C1 /* PairingToken.swift */; };
 		541BC3CEAA6163577F965679 /* Transport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8047DF4F97AD96B9499E3311 /* Transport.swift */; };
 		58B6E755F5454F63EAD134E9 /* TermpodApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADD5F26F6CF5CFF0E58C879E /* TermpodApp.swift */; };
 		6623E71F21BFCE48DAF5F77E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 098B8570FC69BB98165FCFA1 /* Assets.xcassets */; };
@@ -29,7 +27,6 @@
 		D6D7A6BEA1E901A72E1485F4 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F51B3F17455D1430D68AEB4 /* AuthService.swift */; };
 		DD1BE4AD10088AE826265668 /* LocalTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B29227BBDD7885C2C1107A8F /* LocalTransport.swift */; };
 		E950C5C574585CA93B327A78 /* WebRTCTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4430C16341FEF5189B8A8DB3 /* WebRTCTransport.swift */; };
-		EA89C1D657933030297F63E3 /* SessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9A29E0627D13F451A0282CF /* SessionListView.swift */; };
 		EB4BE65371EE7858CD1B3BBD /* DeviceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE8161A75D7930448677049A /* DeviceListView.swift */; };
 		FBB17DD48DEFE6CCD17ECF10 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E8D192947F83AC0560600EE /* Session.swift */; };
 /* End PBXBuildFile section */
@@ -53,7 +50,6 @@
 		646949C1CB84FF932B77704F /* HapticService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticService.swift; sourceTree = "<group>"; };
 		6C81BC6ACC218A4137DF9E2D /* SessionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionDetailView.swift; sourceTree = "<group>"; };
 		77A6E06FDBC8530CA0DFBB26 /* DeviceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceService.swift; sourceTree = "<group>"; };
-		77BC9E3B7B159002CA384F47 /* PairingScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingScannerView.swift; sourceTree = "<group>"; };
 		8047DF4F97AD96B9499E3311 /* Transport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transport.swift; sourceTree = "<group>"; };
 		8948D2B6BB4DE432E45FDF85 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		8F51B3F17455D1430D68AEB4 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
@@ -63,12 +59,10 @@
 		B29227BBDD7885C2C1107A8F /* LocalTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTransport.swift; sourceTree = "<group>"; };
 		B9A8CD578944DBFC96BB7328 /* ReconnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReconnectionManager.swift; sourceTree = "<group>"; };
 		C3557838B762205AF9AA49EC /* TermpodTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TermpodTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		C409810E1EB1B88E22C7D6C1 /* PairingToken.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingToken.swift; sourceTree = "<group>"; };
 		CD41221BF3840B9AF34085B4 /* TerminalHostView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalHostView.swift; sourceTree = "<group>"; };
 		D1D96200DB31D2D1B62299EC /* termpod.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = termpod.icon; sourceTree = "<group>"; };
 		E1630E0B212321DD0A1D6B7D /* RelayClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayClient.swift; sourceTree = "<group>"; };
 		E717F4FE242C88B093907459 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		E9A29E0627D13F451A0282CF /* SessionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListView.swift; sourceTree = "<group>"; };
 		EE8161A75D7930448677049A /* DeviceListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceListView.swift; sourceTree = "<group>"; };
 		F1BDB4550424436B192A0900 /* DeviceSessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSessionsView.swift; sourceTree = "<group>"; };
 		F6C2C4DDC27FA4B52EE1D8FE /* RemoteTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteTerminalView.swift; sourceTree = "<group>"; };
@@ -157,7 +151,6 @@
 		A4F38368B73E4FCB8FA345B8 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				C409810E1EB1B88E22C7D6C1 /* PairingToken.swift */,
 				0E8D192947F83AC0560600EE /* Session.swift */,
 			);
 			path = Models;
@@ -169,9 +162,7 @@
 				EE8161A75D7930448677049A /* DeviceListView.swift */,
 				F1BDB4550424436B192A0900 /* DeviceSessionsView.swift */,
 				8FFFCA022CCB91970E83156B /* LoginView.swift */,
-				77BC9E3B7B159002CA384F47 /* PairingScannerView.swift */,
 				6C81BC6ACC218A4137DF9E2D /* SessionDetailView.swift */,
-				E9A29E0627D13F451A0282CF /* SessionListView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -303,14 +294,11 @@
 				3F48D2371CC04B57BF7AB89C /* KeychainService.swift in Sources */,
 				DD1BE4AD10088AE826265668 /* LocalTransport.swift in Sources */,
 				BD6A0EBFDD05AB2C2D4B4C57 /* LoginView.swift in Sources */,
-				368122F3D266655DDCC9BAB8 /* PairingScannerView.swift in Sources */,
-				4760C0B9543F1FFA69D65DFD /* PairingToken.swift in Sources */,
 				9353C4801B1FB71E3BE45F6D /* ReconnectionManager.swift in Sources */,
 				9B7C16F921B38D875F4992FE /* RelayClient.swift in Sources */,
 				9D2828660D64E9CA3DA4A761 /* RemoteTerminalView.swift in Sources */,
 				FBB17DD48DEFE6CCD17ECF10 /* Session.swift in Sources */,
 				BE53C37AB16EAE2AE485F1C9 /* SessionDetailView.swift in Sources */,
-				EA89C1D657933030297F63E3 /* SessionListView.swift in Sources */,
 				B4A90BAC1E4FA5C3C5F6ABC2 /* TerminalHostView.swift in Sources */,
 				58B6E755F5454F63EAD134E9 /* TermpodApp.swift in Sources */,
 				541BC3CEAA6163577F965679 /* Transport.swift in Sources */,

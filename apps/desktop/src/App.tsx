@@ -306,11 +306,7 @@ export function App() {
         })}
       />
       <FullDiskAccessBanner />
-      <RelayStatus
-        status={activeRelay?.status ?? 'disconnected'}
-        viewers={activeRelay?.viewers ?? 0}
-        sessionId={activeRelay?.sessionId ?? null}
-      />
+      <RelayStatus status={activeRelay?.status ?? 'disconnected'} />
       <div className="terminal-area">
         {sessions.map((session) => (
           <TerminalPanel

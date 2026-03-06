@@ -2,8 +2,6 @@ import type { RelayStatus as RelayStatusType } from '../hooks/useRelayConnection
 
 interface RelayStatusProps {
   status: RelayStatusType;
-  viewers: number;
-  sessionId: string | null;
 }
 
 const STATUS_COLORS: Record<RelayStatusType, string> = {
@@ -14,19 +12,23 @@ const STATUS_COLORS: Record<RelayStatusType, string> = {
   error: '#e05050',
 };
 
-export function RelayStatus({ status, viewers, sessionId }: RelayStatusProps) {
-  const label = status === 'connected' && sessionId
-    ? `Sharing (${viewers} viewer${viewers !== 1 ? 's' : ''})`
-    : status;
+const STATUS_LABELS: Record<RelayStatusType, string> = {
+  disconnected: 'Offline',
+  connecting: 'Connecting',
+  reconnecting: 'Reconnecting',
+  connected: 'Connected',
+  error: 'Connection error',
+};
 
+export function RelayStatus({ status }: RelayStatusProps) {
   return (
-    <div className="relay-status" role="status" aria-live="polite" aria-label={`Connection: ${label}`}>
+    <div className="relay-status" role="status" aria-live="polite" aria-label={`Relay: ${STATUS_LABELS[status]}`}>
       <span
         className="relay-dot"
         style={{ backgroundColor: STATUS_COLORS[status] }}
         aria-hidden="true"
       />
-      <span className="relay-label">{label}</span>
+      <span className="relay-label">{STATUS_LABELS[status]}</span>
     </div>
   );
 }
