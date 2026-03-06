@@ -27,6 +27,7 @@ struct SessionListView: View {
                             }
                         }
                     }
+                    .animation(.default, value: appState.sessions.count)
                 }
             }
             .navigationTitle("Termpod")
@@ -57,9 +58,9 @@ struct SessionCard: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Circle()
-                .fill(session.isConnected ? Color.green : Color.orange)
-                .frame(width: 10, height: 10)
+            Image(systemName: statusIcon)
+                .foregroundStyle(statusColor)
+                .frame(width: 20)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(session.name)
@@ -71,21 +72,55 @@ struct SessionCard: View {
             }
 
             Spacer()
+
+            if session.connection.activeTransport != .relay {
+                Text(session.connection.activeTransport.label)
+                    .font(.caption2)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(transportColor.opacity(0.15))
+                    .foregroundColor(transportColor)
+                    .clipShape(Capsule())
+            }
         }
         .padding(.vertical, 4)
     }
 
-    private var stateLabel: String {
-        let transport = session.connection.activeTransport
-        let prefix = transport != .relay ? "[\(transport.label)] " : ""
+    private var statusIcon: String {
+        switch session.connection.state {
+        case .live: return "checkmark.circle.fill"
+        case .disconnected: return "xmark.circle"
+        case .reconnecting: return "arrow.trianglehead.2.clockwise.rotate.90"
+        default: return "circle.dotted"
+        }
+    }
 
+    private var statusColor: Color {
+        switch session.connection.state {
+        case .live: return .green
+        case .disconnected: return .red
+        case .reconnecting: return .orange
+        default: return .orange
+        }
+    }
+
+    private var transportColor: Color {
+        switch session.connection.activeTransport {
+        case .local: return .green
+        case .webrtc: return .blue
+        case .relay: return .orange
+        }
+    }
+
+    private var stateLabel: String {
         switch session.connection.state {
         case .disconnected: return "Disconnected"
         case .connecting: return "Connecting..."
         case .connected: return "Connected"
         case .loadingScrollback: return "Loading history..."
-        case .live: return "\(prefix)Live"
-        case .reconnecting(let attempt): return "Reconnecting (\(attempt))..."
+        case .live: return "Live"
+        case .reconnecting(let attempt):
+            return attempt > 5 ? "Reconnecting..." : "Reconnecting (\(attempt))..."
         }
     }
 }

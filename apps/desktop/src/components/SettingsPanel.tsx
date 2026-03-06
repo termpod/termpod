@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Settings } from '../hooks/useSettings';
 
 interface SettingsPanelProps {
@@ -25,12 +25,22 @@ const FONT_OPTIONS = [
 export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, email, onLogout }: SettingsPanelProps) {
   const [shellInput, setShellInput] = useState(settings.shellPath);
 
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
   return (
-    <div className="settings-overlay" onClick={onClose}>
-      <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="settings-header">
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-panel settings-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
           <span>Settings</span>
-          <button className="settings-close" onClick={onClose}>&times;</button>
+          <button className="modal-close" onClick={onClose} aria-label="Close">&times;</button>
         </div>
 
         <div className="settings-body">
@@ -104,15 +114,22 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
           </div>
         </div>
 
+        <div className="settings-divider" />
+
         <div className="settings-footer">
-          {email && onLogout && (
-            <button className="settings-reset" onClick={onLogout}>
-              Sign out ({email})
-            </button>
+          {email && (
+            <span className="settings-account" title={email}>{email}</span>
           )}
-          <button className="settings-reset" onClick={onReset}>
-            Reset to Defaults
-          </button>
+          <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+            {onLogout && (
+              <button className="btn-danger" onClick={onLogout}>
+                Sign Out
+              </button>
+            )}
+            <button className="btn-secondary" onClick={onReset}>
+              Reset Defaults
+            </button>
+          </div>
         </div>
       </div>
     </div>

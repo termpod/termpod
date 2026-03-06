@@ -35,8 +35,12 @@ struct DeviceListView: View {
                             Spacer()
                         }
                     } else if deviceService.devices.isEmpty {
-                        Text("No devices registered")
-                            .foregroundStyle(.secondary)
+                        ContentUnavailableView {
+                            Label("No Devices", systemImage: "desktopcomputer")
+                        } description: {
+                            Text("Open Termpod on your Mac to register a device.")
+                        }
+                        .listRowBackground(Color.clear)
                     } else {
                         ForEach(deviceService.devices) { device in
                             NavigationLink(destination: DeviceSessionsView(device: device)) {
@@ -46,6 +50,8 @@ struct DeviceListView: View {
                     }
                 }
             }
+            .animation(.default, value: appState.sessions.count)
+            .animation(.default, value: deviceService.devices.count)
             .navigationTitle("Termpod")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -109,9 +115,13 @@ struct DeviceRow: View {
                 Text(device.displayName)
                     .font(.headline)
 
-                Text(device.isOnline ? "Online" : "Offline")
-                    .font(.caption)
-                    .foregroundStyle(device.isOnline ? .green : .secondary)
+                HStack(spacing: 4) {
+                    Image(systemName: device.isOnline ? "checkmark.circle.fill" : "xmark.circle")
+                        .font(.caption2)
+                    Text(device.isOnline ? "Online" : "Offline")
+                        .font(.caption)
+                }
+                .foregroundStyle(device.isOnline ? .green : .secondary)
             }
 
             Spacer()

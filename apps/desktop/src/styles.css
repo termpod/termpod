@@ -1,3 +1,27 @@
+:root {
+  --bg-primary: #1a1b26;
+  --bg-secondary: #16161e;
+  --bg-elevated: #1f2335;
+  --bg-hover: #1e2030;
+  --border: #292e42;
+  --border-focus: #3d59a1;
+  --text-primary: #c0caf5;
+  --text-secondary: #a9b1d6;
+  --text-muted: #737aa2;
+  --accent: #7aa2f7;
+  --accent-hover: #89b4fa;
+  --error: #f7768e;
+  --success: #50c878;
+  --warning: #f0a030;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 12px;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Menlo', monospace;
+  --transition-fast: 0.12s ease;
+  --transition-normal: 0.2s ease;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -17,16 +41,16 @@ body,
   flex-direction: column;
   height: 100%;
   width: 100%;
-  background: #1a1b26;
+  background: var(--bg-primary);
 }
 
-/* Tab Bar */
+/* ── Tab Bar ── */
 .tab-bar {
   display: flex;
-  align-items: center;
-  background: #16161e;
-  border-bottom: 1px solid #292e42;
-  height: 36px;
+  align-items: end;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  height: 38px;
   flex-shrink: 0;
   padding-left: 8px;
 }
@@ -47,26 +71,40 @@ body,
   align-items: center;
   gap: 6px;
   padding: 0 12px;
-  height: 36px;
+  height: 34px;
   border: none;
   background: transparent;
-  color: #565f89;
+  color: var(--text-muted);
   font-size: 12px;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-sans);
   cursor: pointer;
   white-space: nowrap;
-  border-right: 1px solid #292e42;
+  border-right: 1px solid var(--border);
   -webkit-app-region: no-drag;
+  transition: color var(--transition-fast), background var(--transition-fast);
+  position: relative;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
 .tab:hover {
-  color: #a9b1d6;
-  background: #1a1b26;
+  color: var(--text-secondary);
+  background: var(--bg-hover);
 }
 
 .tab-active {
-  color: #c0caf5;
-  background: #1a1b26;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border-right-color: transparent;
+}
+
+.tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
 }
 
 .tab-exited {
@@ -83,12 +121,17 @@ body,
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
   line-height: 1;
   opacity: 0;
+  transition: opacity var(--transition-fast), background var(--transition-fast);
+}
+
+.tab-active .tab-close {
+  opacity: 0.5;
 }
 
 .tab:hover .tab-close {
@@ -97,7 +140,7 @@ body,
 
 .tab-close:hover {
   opacity: 1 !important;
-  background: #292e42;
+  background: var(--border);
 }
 
 .tab-new {
@@ -107,10 +150,11 @@ body,
   width: 28px;
   height: 28px;
   margin: 0 4px;
+  margin-bottom: 2px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: #565f89;
+  color: var(--text-muted);
   font-size: 18px;
   cursor: pointer;
   flex-shrink: 0;
@@ -118,39 +162,41 @@ body,
   app-region: no-drag;
   position: relative;
   z-index: 1;
+  transition: color var(--transition-fast), background var(--transition-fast);
 }
 
 .tab-new:hover {
-  color: #c0caf5;
-  background: #292e42;
+  color: var(--text-primary);
+  background: var(--border);
 }
 
-/* Relay Status */
+/* ── Relay Status ── */
 .relay-status {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 10px;
-  background: #16161e;
-  border-bottom: 1px solid #292e42;
+  padding: 3px 10px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .relay-share {
   margin-left: auto;
-  padding: 1px 8px;
-  border: 1px solid #292e42;
-  border-radius: 3px;
+  padding: 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: #565f89;
+  color: var(--text-muted);
   font-size: 11px;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-sans);
   cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
 }
 
 .relay-share:hover {
-  color: #c0caf5;
-  border-color: #3d59a1;
+  color: var(--text-primary);
+  border-color: var(--border-focus);
 }
 
 .relay-dot {
@@ -162,13 +208,33 @@ body,
 
 .relay-label {
   font-size: 11px;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  color: #565f89;
+  font-family: var(--font-sans);
+  color: var(--text-muted);
   text-transform: capitalize;
 }
 
-/* QR Pairing Modal */
-.qr-overlay {
+.relay-transport {
+  font-size: 10px;
+  font-family: var(--font-sans);
+  color: var(--accent);
+  background: rgba(122, 162, 247, 0.1);
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-left: 4px;
+}
+
+/* ── Modal Base ── */
+@keyframes modal-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
@@ -176,41 +242,52 @@ body,
   align-items: center;
   justify-content: center;
   z-index: 100;
+  animation: modal-overlay-in var(--transition-normal);
+  backdrop-filter: blur(2px);
 }
 
-.qr-modal {
-  background: #1a1b26;
-  border: 1px solid #292e42;
-  border-radius: 12px;
+.modal-panel {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: 20px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  min-width: 260px;
+  gap: 16px;
+  animation: modal-in 0.2s ease;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
-.qr-header {
+.modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
   font-size: 14px;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  color: #c0caf5;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
 }
 
-.qr-close {
+.modal-close {
   background: none;
   border: none;
-  color: #565f89;
+  color: var(--text-muted);
   font-size: 20px;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background var(--transition-fast);
 }
 
-.qr-close:hover {
-  color: #c0caf5;
+.modal-close:hover {
+  color: var(--text-primary);
+  background: var(--border);
+}
+
+/* ── QR Pairing Modal ── */
+.qr-modal {
+  min-width: 260px;
+  align-items: center;
 }
 
 .qr-canvas {
@@ -219,8 +296,8 @@ body,
 
 .qr-hint {
   font-size: 12px;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  color: #565f89;
+  font-family: var(--font-sans);
+  color: var(--text-muted);
 }
 
 .qr-session-id {
@@ -228,15 +305,15 @@ body,
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  background: #16161e;
-  border-radius: 6px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
   width: 100%;
 }
 
 .qr-session-id code {
   flex: 1;
   font-size: 10px;
-  color: #565f89;
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -244,126 +321,25 @@ body,
 
 .qr-copy {
   padding: 2px 8px;
-  border: 1px solid #292e42;
-  border-radius: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: #565f89;
+  color: var(--text-muted);
   font-size: 11px;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-sans);
   cursor: pointer;
   flex-shrink: 0;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
 }
 
 .qr-copy:hover {
-  color: #c0caf5;
-  border-color: #3d59a1;
+  color: var(--text-primary);
+  border-color: var(--border-focus);
 }
 
-/* Terminal Area */
-.terminal-area {
-  position: relative;
-  flex: 1;
-  overflow: hidden;
-}
-
-.terminal-panel {
-  position: absolute;
-  inset: 0;
-}
-
-/* Terminal Search Bar */
-.terminal-search-bar {
-  position: absolute;
-  top: 4px;
-  right: 16px;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  background: #1f2335;
-  border: 1px solid #3d59a1;
-  border-radius: 6px;
-  padding: 4px 6px;
-  z-index: 10;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-}
-
-.terminal-search-input {
-  width: 200px;
-  padding: 3px 8px;
-  border: none;
-  border-radius: 3px;
-  background: #16161e;
-  color: #c0caf5;
-  font-size: 13px;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  outline: none;
-}
-
-.terminal-search-input::placeholder {
-  color: #565f89;
-}
-
-.terminal-search-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: 3px;
-  background: transparent;
-  color: #565f89;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.terminal-search-btn:hover {
-  color: #c0caf5;
-  background: #292e42;
-}
-
-/* Settings Panel */
-.settings-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
+/* ── Settings Modal ── */
 .settings-modal {
-  background: #1a1b26;
-  border: 1px solid #292e42;
-  border-radius: 12px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
   width: 360px;
-}
-
-.settings-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 14px;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  color: #c0caf5;
-}
-
-.settings-close {
-  background: none;
-  border: none;
-  color: #565f89;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 0 4px;
-}
-
-.settings-close:hover {
-  color: #c0caf5;
 }
 
 .settings-body {
@@ -380,8 +356,8 @@ body,
 
 .settings-label {
   font-size: 11px;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  color: #565f89;
+  font-family: var(--font-sans);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -394,8 +370,8 @@ body,
 
 .settings-value {
   font-size: 12px;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  color: #a9b1d6;
+  font-family: var(--font-sans);
+  color: var(--text-secondary);
   min-width: 50px;
   text-align: right;
 }
@@ -405,7 +381,7 @@ body,
   -webkit-appearance: none;
   appearance: none;
   height: 4px;
-  background: #292e42;
+  background: var(--border);
   border-radius: 2px;
   outline: none;
 }
@@ -416,74 +392,176 @@ body,
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #7aa2f7;
+  background: var(--accent);
   cursor: pointer;
+  transition: background var(--transition-fast);
 }
 
 .settings-range::-webkit-slider-thumb:hover {
-  background: #89b4fa;
+  background: var(--accent-hover);
 }
 
 .settings-select {
   padding: 6px 10px;
-  border: 1px solid #292e42;
-  border-radius: 6px;
-  background: #16161e;
-  color: #c0caf5;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   font-size: 13px;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-sans);
   outline: none;
   cursor: pointer;
+  transition: border-color var(--transition-fast);
 }
 
 .settings-select:focus {
-  border-color: #3d59a1;
+  border-color: var(--border-focus);
 }
 
 .settings-input {
   padding: 6px 10px;
-  border: 1px solid #292e42;
-  border-radius: 6px;
-  background: #16161e;
-  color: #c0caf5;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   font-size: 13px;
-  font-family: 'Menlo', monospace;
+  font-family: var(--font-mono);
   outline: none;
+  transition: border-color var(--transition-fast);
 }
 
 .settings-input:focus {
-  border-color: #3d59a1;
+  border-color: var(--border-focus);
+}
+
+.settings-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 2px 0;
 }
 
 .settings-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
 }
 
-.settings-reset {
+.settings-account {
+  font-size: 11px;
+  font-family: var(--font-sans);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.btn-secondary {
   padding: 4px 12px;
-  border: 1px solid #292e42;
-  border-radius: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: #565f89;
+  color: var(--text-muted);
   font-size: 12px;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-sans);
   cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
 }
 
-.settings-reset:hover {
-  color: #c0caf5;
-  border-color: #3d59a1;
+.btn-secondary:hover {
+  color: var(--text-primary);
+  border-color: var(--border-focus);
 }
 
-/* Login Screen */
+.btn-danger {
+  padding: 4px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--error);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.btn-danger:hover {
+  background: rgba(247, 118, 142, 0.1);
+}
+
+/* ── Terminal Area ── */
+.terminal-area {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+
+.terminal-panel {
+  position: absolute;
+  inset: 0;
+}
+
+/* ── Terminal Search Bar ── */
+.terminal-search-bar {
+  position: absolute;
+  top: 4px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-md);
+  padding: 4px 6px;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.terminal-search-input {
+  width: 200px;
+  padding: 3px 8px;
+  border: none;
+  border-radius: 3px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  outline: none;
+}
+
+.terminal-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.terminal-search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.terminal-search-btn:hover {
+  color: var(--text-primary);
+  background: var(--border);
+}
+
+/* ── Login Screen ── */
 .login-screen {
   display: flex;
   align-items: center;
   justify-content: center;
   height: 100%;
   width: 100%;
-  background: #1a1b26;
+  background: var(--bg-primary);
 }
 
 .login-card {
@@ -491,21 +569,29 @@ body,
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  padding: 32px;
-  width: 320px;
+  padding: 40px;
+  width: 340px;
+  animation: modal-in 0.3s ease;
+}
+
+.login-icon {
+  font-size: 40px;
+  margin-bottom: -4px;
 }
 
 .login-title {
   font-size: 24px;
   font-weight: 700;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  color: #c0caf5;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
 }
 
 .login-subtitle {
   font-size: 13px;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  color: #565f89;
+  font-family: var(--font-sans);
+  color: var(--text-muted);
+  margin-top: -8px;
 }
 
 .login-form {
@@ -516,62 +602,119 @@ body,
 }
 
 .login-input {
-  padding: 8px 12px;
-  border: 1px solid #292e42;
-  border-radius: 6px;
-  background: #16161e;
-  color: #c0caf5;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   font-size: 13px;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-sans);
   outline: none;
+  transition: border-color var(--transition-fast);
 }
 
 .login-input:focus {
-  border-color: #3d59a1;
+  border-color: var(--border-focus);
 }
 
 .login-input::placeholder {
-  color: #565f89;
+  color: var(--text-muted);
+}
+
+.login-input-error {
+  border-color: var(--error);
+}
+
+.login-hint {
+  font-size: 11px;
+  font-family: var(--font-sans);
+  color: var(--text-muted);
+  margin-top: -4px;
 }
 
 .login-error {
   font-size: 12px;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  color: #f7768e;
+  font-family: var(--font-sans);
+  color: var(--error);
   text-align: center;
 }
 
 .login-button {
-  padding: 8px 16px;
+  padding: 10px 16px;
   border: none;
-  border-radius: 6px;
-  background: #7aa2f7;
-  color: #1a1b26;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--bg-primary);
   font-size: 13px;
   font-weight: 600;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-sans);
   cursor: pointer;
   margin-top: 4px;
+  transition: background var(--transition-fast);
+  position: relative;
 }
 
-.login-button:hover {
-  background: #89b4fa;
+.login-button:hover:not(:disabled) {
+  background: var(--accent-hover);
 }
 
 .login-button:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: default;
+}
+
+.login-button-loading {
+  color: transparent;
+}
+
+.login-spinner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-spinner::after {
+  content: '';
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(26, 27, 38, 0.3);
+  border-top-color: var(--bg-primary);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .login-switch {
   border: none;
   background: none;
-  color: #565f89;
+  color: var(--text-muted);
   font-size: 12px;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-sans);
   cursor: pointer;
+  transition: color var(--transition-fast);
 }
 
 .login-switch:hover {
-  color: #7aa2f7;
+  color: var(--accent);
+}
+
+/* ── Focus & Accessibility ── */
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
+
+input:focus-visible {
+  outline: none;
+  border-color: var(--border-focus);
 }

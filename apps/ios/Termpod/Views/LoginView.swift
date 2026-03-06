@@ -11,6 +11,10 @@ struct LoginView: View {
         VStack(spacing: 24) {
             Spacer()
 
+            Image(systemName: "terminal")
+                .font(.system(size: 48))
+                .foregroundStyle(.tint)
+
             Text("Termpod")
                 .font(.largeTitle)
                 .fontWeight(.bold)
@@ -31,10 +35,18 @@ struct LoginView: View {
                     .textContentType(isSignup ? .newPassword : .password)
                     .textFieldStyle(.roundedBorder)
 
+                if isSignup {
+                    Text("Minimum 8 characters")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
                 if let error = auth.error {
                     Text(error)
                         .font(.caption)
                         .foregroundStyle(.red)
+                        .transition(.opacity)
                 }
 
                 Button {
@@ -60,8 +72,10 @@ struct LoginView: View {
             .padding(.horizontal, 32)
 
             Button {
-                isSignup.toggle()
-                auth.error = nil
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isSignup.toggle()
+                    auth.error = nil
+                }
             } label: {
                 Text(isSignup ? "Already have an account? Sign in" : "Don't have an account? Sign up")
                     .font(.footnote)

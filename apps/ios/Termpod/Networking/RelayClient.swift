@@ -35,6 +35,15 @@ final class RelayClient: ObservableObject, Transport {
         case loadingScrollback
         case live
         case reconnecting(attempt: Int)
+
+        var isTransient: Bool {
+            switch self {
+            case .connecting, .loadingScrollback, .reconnecting:
+                return true
+            default:
+                return false
+            }
+        }
     }
 
     // MARK: - Connection

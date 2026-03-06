@@ -8,39 +8,24 @@ struct PairingScannerView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var errorMessage: String?
+    @State private var cameraPermission: AVAuthorizationStatus = AVCaptureDevice.authorizationStatus(for: .video)
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                QRScannerRepresentable { scannedString in
-                    if let token = PairingToken(from: scannedString) {
-                        onPaired(token)
-                    } else {
-                        errorMessage = "Invalid QR code. Open Termpod on your Mac and scan the pairing code."
-                    }
-                }
-                .ignoresSafeArea()
+            Group {
+                switch cameraPermission {
+                case .authorized:
+                    scannerContent
 
-                VStack {
-                    Spacer()
+                case .notDetermined:
+                    ProgressView("Requesting camera access...")
+                        .task {
+                            let granted = await AVCaptureDevice.requestAccess(for: .video)
+                            cameraPermission = granted ? .authorized : .denied
+                        }
 
-                    if let errorMessage {
-                        Text(errorMessage)
-                            .font(.callout)
-                            .foregroundColor(.white)
-                            .padding()
-                            .background(.ultraThinMaterial)
-                            .cornerRadius(12)
-                            .padding()
-                    }
-
-                    Text("Point your camera at the QR code on your Mac")
-                        .font(.callout)
-                        .foregroundColor(.white)
-                        .padding()
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(12)
-                        .padding(.bottom, 40)
+                default:
+                    cameraPermissionDenied
                 }
             }
             .navigationTitle("Scan QR Code")
@@ -52,6 +37,58 @@ struct PairingScannerView: View {
                     }
                 }
             }
+        }
+    }
+
+    private var scannerContent: some View {
+        ZStack {
+            QRScannerRepresentable { scannedString in
+                if let token = PairingToken(from: scannedString) {
+                    HapticService.shared.playTap()
+                    onPaired(token)
+                } else {
+                    errorMessage = "Invalid QR code. Open Termpod on your Mac and scan the pairing code."
+                }
+            }
+            .ignoresSafeArea()
+
+            VStack {
+                Spacer()
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.callout)
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(12)
+                        .padding()
+                        .transition(.opacity)
+                }
+
+                Text("Point your camera at the QR code on your Mac")
+                    .font(.callout)
+                    .foregroundColor(.white)
+                    .padding()
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(12)
+                    .padding(.bottom, 40)
+            }
+        }
+    }
+
+    private var cameraPermissionDenied: some View {
+        ContentUnavailableView {
+            Label("Camera Access Required", systemImage: "camera.fill")
+        } description: {
+            Text("Termpod needs camera access to scan QR codes. Enable it in Settings.")
+        } actions: {
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            .buttonStyle(.borderedProminent)
         }
     }
 }

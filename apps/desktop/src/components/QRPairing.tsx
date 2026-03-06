@@ -27,6 +27,16 @@ export function QRPairing({ sessionId, onClose }: QRPairingProps) {
     });
   }, [pairingUrl]);
 
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
   const handleCopy = () => {
     if (sessionId) {
       navigator.clipboard.writeText(sessionId);
@@ -40,11 +50,11 @@ export function QRPairing({ sessionId, onClose }: QRPairingProps) {
   }
 
   return (
-    <div className="qr-overlay" onClick={onClose}>
-      <div className="qr-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="qr-header">
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-panel qr-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
           <span>Share Session</span>
-          <button className="qr-close" onClick={onClose}>&times;</button>
+          <button className="modal-close" onClick={onClose} aria-label="Close">&times;</button>
         </div>
         <canvas ref={canvasRef} className="qr-canvas" />
         <p className="qr-hint">Scan with Termpod mobile to connect</p>

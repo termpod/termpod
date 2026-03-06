@@ -12,13 +12,10 @@ struct DeviceSessionsView: View {
     @State private var joinedSession: Session?
 
     var body: some View {
-        List {
+        Group {
             if loading {
-                HStack {
-                    Spacer()
-                    ProgressView()
-                    Spacer()
-                }
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if sessions.isEmpty {
                 ContentUnavailableView(
                     "No Sessions",
@@ -26,37 +23,40 @@ struct DeviceSessionsView: View {
                     description: Text("This device has no active terminal sessions.")
                 )
             } else {
-                ForEach(sessions) { session in
-                    Button {
-                        joinSession(session)
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: "terminal")
-                                .foregroundStyle(.blue)
+                List {
+                    ForEach(sessions) { session in
+                        Button {
+                            joinSession(session)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "terminal")
+                                    .foregroundStyle(.blue)
 
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(session.name)
-                                    .font(.headline)
-                                    .foregroundStyle(.primary)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(session.name)
+                                        .font(.headline)
+                                        .foregroundStyle(.primary)
 
-                                Text(session.cwd)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
+                                    Text(session.cwd)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+
+                                Spacer()
+
+                                Text("\(session.ptyCols)x\(session.ptyRows)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                    .monospacedDigit()
                             }
-
-                            Spacer()
-
-                            Text("\(session.ptyCols)x\(session.ptyRows)")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                                .monospacedDigit()
+                            .padding(.vertical, 4)
                         }
-                        .padding(.vertical, 4)
                     }
                 }
             }
         }
+        .animation(.default, value: sessions.count)
         .navigationTitle(device.displayName)
         .navigationDestination(item: $joinedSession) { session in
             SessionDetailView(session: session)
@@ -77,6 +77,8 @@ struct DeviceSessionsView: View {
 
     private func joinSession(_ session: DeviceService.DeviceSession) {
         guard let wsURL = auth.authenticatedWSURL(sessionId: session.id) else { return }
+
+        HapticService.shared.playTap()
 
         let connection = ConnectionManager(sessionId: session.id)
         let newSession = Session(

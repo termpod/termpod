@@ -23,7 +23,7 @@ export function TabBar({ sessions, activeId, onSelect, onClose, onCreate }: TabB
           />
         ))}
       </div>
-      <button className="tab-new" onClick={onCreate} type="button" title="New session (Cmd+T)">
+      <button className="tab-new" onClick={onCreate} type="button" aria-label="New session (Cmd+T)" title="New session (Cmd+T)">
         +
       </button>
     </div>
@@ -53,7 +53,13 @@ function Tab({ session, isActive, onSelect, onClose }: TabProps) {
       type="button"
     >
       <span className="tab-name">{session.name}</span>
-      <span className="tab-close" onClick={handleClose} role="button" tabIndex={-1}>
+      <span
+        className="tab-close"
+        onClick={handleClose}
+        role="button"
+        tabIndex={0}
+        aria-label={`Close ${session.name}`}
+      >
         &times;
       </span>
     </button>
