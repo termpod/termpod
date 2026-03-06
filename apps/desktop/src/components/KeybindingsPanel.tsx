@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useKeybindings, formatShortcut, eventToShortcut, DEFAULT_KEYBINDINGS } from '../hooks/useKeybindings';
+import { useKeybindings, formatShortcut, eventToShortcut, DEFAULT_KEYBINDINGS, CATEGORIES } from '../hooks/useKeybindings';
 
 interface KeybindingsPanelProps {
   onClose: () => void;
@@ -75,54 +75,64 @@ export function KeybindingsPanel({ onClose }: KeybindingsPanelProps) {
         </div>
 
         <div className="kb-list">
-          {bindings.map((kb) => (
-            <div
-              key={kb.id}
-              className={`kb-row ${recordingId === kb.id ? 'kb-row-recording' : ''}`}
-            >
-              <span className="kb-label">{kb.label}</span>
+          {CATEGORIES.map((category) => {
+            const categoryBindings = bindings.filter((kb) => kb.category === category);
+            if (categoryBindings.length === 0) return null;
 
-              <div className="kb-shortcut-area">
-                {recordingId === kb.id ? (
-                  <div className="kb-recording">
-                    <span className="kb-recording-text">
-                      {pendingShortcut
-                        ? formatShortcut(pendingShortcut)
-                        : 'Press shortcut...'}
-                    </span>
-                    {conflict && (
-                      <span className="kb-conflict">
-                        Already used by {conflict}
-                      </span>
-                    )}
+            return (
+              <div key={category}>
+                <div className="kb-category-header">{category}</div>
+                {categoryBindings.map((kb) => (
+                  <div
+                    key={kb.id}
+                    className={`kb-row ${recordingId === kb.id ? 'kb-row-recording' : ''}`}
+                  >
+                    <span className="kb-label">{kb.label}</span>
+
+                    <div className="kb-shortcut-area">
+                      {recordingId === kb.id ? (
+                        <div className="kb-recording">
+                          <span className="kb-recording-text">
+                            {pendingShortcut
+                              ? formatShortcut(pendingShortcut)
+                              : 'Press shortcut...'}
+                          </span>
+                          {conflict && (
+                            <span className="kb-conflict">
+                              Already used by {conflict}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <button
+                          className="kb-shortcut-btn"
+                          onClick={() => {
+                            setRecordingId(kb.id);
+                            setPendingShortcut(null);
+                            setConflict(null);
+                          }}
+                          title="Click to reassign"
+                        >
+                          <kbd className="kb-kbd">{formatShortcut(kb.shortcut)}</kbd>
+                        </button>
+                      )}
+
+                      {kb.isCustom && recordingId !== kb.id && (
+                        <button
+                          className="kb-reset-btn"
+                          onClick={() => resetBinding(kb.id)}
+                          title={`Reset to ${formatShortcut(getDefault(kb.id))}`}
+                          aria-label={`Reset ${kb.label} to default`}
+                        >
+                          ↺
+                        </button>
+                      )}
+                    </div>
                   </div>
-                ) : (
-                  <button
-                    className="kb-shortcut-btn"
-                    onClick={() => {
-                      setRecordingId(kb.id);
-                      setPendingShortcut(null);
-                      setConflict(null);
-                    }}
-                    title="Click to reassign"
-                  >
-                    <kbd className="kb-kbd">{formatShortcut(kb.shortcut)}</kbd>
-                  </button>
-                )}
-
-                {kb.isCustom && recordingId !== kb.id && (
-                  <button
-                    className="kb-reset-btn"
-                    onClick={() => resetBinding(kb.id)}
-                    title={`Reset to ${formatShortcut(getDefault(kb.id))}`}
-                    aria-label={`Reset ${kb.label} to default`}
-                  >
-                    ↺
-                  </button>
-                )}
+                ))}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="kb-footer">

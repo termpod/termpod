@@ -385,7 +385,7 @@ function mix(hex1: string, hex2: string, weight: number): string {
   return rgbToHex(r1 * w + r2 * (1 - w), g1 * w + g2 * (1 - w), b1 * w + b2 * (1 - w));
 }
 
-function isLightColor(hex: string): boolean {
+export function isLightColor(hex: string): boolean {
   const [r, g, b] = hexToRgb(hex);
   return (r * 299 + g * 587 + b * 114) / 1000 > 128;
 }

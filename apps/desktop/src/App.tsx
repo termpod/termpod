@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow, Effect, EffectState } from '@tauri-apps/api/window';
 import { useSessionManager } from './hooks/useSessionManager';
-import { useSettings, THEMES, themeToAppStyles } from './hooks/useSettings';
+import { useSettings, THEMES, themeToAppStyles, isLightColor } from './hooks/useSettings';
 import type { BlurStyle } from './hooks/useSettings';
 import { useAuth } from './hooks/useAuth';
 import { useDevice } from './hooks/useDevice';
@@ -14,6 +14,7 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { LoginScreen } from './components/LoginScreen';
 import { FullDiskAccessBanner } from './components/FullDiskAccessBanner';
 import { KeybindingsPanel } from './components/KeybindingsPanel';
+import { CommandPalette } from './components/CommandPalette';
 import { useKeybindings, matchesShortcut } from './hooks/useKeybindings';
 
 export function App() {
@@ -107,6 +108,7 @@ export function App() {
 
   const [showSettings, setShowSettings] = useState(false);
   const [showKeybindings, setShowKeybindings] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
   const { bindings } = useKeybindings();
   const initializedRef = useRef(false);
   const [relayMap, setRelayMap] = useState<Map<string, RelayInfo>>(new Map());
@@ -200,9 +202,32 @@ export function App() {
         }
         break;
 
+      case 'duplicate_tab':
+        createSession({
+          shell: settings.shellPath,
+          cwd: activeSession?.cwd,
+        });
+        break;
+
+      case 'close_other_tabs':
+        if (activeId) {
+          const toClose = sessions.filter((s) => s.id !== activeId);
+          for (const s of toClose) {
+            handleCloseSession(s.id);
+          }
+        }
+        break;
+
       case 'clear':
         if (activeSession) {
           activeSession.termRef.current?.clear();
+        }
+        break;
+
+      case 'clear_screen':
+        if (activeSession) {
+          // Send form-feed (Ctrl+L equivalent) to shell for soft clear
+          activeSession.pty.write('\x0c');
         }
         break;
 
@@ -210,6 +235,52 @@ export function App() {
         if (activeSession) {
           activeSession.termRef.current?.openSearch();
         }
+        break;
+
+      case 'find_next':
+        if (activeSession) {
+          activeSession.termRef.current?.findNext();
+        }
+        break;
+
+      case 'find_prev':
+        if (activeSession) {
+          activeSession.termRef.current?.findPrevious();
+        }
+        break;
+
+      case 'select_all':
+        if (activeSession) {
+          activeSession.termRef.current?.selectAll();
+        }
+        break;
+
+      case 'zoom_in':
+        updateSettings({ fontSize: Math.min(settings.fontSize + 1, 32) });
+        break;
+
+      case 'zoom_out':
+        updateSettings({ fontSize: Math.max(settings.fontSize - 1, 8) });
+        break;
+
+      case 'zoom_reset':
+        updateSettings({ fontSize: settingsDefaults.fontSize });
+        break;
+
+      case 'scroll_top':
+        if (activeSession) {
+          activeSession.termRef.current?.scrollToTop();
+        }
+        break;
+
+      case 'scroll_bottom':
+        if (activeSession) {
+          activeSession.termRef.current?.scrollToBottom();
+        }
+        break;
+
+      case 'command_palette':
+        setShowCommandPalette((v) => !v);
         break;
 
       case 'settings':
@@ -265,29 +336,58 @@ export function App() {
   }, []);
 
   // JS-level keybinding listener for custom shortcuts
+  // Use capture phase so we intercept before xterm processes keys
   const bindingsRef = useRef(bindings);
   bindingsRef.current = bindings;
 
+  // Shortcuts that should fire even when a text input is focused
+  const GLOBAL_SHORTCUT_IDS = new Set([
+    'new_tab', 'close_tab', 'duplicate_tab', 'next_tab', 'prev_tab',
+    'close_other_tabs', 'command_palette', 'settings', 'keybindings',
+    'zoom_in', 'zoom_out', 'zoom_reset', 'find',
+  ]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const inInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+
       for (const kb of bindingsRef.current) {
         if (matchesShortcut(e, kb.shortcut)) {
+          // Skip terminal-only shortcuts when user is typing in an input
+          if (inInput && !GLOBAL_SHORTCUT_IDS.has(kb.id)) {
+            return;
+          }
+
           e.preventDefault();
+          e.stopPropagation();
           menuHandlerRef.current(kb.id);
           return;
         }
       }
     };
 
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
   }, []);
 
   const opacity = settings.backgroundOpacity;
+  const baseTheme = THEMES[settings.theme] ?? THEMES['tokyo-night'];
   const appThemeStyles = useMemo(
-    () => themeToAppStyles(THEMES[settings.theme] ?? THEMES['tokyo-night'], opacity),
+    () => themeToAppStyles(baseTheme, opacity),
     [settings.theme, opacity],
   );
+
+  const terminalTheme = useMemo(() => {
+    const light = isLightColor(baseTheme.background);
+    const c = light ? '0, 0, 0' : '255, 255, 255';
+    return {
+      ...baseTheme,
+      scrollbarSliderBackground: `rgba(${c}, 0.12)`,
+      scrollbarSliderHoverBackground: `rgba(${c}, 0.25)`,
+      scrollbarSliderActiveBackground: `rgba(${c}, 0.35)`,
+    };
+  }, [settings.theme]);
 
   // Apply/remove macOS vibrancy effect
   useEffect(() => {
@@ -348,7 +448,7 @@ export function App() {
             cursorStyle={settings.cursorStyle}
             cursorBlink={settings.cursorBlink}
             lineHeight={settings.lineHeight}
-            theme={THEMES[settings.theme]}
+            theme={terminalTheme}
             bellEnabled={settings.bellEnabled}
             backgroundOpacity={settings.backgroundOpacity}
             onRelayChange={(info) => handleRelayChange(session.id, info)}
@@ -381,6 +481,12 @@ export function App() {
       )}
       {showKeybindings && (
         <KeybindingsPanel onClose={() => { setShowKeybindings(false); setTimeout(focusActive, 50); }} />
+      )}
+      {showCommandPalette && (
+        <CommandPalette
+          onClose={() => { setShowCommandPalette(false); setTimeout(focusActive, 50); }}
+          onExecute={(id) => { setShowCommandPalette(false); menuHandlerRef.current(id); }}
+        />
       )}
     </div>
   );

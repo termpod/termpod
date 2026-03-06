@@ -16,6 +16,11 @@ export interface TerminalHandle {
   fit: () => void;
   openSearch: () => void;
   closeSearch: () => void;
+  findNext: () => void;
+  findPrevious: () => void;
+  scrollToTop: () => void;
+  scrollToBottom: () => void;
+  selectAll: () => void;
   readonly cols: number;
   readonly rows: number;
 }
@@ -41,6 +46,9 @@ export interface TerminalThemeColors {
   brightMagenta?: string;
   brightCyan?: string;
   brightWhite?: string;
+  scrollbarSliderBackground?: string;
+  scrollbarSliderHoverBackground?: string;
+  scrollbarSliderActiveBackground?: string;
 }
 
 export interface TerminalProps {
@@ -94,6 +102,9 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     const onReadyRef = useRef(onReady);
     onReadyRef.current = onReady;
 
+    const searchQueryRef = useRef(searchQuery);
+    searchQueryRef.current = searchQuery;
+
     useImperativeHandle(ref, () => ({
       write: (data: string | Uint8Array) => {
         terminalRef.current?.write(data);
@@ -119,6 +130,25 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         searchAddonRef.current?.clearDecorations();
         setSearchQuery('');
         terminalRef.current?.focus();
+      },
+      findNext: () => {
+        if (searchQueryRef.current && searchAddonRef.current) {
+          searchAddonRef.current.findNext(searchQueryRef.current, { decorations: SEARCH_DECORATIONS });
+        }
+      },
+      findPrevious: () => {
+        if (searchQueryRef.current && searchAddonRef.current) {
+          searchAddonRef.current.findPrevious(searchQueryRef.current, { decorations: SEARCH_DECORATIONS });
+        }
+      },
+      scrollToTop: () => {
+        terminalRef.current?.scrollToTop();
+      },
+      scrollToBottom: () => {
+        terminalRef.current?.scrollToBottom();
+      },
+      selectAll: () => {
+        terminalRef.current?.selectAll();
       },
       get cols() {
         return terminalRef.current?.cols ?? 120;

@@ -77,12 +77,48 @@ pub fn run() {
                 tab_items.push(item);
             }
 
-            let clear = MenuItemBuilder::with_id("clear", "Clear")
+            let duplicate_tab = MenuItemBuilder::with_id("duplicate_tab", "Duplicate Tab")
+                .accelerator("CmdOrCtrl+Shift+T")
+                .build(app)?;
+
+            let close_other_tabs = MenuItemBuilder::with_id("close_other_tabs", "Close Other Tabs")
+                .accelerator("CmdOrCtrl+Alt+W")
+                .build(app)?;
+
+            let clear = MenuItemBuilder::with_id("clear", "Clear Scrollback")
                 .accelerator("CmdOrCtrl+K")
+                .build(app)?;
+
+            let clear_screen = MenuItemBuilder::with_id("clear_screen", "Clear Screen")
+                .accelerator("CmdOrCtrl+L")
                 .build(app)?;
 
             let find = MenuItemBuilder::with_id("find", "Find...")
                 .accelerator("CmdOrCtrl+F")
+                .build(app)?;
+
+            let find_next = MenuItemBuilder::with_id("find_next", "Find Next")
+                .accelerator("CmdOrCtrl+G")
+                .build(app)?;
+
+            let find_prev = MenuItemBuilder::with_id("find_prev", "Find Previous")
+                .accelerator("CmdOrCtrl+Shift+G")
+                .build(app)?;
+
+            let zoom_in = MenuItemBuilder::with_id("zoom_in", "Zoom In")
+                .accelerator("CmdOrCtrl+=")
+                .build(app)?;
+
+            let zoom_out = MenuItemBuilder::with_id("zoom_out", "Zoom Out")
+                .accelerator("CmdOrCtrl+-")
+                .build(app)?;
+
+            let zoom_reset = MenuItemBuilder::with_id("zoom_reset", "Reset Zoom")
+                .accelerator("CmdOrCtrl+0")
+                .build(app)?;
+
+            let command_palette = MenuItemBuilder::with_id("command_palette", "Command Palette...")
+                .accelerator("CmdOrCtrl+Shift+P")
                 .build(app)?;
 
             let settings = MenuItemBuilder::with_id("settings", "Settings...")
@@ -90,6 +126,7 @@ pub fn run() {
                 .build(app)?;
 
             let keybindings = MenuItemBuilder::with_id("keybindings", "Keyboard Shortcuts...")
+                .accelerator("CmdOrCtrl+Shift+,")
                 .build(app)?;
 
             let edit_menu = SubmenuBuilder::new(app, "Edit")
@@ -102,12 +139,24 @@ pub fn run() {
                 .select_all()
                 .separator()
                 .item(&find)
+                .item(&find_next)
+                .item(&find_prev)
+                .separator()
+                .item(&clear_screen)
                 .item(&clear)
+                .build()?;
+
+            let view_menu = SubmenuBuilder::new(app, "View")
+                .item(&zoom_in)
+                .item(&zoom_out)
+                .item(&zoom_reset)
                 .build()?;
 
             let mut session_menu = SubmenuBuilder::new(app, "Session")
                 .item(&new_tab)
+                .item(&duplicate_tab)
                 .item(&close_tab)
+                .item(&close_other_tabs)
                 .separator()
                 .item(&next_tab)
                 .item(&prev_tab)
@@ -126,9 +175,12 @@ pub fn run() {
                     .item(&settings)
                     .item(&keybindings)
                     .separator()
+                    .item(&command_palette)
+                    .separator()
                     .quit()
                     .build()?)
                 .item(&edit_menu)
+                .item(&view_menu)
                 .item(&session_menu)
                 .build()?;
 

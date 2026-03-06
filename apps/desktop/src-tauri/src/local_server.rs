@@ -13,10 +13,10 @@ use tokio_tungstenite::tungstenite::Message;
 
 #[derive(Clone)]
 struct Client {
-    id: String,
+    _id: String,
     session_id: Option<String>,
     role: String,
-    device: String,
+    _device: String,
     tx: mpsc::UnboundedSender<Message>,
 }
 
@@ -292,10 +292,10 @@ async fn handle_connection(
                         let cid = hello.client_id.clone();
 
                         let client = Client {
-                            id: cid.clone(),
+                            _id: cid.clone(),
                             session_id: hello.session_id.clone(),
                             role: hello.role.clone(),
-                            device: hello.device.clone(),
+                            _device: hello.device.clone(),
                             tx: tx.clone(),
                         };
 
