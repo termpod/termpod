@@ -50,13 +50,12 @@ body,
 /* ── Tab Bar ── */
 .tab-bar {
   display: flex;
-  align-items: end;
+  align-items: center;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
-  height: 52px;
+  height: 44px;
   flex-shrink: 0;
   padding-left: 78px;
-  padding-top: 14px;
   -webkit-app-region: drag;
   app-region: drag;
 }
@@ -64,6 +63,7 @@ body,
 .tabs {
   display: flex;
   flex: 1;
+  align-items: center;
   overflow-x: auto;
   -webkit-app-region: no-drag;
   app-region: no-drag;
@@ -78,7 +78,7 @@ body,
   align-items: center;
   gap: 6px;
   padding: 0 12px;
-  height: 34px;
+  height: 30px;
   border: none;
   background: transparent;
   color: var(--text-muted);
@@ -86,11 +86,10 @@ body,
   font-family: var(--font-sans);
   cursor: pointer;
   white-space: nowrap;
-  border-right: 1px solid var(--border);
   -webkit-app-region: no-drag;
   transition: color var(--transition-fast), background var(--transition-fast);
   position: relative;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border-radius: var(--radius-sm);
 }
 
 .tab:hover {
@@ -101,17 +100,6 @@ body,
 .tab-active {
   color: var(--text-primary);
   background: var(--bg-primary);
-  border-right-color: transparent;
-}
-
-.tab-active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--accent);
 }
 
 .tab-exited {
@@ -157,7 +145,6 @@ body,
   width: 28px;
   height: 28px;
   margin: 0 4px;
-  margin-bottom: 2px;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
