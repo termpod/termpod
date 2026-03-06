@@ -104,6 +104,11 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
         .to_string();
     let service_name = format!("Termpod-{hostname}");
 
+    // Kill any stale dns-sd processes from previous runs
+    let _ = std::process::Command::new("pkill")
+        .args(["-f", "dns-sd -R .* _termpod._tcp"])
+        .output();
+
     eprintln!("[LocalServer] Registering mDNS via dns-sd: {} on port {}", service_name, port);
 
     let dns_sd_process = std::process::Command::new("dns-sd")
@@ -113,7 +118,7 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
         .spawn()
         .map_err(|e| format!("Failed to start dns-sd: {e}"))?;
 
-    eprintln!("[LocalServer] dns-sd process started (pid: {})", dns_sd_process.id());
+    eprintln!("[LocalServer] dns-sd process started (pid: {}) on port {}", dns_sd_process.id(), port);
 
     let clients_clone = clients.clone();
     let app_clone = app.clone();
