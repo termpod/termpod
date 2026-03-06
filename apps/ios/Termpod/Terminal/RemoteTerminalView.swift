@@ -4,19 +4,15 @@ import UIKit
 /// A terminal view that receives data from a remote WebSocket relay
 /// and sends user input back to it.
 ///
-/// Uses data batching to prevent cursor ghosting in TUI apps: incoming data
-/// is accumulated and fed to SwiftTerm once per display frame, avoiding
-/// intermediate cursor positions that leave white artifacts.
+/// Feeds relay data immediately (no batching delay) for responsive typing,
+/// and coalesces setNeedsDisplay() once per frame to fix cursor ghosting.
 class RemoteTerminalView: TerminalView {
 
     private var relay: RelayClient?
 
-    // Data batching to prevent cursor ghosting in TUI apps.
-    // Without batching, rapid small chunks (e.g. cursor movement sequences)
-    // cause intermediate cursor positions that aren't fully redrawn before
-    // the next update, leaving white artifacts at old positions.
-    private var pendingData = Data()
-    private var flushScheduled = false
+    // Coalesce setNeedsDisplay calls — one per frame is enough to fix
+    // cursor ghosting without the latency cost of data batching.
+    private var needsFullRedraw = false
 
     init(frame: CGRect, relay: RelayClient) {
         self.relay = relay
@@ -44,44 +40,32 @@ class RemoteTerminalView: TerminalView {
 
     private func wireRelay(_ relay: RelayClient) {
         relay.onTerminalData = { [weak self] data in
-            self?.enqueueData(data)
+            guard let self else { return }
+            // Feed immediately — no batching delay. This is critical for typing
+            // responsiveness: echoed keystrokes appear without waiting an extra
+            // run loop cycle.
+            self.feed(byteArray: ArraySlice<UInt8>(data))
+            self.scheduleFullRedraw()
         }
 
-        relay.onResize = { [weak self] cols, rows in
-            DispatchQueue.main.async {
-                self?.getTerminal().resize(cols: cols, rows: rows)
-            }
-        }
+        // Don't set relay.onResize — mobile manages its own dimensions.
+        // SwiftTerm auto-sizes from the physical frame in layoutSubviews,
+        // then sizeChanged sends the mobile dimensions to the relay.
     }
 
-    /// Accumulate incoming data and schedule a single flush per run loop cycle.
-    /// This coalesces rapid small messages (cursor moves, partial redraws) into
-    /// one feed() call, so SwiftTerm only processes one set of cursor updates
-    /// per display frame.
-    private func enqueueData(_ data: Data) {
-        pendingData.append(data)
+    /// Schedule a single setNeedsDisplay() per frame to fix cursor ghosting.
+    /// SwiftTerm's updateDisplay() skips setNeedsDisplay when only the cursor
+    /// moved (getUpdateRange() returns nil), leaving stale CaretView imprints.
+    /// Coalescing avoids redundant redraws when many messages arrive per frame.
+    private func scheduleFullRedraw() {
+        guard !needsFullRedraw else { return }
+        needsFullRedraw = true
 
-        if !flushScheduled {
-            flushScheduled = true
-            DispatchQueue.main.async { [weak self] in
-                self?.flushPendingData()
-            }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.needsFullRedraw else { return }
+            self.needsFullRedraw = false
+            self.setNeedsDisplay()
         }
-    }
-
-    private func flushPendingData() {
-        flushScheduled = false
-        guard !pendingData.isEmpty else { return }
-
-        let batch = pendingData
-        pendingData = Data()
-
-        feed(byteArray: ArraySlice<UInt8>(batch))
-
-        // Force full redraw to clear ghost cursor artifacts.
-        // SwiftTerm's updateDisplay() skips setNeedsDisplay when only the cursor
-        // moved (getUpdateRange() returns nil), leaving stale CaretView imprints.
-        setNeedsDisplay()
     }
 }
 
@@ -111,7 +95,10 @@ extension RemoteTerminalView: TerminalViewDelegate {
     }
 
     func sizeChanged(source: TerminalView, newCols: Int, newRows: Int) {
-        // Don't send resize to relay — desktop PTY dimensions are authoritative
+        // Send mobile dimensions to relay so the PTY adapts.
+        // This lets TUI apps (Claude Code, vim, htop) render correctly
+        // for the mobile screen size.
+        relay?.sendResize(cols: newCols, rows: newRows)
     }
 
     func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}

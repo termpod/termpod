@@ -21,6 +21,7 @@ interface UseRelayConnectionOptions {
   onViewerInput?: (data: string) => void;
   onStatusChange?: (status: RelayStatus) => void;
   onViewerJoined?: () => void;
+  onViewerResize?: (cols: number, rows: number) => void;
 }
 
 const RELAY_BASE = import.meta.env.VITE_RELAY_URL || RELAY_URL.production;
@@ -123,6 +124,12 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
 
         case 'session_info':
           setViewers(msg.clients.filter((c) => c.role === 'viewer').length);
+          break;
+
+        case 'pty_resize':
+          if ('cols' in msg && 'rows' in msg) {
+            optionsRef.current.onViewerResize?.(msg.cols as number, msg.rows as number);
+          }
           break;
       }
     };

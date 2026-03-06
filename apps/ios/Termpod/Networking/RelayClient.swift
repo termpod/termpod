@@ -62,6 +62,19 @@ final class RelayClient: ObservableObject {
         }
     }
 
+    func sendResize(cols: Int, rows: Int) {
+        // Channel 0x01 = terminal resize: [0x01][cols:u16be][rows:u16be]
+        var frame = Data(count: 5)
+        frame[0] = 0x01
+        frame[1] = UInt8((cols >> 8) & 0xFF)
+        frame[2] = UInt8(cols & 0xFF)
+        frame[3] = UInt8((rows >> 8) & 0xFF)
+        frame[4] = UInt8(rows & 0xFF)
+        webSocket?.send(.data(frame)) { error in
+            if let error { print("[Relay] Resize send error: \(error)") }
+        }
+    }
+
     private func sendHello() {
         let hello: [String: Any] = [
             "type": "hello",

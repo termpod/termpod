@@ -2,16 +2,17 @@ import SwiftUI
 import SwiftTerm
 
 /// SwiftUI wrapper around the native SwiftTerm TerminalView.
+/// Lets SwiftTerm auto-size cols/rows from the physical frame — the mobile
+/// device sends its dimensions to the relay so the PTY adapts.
 struct TerminalHostView: UIViewRepresentable {
 
     let relay: RelayClient
 
     func makeUIView(context: Context) -> RemoteTerminalView {
         let terminalView = RemoteTerminalView(frame: .zero, relay: relay)
-        // Resize to match desktop PTY dimensions
-        let size = relay.ptySize
-        terminalView.getTerminal().resize(cols: size.cols, rows: size.rows)
-        // Become first responder so keyboard input works immediately
+        // Don't force desktop PTY dimensions — SwiftTerm calculates cols/rows
+        // from layoutSubviews → processSizeChange, then sizeChanged delegate
+        // sends resize to relay so the PTY adapts to mobile screen.
         DispatchQueue.main.async {
             _ = terminalView.becomeFirstResponder()
         }

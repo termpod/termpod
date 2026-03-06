@@ -31,6 +31,13 @@ export function useRelayBridge(session: TerminalSession | null) {
         }, 50);
       }
     },
+    onViewerResize: (cols, rows) => {
+      const s = sessionRef.current;
+
+      if (s && !s.exited) {
+        s.pty.resize(cols, rows);
+      }
+    },
   });
 
   const { connect, disconnect, sendTerminalData, sendResize } = relay;
