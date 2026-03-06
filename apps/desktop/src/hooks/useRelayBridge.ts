@@ -68,20 +68,8 @@ export function useRelayBridge(session: TerminalSession | null) {
       }
     },
     onViewerJoined: () => {
-      // Same nudge-resize for local viewers
-      const s = sessionRef.current;
-
-      if (s && !s.exited) {
-        const term = s.termRef.current;
-        const cols = term?.cols ?? 120;
-        const rows = term?.rows ?? 40;
-
-        s.pty.resize(cols - 1, rows);
-
-        setTimeout(() => {
-          s.pty.resize(cols, rows);
-        }, 50);
-      }
+      // No nudge-resize for local viewers — the mobile client sends its
+      // own dimensions which triggers SIGWINCH for TUI redraw.
     },
     onViewerResize: (cols, rows) => {
       const s = sessionRef.current;

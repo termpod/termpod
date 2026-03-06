@@ -54,7 +54,12 @@ final class ConnectionManager: ObservableObject {
         bestTransport.sendInput(data)
     }
 
+    /// Track the last size this mobile client requested so we can
+    /// re-send it when the active transport changes.
+    private var lastRequestedSize: (cols: Int, rows: Int)?
+
     func sendResize(cols: Int, rows: Int) {
+        lastRequestedSize = (cols, rows)
         bestTransport.sendResize(cols: cols, rows: rows)
     }
 
@@ -122,7 +127,16 @@ final class ConnectionManager: ObservableObject {
         }
 
         localTransport.onConnected = { [weak self] in
-            self?.updateActiveTransport()
+            guard let self else { return }
+            self.updateActiveTransport()
+            // Re-send mobile dimensions after a short delay so the PTY
+            // adapts after the desktop's relay nudge-resize (50ms timeout).
+            if let size = self.lastRequestedSize {
+                Task {
+                    try? await Task.sleep(for: .milliseconds(150))
+                    self.bestTransport.sendResize(cols: size.cols, rows: size.rows)
+                }
+            }
         }
 
         localTransport.onDisconnected = { [weak self] in

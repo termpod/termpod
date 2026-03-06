@@ -58,7 +58,7 @@
 		8948D2B6BB4DE432E45FDF85 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		8F51B3F17455D1430D68AEB4 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		8FFFCA022CCB91970E83156B /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
-		A2894B97309C6C26C26B9949 /* Termpod.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Termpod.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A2894B97309C6C26C26B9949 /* Termpod.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Termpod.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ADD5F26F6CF5CFF0E58C879E /* TermpodApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermpodApp.swift; sourceTree = "<group>"; };
 		B29227BBDD7885C2C1107A8F /* LocalTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTransport.swift; sourceTree = "<group>"; };
 		B9A8CD578944DBFC96BB7328 /* ReconnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReconnectionManager.swift; sourceTree = "<group>"; };
@@ -400,6 +400,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = D69S8L2V46;
 				INFOPLIST_FILE = Termpod/App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -518,6 +519,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = D69S8L2V46;
 				INFOPLIST_FILE = Termpod/App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
