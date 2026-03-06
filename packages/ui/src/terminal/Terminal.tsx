@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon } from '@xterm/addon-search';
+import { UnicodeGraphemesAddon } from '@xterm/addon-unicode-graphemes';
 import type { PtySize } from '@termpod/protocol';
 
 import '@xterm/xterm/css/xterm.css';
@@ -172,10 +173,16 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       term.loadAddon(searchAddon);
       term.loadAddon(new WebLinksAddon());
 
+      const unicodeAddon = new UnicodeGraphemesAddon();
+      term.loadAddon(unicodeAddon);
+      term.unicode.activeVersion = '15';
+
       term.open(containerRef.current);
 
       try {
-        term.loadAddon(new WebglAddon());
+        const webgl = new WebglAddon();
+        webgl.onContextLoss(() => webgl.dispose());
+        term.loadAddon(webgl);
       } catch {
         // WebGL not available, fall back to canvas renderer
       }
