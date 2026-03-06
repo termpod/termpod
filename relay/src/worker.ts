@@ -9,6 +9,8 @@ interface Env {
   JWT_SECRET: string;
 }
 
+// Origin: * is acceptable here — auth uses Bearer tokens (not cookies),
+// so a malicious site cannot forge cross-origin requests with the user's credentials.
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
@@ -437,22 +439,24 @@ async function handleWebSocket(request: Request, env: Env, sessionId: string): P
   const url = new URL(request.url);
   const token = url.searchParams.get('token');
 
-  if (token) {
-    const payload = await verifyJWT(token, env.JWT_SECRET);
-
-    if (!payload || payload.type !== 'access') {
-      return corsJson({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    // Valid JWT — allow connection. The desktop creates sessions before registering them,
-    // so we can't require the session to exist in the DB yet. Auth is sufficient.
+  if (!token) {
+    return corsJson({ error: 'Authentication required' }, { status: 401 });
   }
 
-  // Note: if no token is provided, we still allow the connection for backward compatibility.
-  // TODO: Make auth required once all clients are updated.
+  const payload = await verifyJWT(token, env.JWT_SECRET);
+
+  if (!payload || payload.type !== 'access') {
+    return corsJson({ error: 'Invalid or expired token' }, { status: 401 });
+  }
+
+  const userId = payload.sub;
 
   const id = env.TERMINAL_SESSION.idFromName(sessionId);
   const stub = env.TERMINAL_SESSION.get(id);
 
-  return stub.fetch(new Request('http://internal/ws', { headers: request.headers }));
+  // Pass authenticated userId to the session DO for ownership tracking
+  const headers = new Headers(request.headers);
+  headers.set('X-User-Id', userId);
+
+  return stub.fetch(new Request('http://internal/ws', { headers }));
 }

@@ -79,6 +79,11 @@ export class User extends DurableObject {
         created_at TEXT NOT NULL,
         FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
       );
+
+      CREATE TABLE IF NOT EXISTS login_attempts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        attempted_at TEXT NOT NULL
+      );
     `);
 
     // Migrate: add process_name column if missing (table was created before this column existed)
@@ -209,6 +214,27 @@ export class User extends DurableObject {
   }
 
   private async handleLogin(request: Request): Promise<Response> {
+    // Rate limiting: max 5 failed attempts per 15-minute window
+    const windowStart = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+
+    this.ctx.storage.sql.exec(
+      'DELETE FROM login_attempts WHERE attempted_at < ?',
+      windowStart,
+    );
+
+    const recentFailures = this.ctx.storage.sql
+      .exec(
+        'SELECT COUNT(*) as cnt FROM login_attempts WHERE attempted_at >= ?',
+        windowStart,
+      )
+      .toArray();
+
+    const failCount = (recentFailures[0]?.cnt as number) ?? 0;
+
+    if (failCount >= 5) {
+      return Response.json({ error: 'Too many login attempts. Try again later.' }, { status: 429 });
+    }
+
     const { password } = (await request.json()) as { password: string };
 
     const rows = this.ctx.storage.sql
@@ -216,6 +242,11 @@ export class User extends DurableObject {
       .toArray();
 
     if (rows.length === 0) {
+      this.ctx.storage.sql.exec(
+        'INSERT INTO login_attempts (attempted_at) VALUES (?)',
+        new Date().toISOString(),
+      );
+
       return Response.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
@@ -223,8 +254,16 @@ export class User extends DurableObject {
     const valid = await verifyPassword(password, password_hash, salt);
 
     if (!valid) {
+      this.ctx.storage.sql.exec(
+        'INSERT INTO login_attempts (attempted_at) VALUES (?)',
+        new Date().toISOString(),
+      );
+
       return Response.json({ error: 'Invalid credentials' }, { status: 401 });
     }
+
+    // Clear failed attempts on successful login
+    this.ctx.storage.sql.exec('DELETE FROM login_attempts');
 
     return Response.json({ ok: true });
   }

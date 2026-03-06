@@ -142,33 +142,7 @@ export function useAuth() {
     updateState({ accessToken: null, refreshToken: null, email: null });
   }, []);
 
-  const refresh = useCallback(async () => {
-    const { refreshToken } = store.state;
-
-    if (!refreshToken) {
-      return false;
-    }
-
-    try {
-      const res = await apiFetch('/auth/refresh', {
-        method: 'POST',
-        body: JSON.stringify({ refreshToken }),
-      });
-
-      if (!res.ok) {
-        updateState({ accessToken: null, refreshToken: null, email: null });
-
-        return false;
-      }
-
-      const body = await res.json() as { accessToken: string; refreshToken: string };
-      updateState({ ...store.state, accessToken: body.accessToken, refreshToken: body.refreshToken });
-
-      return true;
-    } catch {
-      return false;
-    }
-  }, []);
+  const refresh = useCallback(() => refreshAccessToken(), []);
 
   return {
     isAuthenticated: !!state.accessToken,
@@ -182,6 +156,72 @@ export function useAuth() {
     refresh,
   };
 }
+
+async function refreshAccessToken(): Promise<boolean> {
+  const { refreshToken } = store.state;
+
+  if (!refreshToken) {
+    return false;
+  }
+
+  try {
+    const res = await apiFetch('/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!res.ok) {
+      updateState({ accessToken: null, refreshToken: null, email: null });
+
+      return false;
+    }
+
+    const body = await res.json() as { accessToken: string; refreshToken: string };
+    updateState({ ...store.state, accessToken: body.accessToken, refreshToken: body.refreshToken });
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Auto-refresh access token every 12 minutes (token expires in 15 min)
+const TOKEN_REFRESH_INTERVAL = 12 * 60 * 1000;
+let refreshInterval: ReturnType<typeof setInterval> | undefined;
+
+function startAutoRefresh(): void {
+  if (refreshInterval) {
+    return;
+  }
+
+  refreshInterval = setInterval(() => {
+    if (store.state.accessToken) {
+      refreshAccessToken();
+    }
+  }, TOKEN_REFRESH_INTERVAL);
+}
+
+function stopAutoRefresh(): void {
+  if (refreshInterval) {
+    clearInterval(refreshInterval);
+    refreshInterval = undefined;
+  }
+}
+
+// Start auto-refresh if we already have a token
+if (store.state.accessToken) {
+  refreshAccessToken();
+  startAutoRefresh();
+}
+
+// Listen for state changes to start/stop auto-refresh
+store.listeners.add(() => {
+  if (store.state.accessToken) {
+    startAutoRefresh();
+  } else {
+    stopAutoRefresh();
+  }
+});
 
 // Utility for other hooks to get the current token
 export function getAccessToken(): string | null {

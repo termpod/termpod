@@ -3,6 +3,7 @@ import type {
   HelloMessage,
   ClientMessage,
   ClientInfo,
+  ClientRole,
   SignalingMessage,
   SessionCreatedMessage,
 } from '@termpod/protocol';
@@ -11,13 +12,13 @@ import { SCROLLBACK_BUFFER_SIZE, Channel } from '@termpod/protocol';
 // WebSocket tags store client metadata as JSON so it survives hibernation
 interface ClientTag {
   clientId: string;
-  role: string;
+  role: ClientRole;
   device: string;
+  userId: string;
   connectedAt: string;
 }
 
 function setTag(ws: WebSocket, tag: ClientTag): void {
-  // Cloudflare WebSocket tags are attached via serializeAttachment
   (ws as unknown as { serializeAttachment: (v: unknown) => void }).serializeAttachment(tag);
 }
 
@@ -33,12 +34,45 @@ export class TerminalSession extends DurableObject {
   private ptyCols = 120;
   private ptyRows = 40;
 
+  private async getOwner(): Promise<string | null> {
+    return (await this.ctx.storage.get<string>('ownerUserId')) ?? null;
+  }
+
+  private async setOwner(userId: string | null): Promise<void> {
+    if (userId) {
+      await this.ctx.storage.put('ownerUserId', userId);
+    } else {
+      await this.ctx.storage.delete('ownerUserId');
+    }
+  }
+
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.pathname === '/ws') {
+      const userId = request.headers.get('X-User-Id');
+
+      if (!userId) {
+        return new Response('Unauthorized', { status: 401 });
+      }
+
+      // First connection sets the owner; subsequent connections must match
+      const owner = await this.getOwner();
+
+      if (!owner) {
+        await this.setOwner(userId);
+      } else if (owner !== userId) {
+        return new Response('Forbidden', { status: 403 });
+      }
+
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
+
+      // Store userId on the WebSocket so we can assign role in handleHello
+      (server as unknown as { serializeAttachment: (v: unknown) => void }).serializeAttachment({
+        userId,
+        pendingHello: true,
+      });
 
       this.ctx.acceptWebSocket(server);
 
@@ -53,6 +87,9 @@ export class TerminalSession extends DurableObject {
         ws.close(1000, 'session deleted');
       }
 
+      // Clear owner so the session can be reused
+      await this.setOwner(null);
+
       return new Response(JSON.stringify({ ok: true }));
     }
 
@@ -61,7 +98,17 @@ export class TerminalSession extends DurableObject {
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
     if (typeof message === 'string') {
-      this.handleControlMessage(ws, JSON.parse(message) as ClientMessage | SessionCreatedMessage);
+      let parsed: ClientMessage | SessionCreatedMessage;
+
+      try {
+        parsed = JSON.parse(message);
+      } catch {
+        ws.close(1008, 'Invalid JSON');
+
+        return;
+      }
+
+      this.handleControlMessage(ws, parsed);
 
       return;
     }
@@ -74,14 +121,22 @@ export class TerminalSession extends DurableObject {
       const senderRole = senderTag?.role ?? 'unknown';
 
       if (senderRole === 'desktop') {
-        // Desktop terminal output → store in scrollback, send to viewers only
+        // Desktop terminal output -> store in scrollback, send to viewers only
         this.appendScrollback(data);
         this.broadcastToRole(ws, 'viewer', message);
-      } else {
-        // Viewer input → send to desktop only
+      } else if (senderRole === 'viewer') {
+        // Viewer input -> send to desktop only
         this.broadcastToRole(ws, 'desktop', message);
       }
+      // Unknown roles are silently dropped
     } else if (channel === Channel.TERMINAL_RESIZE) {
+      const senderTag = getTag(ws);
+
+      // Only desktop can resize
+      if (senderTag?.role !== 'desktop') {
+        return;
+      }
+
       const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
       this.ptyCols = view.getUint16(1, false);
       this.ptyRows = view.getUint16(3, false);
@@ -141,38 +196,61 @@ export class TerminalSession extends DurableObject {
         break;
 
       case 'create_session_request':
-        // Forward from viewer → desktop
-        this.forwardToRole(ws, 'desktop', msg as unknown as Record<string, unknown>);
+        // Only viewers can request sessions
+        if (getTag(ws)?.role === 'viewer') {
+          this.forwardToRole(ws, 'desktop', msg as unknown as Record<string, unknown>);
+        }
         break;
 
       case 'session_created':
-        // Forward from desktop → all viewers
-        this.forwardToRole(ws, 'viewer', msg as unknown as Record<string, unknown>);
+        // Only desktop can announce session creation
+        if (getTag(ws)?.role === 'desktop') {
+          this.forwardToRole(ws, 'viewer', msg as unknown as Record<string, unknown>);
+        }
         break;
     }
   }
 
   private handleHello(ws: WebSocket, msg: HelloMessage): void {
+    // Server assigns the role: first desktop connection is the owner/desktop,
+    // all others are viewers. The client's claimed role is used only as a hint
+    // for the initial desktop connection.
+    const allSockets = this.ctx.getWebSockets();
+
+    const existingDesktop = allSockets.some((sock) => {
+      if (sock === ws) {
+        return false;
+      }
+
+      const t = getTag(sock);
+
+      return t?.role === 'desktop';
+    });
+
+    const assignedRole: ClientRole = (!existingDesktop && msg.role === 'desktop') ? 'desktop' : 'viewer';
+
+    // Retrieve userId that was stored during WS accept
+    const pending = (ws as unknown as { deserializeAttachment: () => { userId?: string } }).deserializeAttachment();
+
     const tag: ClientTag = {
       clientId: msg.clientId,
-      role: msg.role,
+      role: assignedRole,
       device: msg.device,
+      userId: pending?.userId ?? '',
       connectedAt: new Date().toISOString(),
     };
 
     setTag(ws, tag);
 
-    // Build client list from all connected WebSockets
-    const allSockets = this.ctx.getWebSockets();
     const clientInfos: ClientInfo[] = [];
 
     for (const sock of allSockets) {
       const t = getTag(sock);
 
-      if (t) {
+      if (t && t.clientId) {
         clientInfos.push({
           clientId: t.clientId,
-          role: t.role as ClientInfo['role'],
+          role: t.role,
           device: t.device as ClientInfo['device'],
           connectedAt: t.connectedAt,
         });
@@ -188,11 +266,12 @@ export class TerminalSession extends DurableObject {
         ptySize: { cols: this.ptyCols, rows: this.ptyRows },
         createdAt: new Date().toISOString(),
         clients: clientInfos,
+        assignedRole,
       }),
     );
 
     // Send scrollback to new viewers
-    if (msg.role === 'viewer') {
+    if (assignedRole === 'viewer') {
       this.sendScrollback(ws);
     }
 
@@ -201,7 +280,7 @@ export class TerminalSession extends DurableObject {
     this.broadcastJson(ws, {
       type: 'client_joined',
       clientId: msg.clientId,
-      role: msg.role,
+      role: assignedRole,
       device: msg.device,
     });
   }
@@ -230,15 +309,7 @@ export class TerminalSession extends DurableObject {
     }
   }
 
-  private broadcast(sender: WebSocket, message: string | ArrayBuffer): void {
-    for (const ws of this.ctx.getWebSockets()) {
-      if (ws !== sender) {
-        ws.send(message);
-      }
-    }
-  }
-
-  private broadcastToRole(sender: WebSocket, targetRole: string, message: string | ArrayBuffer): void {
+  private broadcastToRole(sender: WebSocket, targetRole: ClientRole, message: string | ArrayBuffer): void {
     for (const ws of this.ctx.getWebSockets()) {
       if (ws === sender) {
         continue;
@@ -262,7 +333,7 @@ export class TerminalSession extends DurableObject {
     }
   }
 
-  private forwardToRole(_sender: WebSocket, targetRole: string, msg: Record<string, unknown>): void {
+  private forwardToRole(_sender: WebSocket, targetRole: ClientRole, msg: Record<string, unknown>): void {
     const json = JSON.stringify(msg);
 
     for (const ws of this.ctx.getWebSockets()) {

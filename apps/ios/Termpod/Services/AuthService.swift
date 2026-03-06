@@ -14,6 +14,7 @@ final class AuthService: ObservableObject {
     private static let emailKey = "termpod-email"
 
     private let relayHTTP: String
+    private var refreshTimer: Timer?
 
     var accessToken: String? {
         KeychainService.load(key: Self.accessTokenKey)
@@ -27,7 +28,29 @@ final class AuthService: ObservableObject {
         if let token = KeychainService.load(key: Self.accessTokenKey) {
             isAuthenticated = !token.isEmpty
             email = KeychainService.load(key: Self.emailKey)
+
+            if isAuthenticated {
+                // Refresh immediately on launch, then every 12 minutes
+                Task { await self.refresh() }
+                startAutoRefresh()
+            }
         }
+    }
+
+    private func startAutoRefresh() {
+        refreshTimer?.invalidate()
+        // Refresh every 12 minutes (access token expires in 15 min)
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 12 * 60, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor in
+                _ = await self.refresh()
+            }
+        }
+    }
+
+    private func stopAutoRefresh() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
     }
 
     // MARK: - Auth
@@ -104,6 +127,7 @@ final class AuthService: ObservableObject {
     }
 
     func logout() {
+        stopAutoRefresh()
         KeychainService.delete(key: Self.accessTokenKey)
         KeychainService.delete(key: Self.refreshTokenKey)
         KeychainService.delete(key: Self.emailKey)
@@ -156,14 +180,15 @@ final class AuthService: ObservableObject {
 
         self.isAuthenticated = true
         self.email = email.lowercased()
+        startAutoRefresh()
     }
 
-    /// Build a WebSocket URL with auth token.
+    /// Build a WebSocket URL with auth token. Returns nil if not authenticated.
     func authenticatedWSURL(sessionId: String) -> URL? {
         let wsBase = "wss://relay.termpod.dev"
 
-        guard let token = accessToken else {
-            return URL(string: "\(wsBase)/sessions/\(sessionId)/ws")
+        guard let token = accessToken, !token.isEmpty else {
+            return nil
         }
 
         return URL(string: "\(wsBase)/sessions/\(sessionId)/ws?token=\(token)")

@@ -1,5 +1,5 @@
 const ALGORITHM = { name: 'HMAC', hash: 'SHA-256' };
-const TOKEN_EXPIRY = 7 * 24 * 60 * 60; // 7 days in seconds
+const TOKEN_EXPIRY = 15 * 60; // 15 minutes
 const REFRESH_EXPIRY = 30 * 24 * 60 * 60; // 30 days
 
 interface JWTPayload {
