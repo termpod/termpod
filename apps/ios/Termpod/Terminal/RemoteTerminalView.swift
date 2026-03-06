@@ -14,6 +14,9 @@ class RemoteTerminalView: TerminalView {
     // cursor ghosting without the latency cost of data batching.
     private var needsFullRedraw = false
 
+    // Accumulated scroll delta for smooth line-by-line scrolling
+    private var scrollAccumulator: CGFloat = 0
+
     init(frame: CGRect, relay: RelayClient) {
         self.relay = relay
         super.init(frame: frame)
@@ -27,7 +30,37 @@ class RemoteTerminalView: TerminalView {
         self.nativeBackgroundColor = UIColor(red: 0.09, green: 0.09, blue: 0.13, alpha: 1)
         self.optionAsMetaKey = true
 
+        setupScrollGesture()
         wireRelay(relay)
+    }
+
+    private func setupScrollGesture() {
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(handleScrollPan(_:)))
+        pan.minimumNumberOfTouches = 2
+        pan.maximumNumberOfTouches = 2
+        addGestureRecognizer(pan)
+    }
+
+    @objc private func handleScrollPan(_ gesture: UIPanGestureRecognizer) {
+        let translation = gesture.translation(in: self)
+        gesture.setTranslation(.zero, in: self)
+
+        let cellHeight = self.font.lineHeight
+        scrollAccumulator += -translation.y
+
+        let lines = Int(scrollAccumulator / cellHeight)
+        if lines != 0 {
+            scrollAccumulator -= CGFloat(lines) * cellHeight
+            if lines > 0 {
+                scrollUp(lines: lines)
+            } else {
+                scrollDown(lines: abs(lines))
+            }
+        }
+
+        if gesture.state == .ended || gesture.state == .cancelled {
+            scrollAccumulator = 0
+        }
     }
 
     required init?(coder: NSCoder) {
