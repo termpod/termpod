@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Settings, CursorStyle, NewTabCwd } from '../hooks/useSettings';
+import type { Settings, CursorStyle, NewTabCwd, TerminalTheme } from '../hooks/useSettings';
 import { THEMES } from '../hooks/useSettings';
 
 type SettingsTab = 'appearance' | 'terminal' | 'behavior' | 'account';
@@ -109,29 +109,11 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
             {activeTab === 'appearance' && (
               <>
                 {/* Theme */}
-                <div className="sp-section">
-                  <label className="sp-label">Theme</label>
-                  <div className="sp-theme-grid">
-                    {Object.entries(THEMES).map(([key, theme]) => (
-                      <button
-                        key={key}
-                        className={`sp-theme-card ${settings.theme === key ? 'sp-theme-active' : ''}`}
-                        onClick={() => onUpdate({ theme: key })}
-                        title={theme.name}
-                      >
-                        <div
-                          className="sp-theme-preview"
-                          style={{ background: theme.background }}
-                        >
-                          <span style={{ color: theme.green }}>$</span>
-                          <span style={{ color: theme.foreground }}> echo </span>
-                          <span style={{ color: theme.yellow }}>hello</span>
-                        </div>
-                        <span className="sp-theme-name">{theme.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <ThemeSection
+                  themes={THEMES}
+                  selected={settings.theme}
+                  onSelect={(key) => onUpdate({ theme: key })}
+                />
 
                 {/* Cursor */}
                 <div className="sp-section">
@@ -401,6 +383,67 @@ function RadioOption({ name, value, label, description, checked, onChange }: {
         <span className="sp-radio-desc">{description}</span>
       </div>
     </label>
+  );
+}
+
+const LIGHT_THEMES = new Set(['github-light', 'catppuccin-latte', 'solarized-light', 'one-light', 'rose-pine-dawn']);
+
+function isLightTheme(key: string): boolean {
+  return LIGHT_THEMES.has(key);
+}
+
+function ThemeCard({ themeKey, theme, selected, onSelect }: {
+  themeKey: string;
+  theme: TerminalTheme;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      className={`sp-theme-card ${selected ? 'sp-theme-active' : ''}`}
+      onClick={onSelect}
+      title={theme.name}
+    >
+      <div
+        className="sp-theme-preview"
+        style={{ background: theme.background }}
+      >
+        <span style={{ color: theme.green }}>$</span>
+        <span style={{ color: theme.foreground }}> echo </span>
+        <span style={{ color: theme.yellow }}>hello</span>
+      </div>
+      <span className="sp-theme-name">{theme.name}</span>
+    </button>
+  );
+}
+
+function ThemeSection({ themes, selected, onSelect }: {
+  themes: Record<string, TerminalTheme>;
+  selected: string;
+  onSelect: (key: string) => void;
+}) {
+  const dark = Object.entries(themes).filter(([k]) => !isLightTheme(k));
+  const light = Object.entries(themes).filter(([k]) => isLightTheme(k));
+
+  return (
+    <>
+      <div className="sp-section">
+        <label className="sp-label">Dark Themes</label>
+        <div className="sp-theme-grid">
+          {dark.map(([key, theme]) => (
+            <ThemeCard key={key} themeKey={key} theme={theme} selected={selected === key} onSelect={() => onSelect(key)} />
+          ))}
+        </div>
+      </div>
+      <div className="sp-section">
+        <label className="sp-label">Light Themes</label>
+        <div className="sp-theme-grid">
+          {light.map(([key, theme]) => (
+            <ThemeCard key={key} themeKey={key} theme={theme} selected={selected === key} onSelect={() => onSelect(key)} />
+          ))}
+        </div>
+      </div>
+    </>
   );
 }
 
