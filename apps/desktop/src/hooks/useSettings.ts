@@ -375,6 +375,13 @@ function adjust(hex: string, amount: number): string {
   return rgbToHex(r + a, g + a, b + a);
 }
 
+function mix(hex1: string, hex2: string, weight: number): string {
+  const [r1, g1, b1] = hexToRgb(hex1);
+  const [r2, g2, b2] = hexToRgb(hex2);
+  const w = weight;
+  return rgbToHex(r1 * w + r2 * (1 - w), g1 * w + g2 * (1 - w), b1 * w + b2 * (1 - w));
+}
+
 function isLightColor(hex: string): boolean {
   const [r, g, b] = hexToRgb(hex);
   return (r * 299 + g * 587 + b * 114) / 1000 > 128;
@@ -391,7 +398,7 @@ export function themeToAppStyles(theme: TerminalTheme): Record<string, string> {
     '--border-focus': theme.blue,
     '--text-primary': theme.foreground,
     '--text-secondary': light ? adjust(theme.foreground, 0.15) : theme.white,
-    '--text-muted': theme.brightBlack,
+    '--text-muted': mix(theme.foreground, theme.background, 0.5),
     '--accent': theme.blue,
     '--accent-hover': theme.brightBlue,
     '--error': theme.red,
