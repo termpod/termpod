@@ -10,12 +10,8 @@ struct TerminalHostView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> RemoteTerminalView {
         let terminalView = RemoteTerminalView(frame: .zero, relay: relay)
-        // Don't force desktop PTY dimensions — SwiftTerm calculates cols/rows
-        // from layoutSubviews → processSizeChange, then sizeChanged delegate
-        // sends resize to relay so the PTY adapts to mobile screen.
-        DispatchQueue.main.async {
-            _ = terminalView.becomeFirstResponder()
-        }
+        // Don't auto-focus terminal — keyboard input goes to the
+        // CommandInputBar text field for instant typing feedback.
         return terminalView
     }
 

@@ -39,6 +39,14 @@ class RemoteTerminalView: TerminalView {
         pan.minimumNumberOfTouches = 2
         pan.maximumNumberOfTouches = 2
         addGestureRecognizer(pan)
+
+        let tap = UITapGestureRecognizer(target: self, action: #selector(handleFocusTap))
+        tap.numberOfTapsRequired = 1
+        addGestureRecognizer(tap)
+    }
+
+    @objc private func handleFocusTap() {
+        NotificationCenter.default.post(name: .terminalTapped, object: nil)
     }
 
     @objc private func handleScrollPan(_ gesture: UIPanGestureRecognizer) {
@@ -62,6 +70,11 @@ class RemoteTerminalView: TerminalView {
             scrollAccumulator = 0
         }
     }
+
+    // Prevent terminal from stealing keyboard focus — input goes
+    // through the CommandInputBar text field instead.
+    override var canBecomeFirstResponder: Bool { false }
+
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) not implemented")
@@ -177,4 +190,5 @@ extension RemoteTerminalView: TerminalViewDelegate {
 
 extension Notification.Name {
     static let terminalTitleChanged = Notification.Name("terminalTitleChanged")
+    static let terminalTapped = Notification.Name("terminalTapped")
 }
