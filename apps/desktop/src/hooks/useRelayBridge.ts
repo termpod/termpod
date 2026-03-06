@@ -49,15 +49,17 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
       }
     },
     onViewerLeft: () => {
-      // If no more viewers, revert PTY to desktop xterm dimensions
+      // If no more viewers, revert PTY and xterm to desktop dimensions
       if (relay.viewers <= 1 && localServer.localViewers === 0) {
         const s = sessionRef.current;
 
         if (s && !s.exited) {
           const term = s.termRef.current;
+          ptySizeRef.current = null;
+          term?.unlockSize();
+          // After unlockSize, xterm re-fits to container and we resize PTY to match
           const cols = term?.cols ?? 120;
           const rows = term?.rows ?? 40;
-          ptySizeRef.current = null;
           s.pty.resize(cols, rows);
         }
       }
@@ -68,6 +70,9 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
       if (s && !s.exited) {
         ptySizeRef.current = { cols, rows };
         s.pty.resize(cols, rows);
+        const term = s.termRef.current;
+        term?.lockSize();
+        term?.resize(cols, rows);
       }
     },
     onSignaling: (msg) => {
@@ -103,15 +108,16 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
       // own dimensions which triggers SIGWINCH for TUI redraw.
     },
     onViewerLeft: () => {
-      // If no more viewers, revert PTY to desktop xterm dimensions
+      // If no more viewers, revert PTY and xterm to desktop dimensions
       if (relay.viewers === 0 && localServer.localViewers <= 1) {
         const s = sessionRef.current;
 
         if (s && !s.exited) {
           const term = s.termRef.current;
+          ptySizeRef.current = null;
+          term?.unlockSize();
           const cols = term?.cols ?? 120;
           const rows = term?.rows ?? 40;
-          ptySizeRef.current = null;
           s.pty.resize(cols, rows);
         }
       }
@@ -122,6 +128,9 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
       if (s && !s.exited) {
         ptySizeRef.current = { cols, rows };
         s.pty.resize(cols, rows);
+        const term = s.termRef.current;
+        term?.lockSize();
+        term?.resize(cols, rows);
       }
     },
     onCreateSessionRequest: (requestId, clientId) => {

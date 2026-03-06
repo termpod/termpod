@@ -14,6 +14,9 @@ export interface TerminalHandle {
   clear: () => void;
   focus: () => void;
   fit: () => void;
+  resize: (cols: number, rows: number) => void;
+  lockSize: () => void;
+  unlockSize: () => void;
   openSearch: () => void;
   closeSearch: () => void;
   findNext: () => void;
@@ -87,6 +90,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     const terminalRef = useRef<XTerm | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
     const searchAddonRef = useRef<SearchAddon | null>(null);
+    const sizeLockedRef = useRef(false);
     const [searchVisible, setSearchVisible] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const searchInputRef = useRef<HTMLInputElement>(null);
@@ -120,10 +124,25 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         terminalRef.current?.focus();
       },
       fit: () => {
+        if (sizeLockedRef.current) return;
         try {
           fitAddonRef.current?.fit();
         } catch {
           // ignore fit errors (e.g. 0-dimension container)
+        }
+      },
+      resize: (cols: number, rows: number) => {
+        terminalRef.current?.resize(cols, rows);
+      },
+      lockSize: () => {
+        sizeLockedRef.current = true;
+      },
+      unlockSize: () => {
+        sizeLockedRef.current = false;
+        try {
+          fitAddonRef.current?.fit();
+        } catch {
+          // ignore
         }
       },
       openSearch: () => {
@@ -263,6 +282,14 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         // WebGL not available, fall back to canvas renderer
       }
 
+      // After fonts finish loading, rebuild the WebGL texture atlas so that
+      // both normal and bold weights use the correct font face.
+      document.fonts.ready.then(() => {
+        if (terminalRef.current === term) {
+          term.clearTextureAtlas();
+        }
+      });
+
       fitAddon.fit();
       terminalRef.current = term;
       fitAddonRef.current = fitAddon;
@@ -315,7 +342,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       onReadyRef.current?.();
 
       const resizeObserver = new ResizeObserver((entries) => {
-        if (!fitAddonRef.current || !terminalRef.current) {
+        if (!fitAddonRef.current || !terminalRef.current || sizeLockedRef.current) {
           return;
         }
 
@@ -366,7 +393,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         s.style.boxSizing = 'border-box';
       });
 
-      if (fitAddonRef.current && terminalRef.current) {
+      if (fitAddonRef.current && terminalRef.current && !sizeLockedRef.current) {
         try {
           fitAddonRef.current.fit();
           onResizeRef.current?.({ cols: terminalRef.current.cols, rows: terminalRef.current.rows });
