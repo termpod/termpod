@@ -95,6 +95,10 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
   const relaySessionIdRef = useRef(relay.sessionId);
   relaySessionIdRef.current = relay.sessionId;
 
+  // Refs to avoid stale closures in PTY data listener
+  const localViewersRef = useRef(0);
+  const webrtcConnectedRef = useRef(false);
+
   const localServer = useLocalServer({
     sessionId: relay.sessionId,
     onViewerInput: (data) => {
@@ -154,6 +158,10 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
     localClientId: relay.clientId,
   });
 
+  // Keep refs in sync on every render so the PTY listener reads fresh values
+  localViewersRef.current = localServer.localViewers;
+  webrtcConnectedRef.current = webrtc.isConnected;
+
   useEffect(() => {
     if (!session || session.exited) {
       return;
@@ -167,17 +175,22 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
     connect({ cols, rows });
 
     const listener = (data: Uint8Array | number[]) => {
-      // Send to relay (always, for scrollback and non-P2P viewers)
-      sendTerminalData(data);
+      const hasP2PViewers = localViewersRef.current > 0 || webrtcConnectedRef.current;
 
-      // Also broadcast to local WS viewers
+      // Skip relay when P2P viewers are connected — they get data directly.
+      // Relay WS stays open for control messages, signaling, and as a fallback.
+      if (!hasP2PViewers) {
+        sendTerminalData(data);
+      }
+
+      // Broadcast to local WS viewers
       const sid = relaySessionIdRef.current;
       if (sid) {
         localServer.broadcastTerminalData(sid, data);
       }
 
-      // Also send via WebRTC if connected
-      if (webrtc.isConnected) {
+      // Send via WebRTC if connected
+      if (webrtcConnectedRef.current) {
         webrtc.sendTerminalData(data);
       }
     };
