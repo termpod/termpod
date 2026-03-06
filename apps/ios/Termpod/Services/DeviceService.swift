@@ -82,7 +82,7 @@ final class DeviceService: ObservableObject {
                 startHeartbeat(auth: auth)
             }
         } catch {
-            print("[DeviceService] Registration failed: \(error)")
+            let _ = error
         }
     }
 
@@ -112,7 +112,7 @@ final class DeviceService: ObservableObject {
                 devices = wrapper.devices
             }
         } catch {
-            print("[DeviceService] Fetch devices failed: \(error)")
+            let _ = error
         }
 
         loading = false
@@ -129,7 +129,7 @@ final class DeviceService: ObservableObject {
                 return wrapper.sessions
             }
         } catch {
-            print("[DeviceService] Fetch sessions failed: \(error)")
+            let _ = error
         }
 
         return []
@@ -147,7 +147,7 @@ final class DeviceService: ObservableObject {
                 body: ["requestedBy": UIDevice.current.name]
             )
         } catch {
-            print("[DeviceService] Request session failed: \(error)")
+            let _ = error
         }
     }
 

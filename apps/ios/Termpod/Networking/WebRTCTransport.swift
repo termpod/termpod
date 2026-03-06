@@ -100,7 +100,7 @@ final class WebRTCTransport: NSObject, Transport {
     private func handleAnswer(sdp: String) {
         let remoteSdp = RTCSessionDescription(type: .answer, sdp: sdp)
         peerConnection?.setRemoteDescription(remoteSdp) { error in
-            if let error { print("[WebRTC] Set answer error: \(error)") }
+            let _ = error
         }
     }
 

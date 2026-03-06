@@ -36,7 +36,6 @@ final class ConnectionManager: ObservableObject {
     // MARK: - Connection
 
     func connect(wsURL: URL) {
-        print("[ConnectionManager] Connecting — relay: \(wsURL), starting local discovery")
         relay.connect(wsURL: wsURL)
         localTransport.startDiscovery()
     }
@@ -82,9 +81,6 @@ final class ConnectionManager: ObservableObject {
             activeTransport = .relay
         }
 
-        if activeTransport != previous {
-            print("[ConnectionManager] Transport switched: \(previous.label) -> \(activeTransport.label)")
-        }
     }
 
     /// During initial connection (connecting/loadingScrollback/connected), accept

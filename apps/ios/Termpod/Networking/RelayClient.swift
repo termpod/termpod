@@ -74,9 +74,7 @@ final class RelayClient: ObservableObject, Transport {
         // Channel 0x00 = terminal data
         var frame = Data([0x00])
         frame.append(data)
-        webSocket?.send(.data(frame)) { error in
-            if let error { print("[Relay] Send error: \(error)") }
-        }
+        webSocket?.send(.data(frame)) { _ in }
     }
 
     func sendResize(cols: Int, rows: Int) {
@@ -87,9 +85,7 @@ final class RelayClient: ObservableObject, Transport {
         frame[2] = UInt8(cols & 0xFF)
         frame[3] = UInt8((rows >> 8) & 0xFF)
         frame[4] = UInt8(rows & 0xFF)
-        webSocket?.send(.data(frame)) { error in
-            if let error { print("[Relay] Resize send error: \(error)") }
-        }
+        webSocket?.send(.data(frame)) { _ in }
     }
 
     private func sendHello() {
@@ -215,9 +211,7 @@ final class RelayClient: ObservableObject, Transport {
             state = .disconnected
 
         case "error":
-            let code = json["code"] as? String ?? "UNKNOWN"
-            let message = json["message"] as? String ?? "Unknown error"
-            print("[Relay] Error: \(code) — \(message)")
+            break
 
         case "webrtc_offer", "webrtc_answer", "webrtc_ice":
             onSignaling?(json)
