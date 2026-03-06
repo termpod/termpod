@@ -35,7 +35,17 @@ function generateSessionId(): string {
   return `session-${nextId++}`;
 }
 
-function nameFromCwd(cwd: string): string {
+let cachedHomeDir: string | null = null;
+
+invoke<string>('get_home_dir').then((dir) => {
+  cachedHomeDir = dir;
+}).catch(() => {});
+
+export function nameFromCwd(cwd: string): string {
+  if (cachedHomeDir && (cwd === cachedHomeDir || cwd === cachedHomeDir + '/')) {
+    return '~';
+  }
+
   const parts = cwd.split('/').filter(Boolean);
 
   return parts[parts.length - 1] || 'shell';

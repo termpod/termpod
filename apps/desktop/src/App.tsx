@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow, Effect, EffectState } from '@tauri-apps/api/window';
-import { useSessionManager } from './hooks/useSessionManager';
+import { useSessionManager, nameFromCwd } from './hooks/useSessionManager';
 import { useSettings, THEMES, themeToAppStyles, isLightColor } from './hooks/useSettings';
 import type { BlurStyle } from './hooks/useSettings';
 import { useAuth } from './hooks/useAuth';
@@ -488,9 +488,7 @@ export function App() {
               const relayInfo = relayMapRef.current.get(session.id);
 
               if (relayInfo?.sessionId) {
-                const parts = cwd.split('/').filter(Boolean);
-                const name = parts[parts.length - 1] || 'shell';
-                device.updateSession(relayInfo.sessionId, { name, cwd });
+                device.updateSession(relayInfo.sessionId, { name: nameFromCwd(cwd), cwd });
               }
             }}
           />
