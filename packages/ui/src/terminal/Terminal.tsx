@@ -177,7 +177,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       searchAddonRef.current.findNext(searchQuery, { decorations: SEARCH_DECORATIONS });
     }, [searchQuery, searchVisible]);
 
-    // Create the xterm instance once. Only recreate on font changes.
+    // Create the xterm instance once. Only recreate on font/scrollback changes.
     useEffect(() => {
       if (!containerRef.current) {
         return;
@@ -278,7 +278,21 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         fitAddonRef.current = null;
         searchAddonRef.current = null;
       };
-    }, [fontSize, fontFamily, scrollbackLines, cursorBlink, cursorStyle, lineHeight, theme]);
+    }, [fontSize, fontFamily, scrollbackLines]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Apply appearance changes dynamically without recreating the terminal
+    useEffect(() => {
+      const term = terminalRef.current;
+      if (!term) return;
+
+      term.options.cursorBlink = cursorBlink;
+      term.options.cursorStyle = cursorStyle;
+      term.options.lineHeight = lineHeight;
+
+      if (theme) {
+        term.options.theme = theme;
+      }
+    }, [cursorBlink, cursorStyle, lineHeight, theme]);
 
     return (
       <div style={{ width: '100%', height: '100%', position: 'relative' }}>

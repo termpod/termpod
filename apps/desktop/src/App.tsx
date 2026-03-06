@@ -9,7 +9,6 @@ import { TabBar } from './components/TabBar';
 import { TerminalPanel } from './components/TerminalPanel';
 import type { RelayInfo } from './components/TerminalPanel';
 import { RelayStatus } from './components/RelayStatus';
-import { QRPairing } from './components/QRPairing';
 import { SettingsPanel } from './components/SettingsPanel';
 import { LoginScreen } from './components/LoginScreen';
 import { FullDiskAccessBanner } from './components/FullDiskAccessBanner';
@@ -105,7 +104,6 @@ export function App() {
     [createSession, settings.shellPath],
   );
 
-  const [showQR, setShowQR] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showKeybindings, setShowKeybindings] = useState(false);
   const { bindings } = useKeybindings();
@@ -312,7 +310,6 @@ export function App() {
         status={activeRelay?.status ?? 'disconnected'}
         viewers={activeRelay?.viewers ?? 0}
         sessionId={activeRelay?.sessionId ?? null}
-        onShare={() => setShowQR(true)}
       />
       <div className="terminal-area">
         {sessions.map((session) => (
@@ -343,23 +340,20 @@ export function App() {
           />
         ))}
       </div>
-      {showQR && (
-        <QRPairing sessionId={activeRelay?.sessionId ?? null} onClose={() => setShowQR(false)} />
-      )}
       {showSettings && (
         <SettingsPanel
           settings={settings}
           defaults={settingsDefaults}
           onUpdate={updateSettings}
           onReset={resetSettings}
-          onClose={() => setShowSettings(false)}
+          onClose={() => { setShowSettings(false); setTimeout(focusActive, 50); }}
           onOpenKeybindings={() => setShowKeybindings(true)}
           email={auth.email}
           onLogout={auth.logout}
         />
       )}
       {showKeybindings && (
-        <KeybindingsPanel onClose={() => setShowKeybindings(false)} />
+        <KeybindingsPanel onClose={() => { setShowKeybindings(false); setTimeout(focusActive, 50); }} />
       )}
     </div>
   );

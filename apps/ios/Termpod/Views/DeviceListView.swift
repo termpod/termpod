@@ -5,8 +5,6 @@ struct DeviceListView: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var auth: AuthService
     @EnvironmentObject private var deviceService: DeviceService
-    @State private var showScanner = false
-
     var body: some View {
         NavigationStack {
             List {
@@ -61,15 +59,6 @@ struct DeviceListView: View {
                     .accessibilityLabel("Account menu")
                 }
 
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showScanner = true
-                    } label: {
-                        Image(systemName: "qrcode.viewfinder")
-                    }
-                    .accessibilityLabel("Scan QR code")
-                    .accessibilityHint("Scan a QR code from your Mac to connect")
-                }
             }
             .refreshable {
                 await deviceService.fetchDevices(auth: auth)
@@ -77,12 +66,6 @@ struct DeviceListView: View {
             .task {
                 await deviceService.registerThisDevice(auth: auth)
                 await deviceService.fetchDevices(auth: auth)
-            }
-            .sheet(isPresented: $showScanner) {
-                PairingScannerView { token in
-                    appState.pairWithToken(token, auth: auth)
-                    showScanner = false
-                }
             }
         }
     }
