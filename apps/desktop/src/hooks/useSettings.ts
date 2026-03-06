@@ -2,6 +2,7 @@ import { useCallback, useSyncExternalStore } from 'react';
 
 export type CursorStyle = 'block' | 'underline' | 'bar';
 export type NewTabCwd = 'home' | 'current';
+export type BlurStyle = 'none' | 'subtle' | 'medium' | 'full';
 
 export interface TerminalTheme {
   name: string;
@@ -387,14 +388,24 @@ function isLightColor(hex: string): boolean {
   return (r * 299 + g * 587 + b * 114) / 1000 > 128;
 }
 
-export function themeToAppStyles(theme: TerminalTheme): Record<string, string> {
+function hexToRgba(hex: string, alpha: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+export function themeToAppStyles(theme: TerminalTheme, opacity = 1): Record<string, string> {
   const light = isLightColor(theme.background);
+  const transparent = opacity < 1;
+  const bg = (hex: string) => transparent ? hexToRgba(hex, opacity) : hex;
+
   return {
-    '--bg-primary': theme.background,
-    '--bg-secondary': adjust(theme.background, light ? -0.035 : -0.025),
-    '--bg-elevated': adjust(theme.background, light ? -0.015 : 0.035),
-    '--bg-hover': adjust(theme.background, light ? -0.055 : 0.025),
-    '--border': adjust(theme.background, light ? -0.11 : 0.09),
+    '--bg-primary': bg(theme.background),
+    '--bg-secondary': bg(adjust(theme.background, light ? -0.035 : -0.025)),
+    '--bg-elevated': bg(adjust(theme.background, light ? -0.015 : 0.035)),
+    '--bg-hover': bg(adjust(theme.background, light ? -0.055 : 0.025)),
+    '--border': transparent
+      ? `rgba(${light ? '0,0,0' : '255,255,255'}, ${light ? 0.1 : 0.08})`
+      : adjust(theme.background, light ? -0.11 : 0.09),
     '--border-focus': theme.blue,
     '--text-primary': theme.foreground,
     '--text-secondary': light ? adjust(theme.foreground, 0.15) : theme.white,
@@ -413,6 +424,8 @@ export interface Settings {
   cursorStyle: CursorStyle;
   cursorBlink: boolean;
   lineHeight: number;
+  backgroundBlur: BlurStyle;
+  backgroundOpacity: number;
 
   // Terminal
   fontSize: number;
@@ -433,6 +446,8 @@ const DEFAULTS: Settings = {
   cursorStyle: 'block',
   cursorBlink: true,
   lineHeight: 1.0,
+  backgroundBlur: 'none',
+  backgroundOpacity: 1.0,
 
   fontSize: 14,
   fontFamily: 'Menlo, monospace',

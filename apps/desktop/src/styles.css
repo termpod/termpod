@@ -37,6 +37,7 @@ body,
   height: 100%;
   width: 100%;
   overflow: hidden;
+  background: transparent;
 }
 
 .app {
@@ -595,6 +596,37 @@ body,
   font-family: var(--font-sans);
   color: var(--text-muted);
   padding: 3px 8px 5px;
+}
+
+/* Blur style options */
+.sp-blur-options {
+  display: flex;
+  gap: 6px;
+}
+
+.sp-blur-btn {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+}
+
+.sp-blur-btn:hover {
+  color: var(--text-secondary);
+  border-color: var(--text-muted);
+}
+
+.sp-blur-active {
+  color: var(--text-primary);
+  border-color: var(--accent);
+  background: var(--accent-subtle);
 }
 
 /* Cursor style options */

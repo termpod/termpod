@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Settings, CursorStyle, NewTabCwd, TerminalTheme } from '../hooks/useSettings';
+import type { Settings, CursorStyle, NewTabCwd, TerminalTheme, BlurStyle } from '../hooks/useSettings';
 import { THEMES } from '../hooks/useSettings';
 
 type SettingsTab = 'appearance' | 'terminal' | 'behavior' | 'account';
@@ -26,6 +26,13 @@ const FONT_OPTIONS = [
   'IBM Plex Mono, monospace',
   'Hack, monospace',
   'Inconsolata, monospace',
+];
+
+const BLUR_OPTIONS: { value: BlurStyle; label: string }[] = [
+  { value: 'none', label: 'Off' },
+  { value: 'subtle', label: 'Subtle' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'full', label: 'Full' },
 ];
 
 const CURSOR_OPTIONS: { value: CursorStyle; label: string; icon: string }[] = [
@@ -154,6 +161,40 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                     <span className="sp-value">{settings.lineHeight.toFixed(2)}</span>
                   </div>
                 </div>
+
+                {/* Background Blur */}
+                <div className="sp-section">
+                  <label className="sp-label">Background Blur</label>
+                  <div className="sp-blur-options">
+                    {BLUR_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        className={`sp-blur-btn ${settings.backgroundBlur === opt.value ? 'sp-blur-active' : ''}`}
+                        onClick={() => onUpdate({ backgroundBlur: opt.value, backgroundOpacity: opt.value === 'none' ? 1 : settings.backgroundOpacity })}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {settings.backgroundBlur !== 'none' && (
+                  <div className="sp-section">
+                    <div className="sp-label-row">
+                      <label className="sp-label">Opacity</label>
+                      <span className="sp-badge">{Math.round(settings.backgroundOpacity * 100)}%</span>
+                    </div>
+                    <input
+                      className="settings-range"
+                      type="range"
+                      min={0.3}
+                      max={0.95}
+                      step={0.05}
+                      value={settings.backgroundOpacity}
+                      onChange={(e) => onUpdate({ backgroundOpacity: Number(e.target.value) })}
+                    />
+                  </div>
+                )}
               </>
             )}
 

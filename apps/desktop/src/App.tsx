@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getCurrentWindow, Effect, EffectState } from '@tauri-apps/api/window';
 import { useSessionManager } from './hooks/useSessionManager';
 import { useSettings, THEMES, themeToAppStyles } from './hooks/useSettings';
+import type { BlurStyle } from './hooks/useSettings';
 import { useAuth } from './hooks/useAuth';
 import { useDevice } from './hooks/useDevice';
 import { TabBar } from './components/TabBar';
@@ -282,10 +283,29 @@ export function App() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
+  const opacity = settings.backgroundBlur !== 'none' ? settings.backgroundOpacity : 1;
   const appThemeStyles = useMemo(
-    () => themeToAppStyles(THEMES[settings.theme] ?? THEMES['tokyo-night']),
-    [settings.theme],
+    () => themeToAppStyles(THEMES[settings.theme] ?? THEMES['tokyo-night'], opacity),
+    [settings.theme, opacity],
   );
+
+  // Apply/remove macOS vibrancy effect
+  useEffect(() => {
+    const win = getCurrentWindow();
+    const blurEffects: Record<BlurStyle, Effect | null> = {
+      none: null,
+      subtle: Effect.HudWindow,
+      medium: Effect.UnderWindowBackground,
+      full: Effect.Sidebar,
+    };
+    const effect = blurEffects[settings.backgroundBlur];
+
+    if (effect) {
+      win.setEffects({ effects: [effect], state: EffectState.FollowsWindowActiveState });
+    } else {
+      win.clearEffects();
+    }
+  }, [settings.backgroundBlur]);
 
   if (!auth.isAuthenticated) {
     return (
