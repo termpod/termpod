@@ -11,6 +11,21 @@ use tokio::sync::{mpsc, RwLock};
 use tokio_tungstenite::accept_async;
 use tokio_tungstenite::tungstenite::Message;
 
+#[derive(Clone, Serialize, Deserialize)]
+pub struct SessionInfo {
+    pub id: String,
+    pub name: String,
+    pub cwd: String,
+    #[serde(rename = "processName")]
+    pub process_name: Option<String>,
+    #[serde(rename = "ptyCols")]
+    pub pty_cols: u16,
+    #[serde(rename = "ptyRows")]
+    pub pty_rows: u16,
+}
+
+type Sessions = Arc<RwLock<Vec<SessionInfo>>>;
+
 #[derive(Clone)]
 struct Client {
     _id: String,
@@ -25,6 +40,7 @@ type Clients = Arc<RwLock<HashMap<String, Client>>>;
 struct ServerState {
     shutdown_tx: mpsc::Sender<()>,
     clients: Clients,
+    sessions: Sessions,
     dns_sd_process: Option<Child>,
 }
 
@@ -101,6 +117,7 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
     let port = addr.port();
 
     let clients: Clients = Arc::new(RwLock::new(HashMap::new()));
+    let sessions: Sessions = Arc::new(RwLock::new(Vec::new()));
     let (shutdown_tx, mut shutdown_rx) = mpsc::channel::<()>(1);
 
     // Get local IP addresses for discovery
@@ -129,6 +146,7 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
     eprintln!("[LocalServer] dns-sd process started (pid: {}) on port {}", dns_sd_process.id(), port);
 
     let clients_clone = clients.clone();
+    let sessions_clone = sessions.clone();
     let app_clone = app.clone();
 
     // Spawn the server loop
@@ -137,10 +155,11 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
             tokio::select! {
                 Ok((stream, peer_addr)) = listener.accept() => {
                     let clients = clients_clone.clone();
+                    let sessions = sessions_clone.clone();
                     let app = app_clone.clone();
 
                     tokio::spawn(async move {
-                        if let Err(e) = handle_connection(stream, peer_addr, clients, app).await {
+                        if let Err(e) = handle_connection(stream, peer_addr, clients, sessions, app).await {
                             eprintln!("[LocalServer] Connection error: {e}");
                         }
                     });
@@ -160,6 +179,7 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
     *guard = Some(ServerState {
         shutdown_tx,
         clients,
+        sessions,
         dns_sd_process: Some(dns_sd_process),
     });
 
@@ -254,10 +274,36 @@ pub async fn local_server_send_to_client(
     Ok(())
 }
 
+#[tauri::command]
+pub async fn update_local_sessions(sessions: Vec<SessionInfo>) -> Result<(), String> {
+    let guard = server_lock().lock().await;
+
+    let Some(state) = guard.as_ref() else {
+        return Ok(());
+    };
+
+    *state.sessions.write().await = sessions.clone();
+
+    // Broadcast sessions_updated to all connected clients
+    let notification = serde_json::json!({
+        "type": "sessions_updated",
+        "sessions": sessions,
+    });
+    let msg = Message::Text(notification.to_string().into());
+    let clients = state.clients.read().await;
+
+    for client in clients.values() {
+        let _ = client.tx.send(msg.clone());
+    }
+
+    Ok(())
+}
+
 async fn handle_connection(
     stream: tokio::net::TcpStream,
     peer_addr: SocketAddr,
     clients: Clients,
+    sessions: Sessions,
     app: AppHandle,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let ws_stream = accept_async(stream).await?;
@@ -344,6 +390,15 @@ async fn handle_connection(
                                     },
                                 );
                             }
+                        }
+
+                        Some("list_sessions") => {
+                            let list = sessions.read().await;
+                            let response = serde_json::json!({
+                                "type": "sessions_list",
+                                "sessions": *list,
+                            });
+                            let _ = tx.send(Message::Text(response.to_string().into()));
                         }
 
                         _ => {}

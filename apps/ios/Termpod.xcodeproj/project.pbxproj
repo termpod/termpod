@@ -16,6 +16,7 @@
 		58B6E755F5454F63EAD134E9 /* TermpodApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADD5F26F6CF5CFF0E58C879E /* TermpodApp.swift */; };
 		6623E71F21BFCE48DAF5F77E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 098B8570FC69BB98165FCFA1 /* Assets.xcassets */; };
 		686A7C9461D458F2344CF356 /* ConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3862DB88016BACF27DC3AA7D /* ConnectionManager.swift */; };
+		6B18688EFA60D85E6CC7A1DC /* LocalDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E85DC817EDB3FB8301467C7 /* LocalDiscoveryService.swift */; };
 		72DFC784A231DDEB879FDEEA /* DeviceSessionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1BDB4550424436B192A0900 /* DeviceSessionsView.swift */; };
 		9353C4801B1FB71E3BE45F6D /* ReconnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9A8CD578944DBFC96BB7328 /* ReconnectionManager.swift */; };
 		96F75FDDE97E576AE26E8AD5 /* HapticService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 646949C1CB84FF932B77704F /* HapticService.swift */; };
@@ -44,6 +45,7 @@
 
 /* Begin PBXFileReference section */
 		098B8570FC69BB98165FCFA1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		0E85DC817EDB3FB8301467C7 /* LocalDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDiscoveryService.swift; sourceTree = "<group>"; };
 		0E8D192947F83AC0560600EE /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
 		3862DB88016BACF27DC3AA7D /* ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManager.swift; sourceTree = "<group>"; };
 		4430C16341FEF5189B8A8DB3 /* WebRTCTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebRTCTransport.swift; sourceTree = "<group>"; };
@@ -105,6 +107,7 @@
 				77A6E06FDBC8530CA0DFBB26 /* DeviceService.swift */,
 				646949C1CB84FF932B77704F /* HapticService.swift */,
 				56584326DFB96229495153E1 /* KeychainService.swift */,
+				0E85DC817EDB3FB8301467C7 /* LocalDiscoveryService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -295,6 +298,7 @@
 				72DFC784A231DDEB879FDEEA /* DeviceSessionsView.swift in Sources */,
 				96F75FDDE97E576AE26E8AD5 /* HapticService.swift in Sources */,
 				3F48D2371CC04B57BF7AB89C /* KeychainService.swift in Sources */,
+				6B18688EFA60D85E6CC7A1DC /* LocalDiscoveryService.swift in Sources */,
 				DD1BE4AD10088AE826265668 /* LocalTransport.swift in Sources */,
 				BD6A0EBFDD05AB2C2D4B4C57 /* LoginView.swift in Sources */,
 				4F4B2D903F3E64A125E37A3F /* ProcessIcon.swift in Sources */,
@@ -391,7 +395,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = D69S8L2V46;
 				INFOPLIST_FILE = Termpod/App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -510,7 +514,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = D69S8L2V46;
 				INFOPLIST_FILE = Termpod/App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

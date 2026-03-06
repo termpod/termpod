@@ -58,6 +58,17 @@ export default {
       return corsResponse(204);
     }
 
+    try {
+      return await handleRequest(request, env);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+
+      return corsJson({ error: message }, { status: 500 });
+    }
+  },
+};
+
+async function handleRequest(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
     // --- Public auth routes ---
@@ -131,8 +142,7 @@ export default {
     }
 
     return corsJson({ error: 'Not found' }, { status: 404 });
-  },
-};
+}
 
 // --- Auth handlers ---
 

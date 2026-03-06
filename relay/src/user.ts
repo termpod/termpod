@@ -81,6 +81,16 @@ export class User extends DurableObject {
       );
     `);
 
+    // Migrate: add process_name column if missing (table was created before this column existed)
+    const cols = this.ctx.storage.sql
+      .exec("PRAGMA table_info(sessions)")
+      .toArray()
+      .map((r) => r.name as string);
+
+    if (!cols.includes('process_name')) {
+      this.ctx.storage.sql.exec('ALTER TABLE sessions ADD COLUMN process_name TEXT DEFAULT NULL');
+    }
+
     this.initialized = true;
   }
 
@@ -232,6 +242,13 @@ export class User extends DurableObject {
         ) WHERE rn = 1
       )
     `);
+
+    // Mark devices as offline if they haven't sent a heartbeat in 90 seconds
+    const staleThreshold = new Date(Date.now() - 90_000).toISOString();
+    this.ctx.storage.sql.exec(
+      'UPDATE devices SET is_online = 0 WHERE is_online = 1 AND last_seen_at < ?',
+      staleThreshold,
+    );
 
     const rows = this.ctx.storage.sql
       .exec('SELECT id, name, device_type, platform, is_online, last_seen_at, created_at FROM devices ORDER BY created_at')

@@ -147,6 +147,7 @@ pub fn run() {
             local_server::local_server_broadcast,
             local_server::local_server_send_control,
             local_server::local_server_send_to_client,
+            local_server::update_local_sessions,
         ])
         .setup(|app| {
             let new_tab = MenuItemBuilder::with_id("new_tab", "New Tab")

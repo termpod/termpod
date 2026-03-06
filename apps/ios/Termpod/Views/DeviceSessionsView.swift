@@ -7,6 +7,7 @@ struct DeviceSessionsView: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var auth: AuthService
     @EnvironmentObject private var deviceService: DeviceService
+    @StateObject private var localDiscovery = LocalDiscoveryService()
     @State private var sessions: [DeviceService.DeviceSession] = []
     @State private var loading = true
     @State private var joinedSession: Session?
@@ -102,12 +103,67 @@ struct DeviceSessionsView: View {
             await loadSessions()
         }
         .task {
+            localDiscovery.start()
+            // Give Bonjour a moment to discover
+            try? await Task.sleep(for: .milliseconds(500))
             await loadSessions()
+        }
+        .onDisappear {
+            localDiscovery.stop()
+        }
+        .onChange(of: localDiscovery.sessions) { _, newSessions in
+            // React to real-time session updates from local server
+            guard localDiscovery.isDiscovered else { return }
+
+            let updated = newSessions.map { local in
+                DeviceService.DeviceSession(
+                    id: local.id,
+                    name: local.name,
+                    cwd: local.cwd,
+                    processName: local.processName,
+                    ptyCols: local.ptyCols,
+                    ptyRows: local.ptyRows
+                )
+            }
+
+            // Disconnect mobile sessions that no longer exist on desktop
+            let newIds = Set(updated.map(\.id))
+
+            for session in sessions where !newIds.contains(session.id) {
+                if let joined = appState.sessions.first(where: { $0.id == session.id }) {
+                    joined.connection.disconnect()
+                    appState.removeSession(joined)
+                }
+            }
+
+            sessions = updated
         }
     }
 
     private func loadSessions() async {
         loading = true
+
+        // Try local discovery first
+        if localDiscovery.isDiscovered {
+            await localDiscovery.refresh()
+
+            if !localDiscovery.sessions.isEmpty {
+                sessions = localDiscovery.sessions.map { local in
+                    DeviceService.DeviceSession(
+                        id: local.id,
+                        name: local.name,
+                        cwd: local.cwd,
+                        processName: local.processName,
+                        ptyCols: local.ptyCols,
+                        ptyRows: local.ptyRows
+                    )
+                }
+                loading = false
+                return
+            }
+        }
+
+        // Fall back to relay
         sessions = await deviceService.fetchSessions(auth: auth, deviceId: device.id)
         loading = false
     }

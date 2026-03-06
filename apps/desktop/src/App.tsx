@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow, Effect, EffectState } from '@tauri-apps/api/window';
 import { useSessionManager, nameFromCwd } from './hooks/useSessionManager';
 import { useSettings, THEMES, themeToAppStyles, isLightColor } from './hooks/useSettings';
@@ -154,6 +155,28 @@ export function App() {
       }
     }
   }, [sessions, device]);
+
+  // Sync session list to local server for Bonjour-based discovery
+  useEffect(() => {
+    const localSessions: { id: string; name: string; cwd: string; processName: string | null; ptyCols: number; ptyRows: number }[] = [];
+
+    for (const s of sessions) {
+      if (s.exited || s.closing) continue;
+      const relayInfo = relayMapRef.current.get(s.id);
+      if (!relayInfo?.sessionId) continue;
+
+      localSessions.push({
+        id: relayInfo.sessionId,
+        name: s.name,
+        cwd: s.cwd,
+        processName: s.processName ?? null,
+        ptyCols: s.pty.cols ?? 120,
+        ptyRows: s.pty.rows ?? 40,
+      });
+    }
+
+    invoke('update_local_sessions', { sessions: localSessions }).catch(() => {});
+  }, [sessions, relayMap]);
 
   const activeRelay = activeId ? relayMap.get(activeId) : null;
 
