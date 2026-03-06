@@ -73,7 +73,7 @@ class RemoteTerminalView: TerminalView {
 
     // Prevent terminal from stealing keyboard focus — input goes
     // through the CommandInputBar text field instead.
-    override var canBecomeFirstResponder: Bool { false }
+    override var canBecomeFirstResponder: Bool { true }
 
 
     required init?(coder: NSCoder) {

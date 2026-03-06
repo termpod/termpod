@@ -7,6 +7,8 @@ interface SettingsPanelProps {
   onUpdate: (patch: Partial<Settings>) => void;
   onReset: () => void;
   onClose: () => void;
+  email?: string | null;
+  onLogout?: () => void;
 }
 
 const FONT_OPTIONS = [
@@ -20,7 +22,7 @@ const FONT_OPTIONS = [
   'IBM Plex Mono, monospace',
 ];
 
-export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose }: SettingsPanelProps) {
+export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, email, onLogout }: SettingsPanelProps) {
   const [shellInput, setShellInput] = useState(settings.shellPath);
 
   return (
@@ -103,6 +105,11 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose }
         </div>
 
         <div className="settings-footer">
+          {email && onLogout && (
+            <button className="settings-reset" onClick={onLogout}>
+              Sign out ({email})
+            </button>
+          )}
           <button className="settings-reset" onClick={onReset}>
             Reset to Defaults
           </button>

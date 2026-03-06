@@ -475,3 +475,103 @@ body,
   color: #c0caf5;
   border-color: #3d59a1;
 }
+
+/* Login Screen */
+.login-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  background: #1a1b26;
+}
+
+.login-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px;
+  width: 320px;
+}
+
+.login-title {
+  font-size: 24px;
+  font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #c0caf5;
+}
+
+.login-subtitle {
+  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #565f89;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.login-input {
+  padding: 8px 12px;
+  border: 1px solid #292e42;
+  border-radius: 6px;
+  background: #16161e;
+  color: #c0caf5;
+  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  outline: none;
+}
+
+.login-input:focus {
+  border-color: #3d59a1;
+}
+
+.login-input::placeholder {
+  color: #565f89;
+}
+
+.login-error {
+  font-size: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #f7768e;
+  text-align: center;
+}
+
+.login-button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: #7aa2f7;
+  color: #1a1b26;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.login-button:hover {
+  background: #89b4fa;
+}
+
+.login-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.login-switch {
+  border: none;
+  background: none;
+  color: #565f89;
+  font-size: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  cursor: pointer;
+}
+
+.login-switch:hover {
+  color: #7aa2f7;
+}

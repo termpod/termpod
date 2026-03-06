@@ -8,13 +8,12 @@ import {
 } from '@termpod/protocol';
 import type { RelayMessage } from '@termpod/protocol';
 import { RELAY_URL, RECONNECT } from '@termpod/shared';
+import { getAccessToken } from './useAuth';
 
 export type RelayStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 
 interface RelaySession {
   sessionId: string;
-  token: string;
-  wsUrl: string;
 }
 
 interface UseRelayConnectionOptions {
@@ -26,7 +25,6 @@ interface UseRelayConnectionOptions {
 }
 
 const RELAY_BASE = import.meta.env.VITE_RELAY_URL || RELAY_URL.production;
-const RELAY_HTTP = RELAY_BASE.replace('ws://', 'http://').replace('wss://', 'https://');
 const PING_INTERVAL = 30_000;
 
 export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
@@ -70,7 +68,9 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
       wsRef.current = null;
     }
 
-    const wsUrl = `${RELAY_BASE}/sessions/${session.sessionId}/ws`;
+    const token = getAccessToken();
+    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
+    const wsUrl = `${RELAY_BASE}/sessions/${session.sessionId}/ws${tokenParam}`;
     const ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
     wsRef.current = ws;
@@ -174,48 +174,17 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
   const ptySizeRef = useRef<{ cols: number; rows: number } | null>(null);
 
   const createSession = useCallback(async () => {
-    const ptySize = ptySizeRef.current;
-
-    if (!ptySize) {
+    if (!ptySizeRef.current || !connectingRef.current) {
       return;
     }
 
-    try {
-      const res = await fetch(`${RELAY_HTTP}/sessions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ptySize }),
-      });
+    const relaySessionId = crypto.randomUUID();
+    const session: RelaySession = { sessionId: relaySessionId };
+    sessionRef.current = session;
+    setSessionId(relaySessionId);
 
-      if (!res.ok) {
-        throw new Error(`Failed to create session: ${res.status}`);
-      }
-
-      if (!connectingRef.current) {
-        return;
-      }
-
-      const session = (await res.json()) as RelaySession;
-      sessionRef.current = session;
-      setSessionId(session.sessionId);
-
-      connectWebSocketRef.current(session);
-    } catch (err) {
-      console.error('Relay connection failed:', err);
-
-      if (connectingRef.current) {
-        updateStatus('reconnecting');
-
-        reconnectTimeoutRef.current = setTimeout(() => {
-          reconnectDelayRef.current = Math.min(
-            reconnectDelayRef.current * RECONNECT.backoffMultiplier,
-            RECONNECT.maxDelay,
-          );
-          createSession();
-        }, reconnectDelayRef.current);
-      }
-    }
-  }, [updateStatus]);
+    connectWebSocketRef.current(session);
+  }, []);
 
   const connect = useCallback(async (ptySize: { cols: number; rows: number }) => {
     if (wsRef.current || connectingRef.current) {

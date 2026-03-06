@@ -17,12 +17,15 @@ interface TerminalPanelProps {
   fontSize?: number;
   fontFamily?: string;
   onRelayChange?: (info: RelayInfo) => void;
+  onSessionRegistered?: (relaySessionId: string) => void;
 }
 
-export function TerminalPanel({ session, visible, fontSize, fontFamily, onRelayChange }: TerminalPanelProps) {
+export function TerminalPanel({ session, visible, fontSize, fontFamily, onRelayChange, onSessionRegistered }: TerminalPanelProps) {
   const relay = useRelayBridge(session.exited ? null : session);
   const onRelayChangeRef = useRef(onRelayChange);
   onRelayChangeRef.current = onRelayChange;
+  const onSessionRegisteredRef = useRef(onSessionRegistered);
+  onSessionRegisteredRef.current = onSessionRegistered;
 
   useEffect(() => {
     onRelayChangeRef.current?.({
@@ -31,6 +34,16 @@ export function TerminalPanel({ session, visible, fontSize, fontFamily, onRelayC
       sessionId: relay.sessionId,
     });
   }, [relay.status, relay.viewers, relay.sessionId]);
+
+  // Notify parent when relay session is created (for device registration)
+  const registeredRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (relay.sessionId && relay.sessionId !== registeredRef.current) {
+      registeredRef.current = relay.sessionId;
+      onSessionRegisteredRef.current?.(relay.sessionId);
+    }
+  }, [relay.sessionId]);
 
   const handleData = useCallback(
     (data: string) => {

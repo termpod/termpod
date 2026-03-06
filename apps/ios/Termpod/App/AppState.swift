@@ -6,7 +6,15 @@ final class AppState: ObservableObject {
 
     @Published var sessions: [Session] = []
 
-    func pairWithToken(_ token: PairingToken) {
+    /// Pair via QR code (legacy / fallback). Optionally attaches auth token.
+    func pairWithToken(_ token: PairingToken, auth: AuthService? = nil) {
+        let wsURL: URL
+        if let auth, let authURL = auth.authenticatedWSURL(sessionId: token.sessionId) {
+            wsURL = authURL
+        } else {
+            wsURL = token.wsURL
+        }
+
         let connection = ConnectionManager(sessionId: token.sessionId)
         let session = Session(
             id: UUID().uuidString,
@@ -15,7 +23,7 @@ final class AppState: ObservableObject {
         )
 
         sessions.append(session)
-        connection.connect(wsURL: token.wsURL)
+        connection.connect(wsURL: wsURL)
     }
 
     func removeSession(_ session: Session) {

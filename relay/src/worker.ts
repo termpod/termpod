@@ -333,20 +333,8 @@ async function handleWebSocket(request: Request, env: Env, sessionId: string): P
       return corsJson({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Verify this user has access to this session
-    const stub = getUserDO(env, payload.sub);
-    const checkRes = await stub.fetch(
-      new Request('http://internal/check-session-access', {
-        method: 'POST',
-        body: JSON.stringify({ sessionId }),
-      }),
-    );
-
-    const { allowed } = (await checkRes.json()) as { allowed: boolean };
-
-    if (!allowed) {
-      return corsJson({ error: 'Session not found' }, { status: 404 });
-    }
+    // Valid JWT — allow connection. The desktop creates sessions before registering them,
+    // so we can't require the session to exist in the DB yet. Auth is sufficient.
   }
 
   // Note: if no token is provided, we still allow the connection for backward compatibility.

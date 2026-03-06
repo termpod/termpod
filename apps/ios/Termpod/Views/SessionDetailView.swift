@@ -6,8 +6,6 @@ struct SessionDetailView: View {
     let session: Session
     @ObservedObject var connection: ConnectionManager
     @State private var terminalTitle: String
-    @State private var commandText: String = ""
-    @FocusState private var isInputFocused: Bool
 
     init(session: Session) {
         self.session = session
@@ -20,15 +18,14 @@ struct SessionDetailView: View {
             // Connection status banners
             statusBanner
 
-            // Terminal output (read-only display)
+            // Terminal — handles keyboard input directly
             TerminalHostView(connection: connection)
         }
         .safeAreaInset(edge: .bottom) {
-            commandInputBar
+            specialKeysBar
         }
         .navigationTitle(terminalTitle)
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { isInputFocused = true }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 12) {
@@ -56,59 +53,28 @@ struct SessionDetailView: View {
                 terminalTitle = title
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .terminalTapped)) { _ in
-            isInputFocused = true
-        }
     }
 
-    private var commandInputBar: some View {
-        VStack(spacing: 0) {
-            // Special keys row
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    specialKey("Esc", bytes: [0x1B])
-                    specialKey("Tab", bytes: [0x09])
-                    specialKey("^C", bytes: [0x03])
-                    specialKey("^D", bytes: [0x04])
-                    specialKey("^Z", bytes: [0x1A])
-                    specialKey("^L", bytes: [0x0C])
-                    specialKey("↑", bytes: [0x1B, 0x5B, 0x41])
-                    specialKey("↓", bytes: [0x1B, 0x5B, 0x42])
-                    specialKey("←", bytes: [0x1B, 0x5B, 0x44])
-                    specialKey("→", bytes: [0x1B, 0x5B, 0x43])
-                    specialKey("|", bytes: [0x7C])
-                    specialKey("~", bytes: [0x7E])
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-            }
-            .background(Color(UIColor.tertiarySystemBackground))
+    // MARK: - Special Keys Bar
 
-            Divider()
-
-            // Text input row
-            HStack(spacing: 8) {
-                TextField("Command...", text: $commandText)
-                    .focused($isInputFocused)
-                    .font(.system(.body, design: .monospaced))
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .onChange(of: commandText) { oldValue, newValue in
-                        sendDiff(old: oldValue, new: newValue)
-                    }
-                    .onSubmit {
-                        sendCommand()
-                    }
-
-                Button {
-                    sendCommand()
-                } label: {
-                    Image(systemName: "return")
-                        .fontWeight(.semibold)
-                }
+    private var specialKeysBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                specialKey("Esc", bytes: [0x1B])
+                specialKey("Tab", bytes: [0x09])
+                specialKey("^C", bytes: [0x03])
+                specialKey("^D", bytes: [0x04])
+                specialKey("^Z", bytes: [0x1A])
+                specialKey("^L", bytes: [0x0C])
+                specialKey("↑", bytes: [0x1B, 0x5B, 0x41])
+                specialKey("↓", bytes: [0x1B, 0x5B, 0x42])
+                specialKey("←", bytes: [0x1B, 0x5B, 0x44])
+                specialKey("→", bytes: [0x1B, 0x5B, 0x43])
+                specialKey("|", bytes: [0x7C])
+                specialKey("~", bytes: [0x7E])
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.vertical, 6)
         }
         .background(Color(UIColor.secondarySystemBackground))
     }
@@ -134,28 +100,6 @@ struct SessionDetailView: View {
                         .fill(Color(UIColor.systemBackground))
                 )
         }
-    }
-
-    private func sendDiff(old: String, new: String) {
-        if new.count > old.count, new.hasPrefix(old) {
-            let added = String(new.dropFirst(old.count))
-            if let data = added.data(using: .utf8) {
-                connection.sendInput(data)
-            }
-        } else if new.count < old.count, old.hasPrefix(new) {
-            let deleted = old.count - new.count
-            connection.sendInput(Data(repeating: 0x7F, count: deleted))
-        } else if new != old {
-            connection.sendInput(Data(repeating: 0x7F, count: old.count))
-            if let data = new.data(using: .utf8) {
-                connection.sendInput(data)
-            }
-        }
-    }
-
-    private func sendCommand() {
-        commandText = ""
-        connection.sendInput(Data([0x0D]))
     }
 
     @ViewBuilder

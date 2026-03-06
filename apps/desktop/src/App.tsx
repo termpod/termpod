@@ -3,14 +3,30 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useSessionManager } from './hooks/useSessionManager';
 import { useSettings } from './hooks/useSettings';
+import { useAuth } from './hooks/useAuth';
+import { useDevice } from './hooks/useDevice';
 import { TabBar } from './components/TabBar';
 import { TerminalPanel } from './components/TerminalPanel';
 import type { RelayInfo } from './components/TerminalPanel';
 import { RelayStatus } from './components/RelayStatus';
 import { QRPairing } from './components/QRPairing';
 import { SettingsPanel } from './components/SettingsPanel';
+import { LoginScreen } from './components/LoginScreen';
 
 export function App() {
+  const auth = useAuth();
+  const device = useDevice(auth.isAuthenticated);
+
+  if (!auth.isAuthenticated) {
+    return (
+      <LoginScreen
+        onLogin={auth.login}
+        onSignup={auth.signup}
+        loading={auth.loading}
+        error={auth.error}
+      />
+    );
+  }
   const {
     sessions,
     activeId,
@@ -179,6 +195,16 @@ export function App() {
             fontSize={settings.fontSize}
             fontFamily={settings.fontFamily}
             onRelayChange={(info) => handleRelayChange(session.id, info)}
+            onSessionRegistered={(relaySessionId) => {
+              const term = session.termRef.current;
+              device.registerSession(
+                relaySessionId,
+                session.name,
+                session.cwd,
+                term?.cols ?? 120,
+                term?.rows ?? 40,
+              );
+            }}
           />
         ))}
       </div>
@@ -192,6 +218,8 @@ export function App() {
           onUpdate={updateSettings}
           onReset={resetSettings}
           onClose={() => setShowSettings(false)}
+          email={auth.email}
+          onLogout={auth.logout}
         />
       )}
     </div>

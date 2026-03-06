@@ -10,8 +10,10 @@ struct TerminalHostView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> RemoteTerminalView {
         let terminalView = RemoteTerminalView(frame: .zero, connection: connection)
-        // Don't auto-focus terminal — keyboard input goes to the
-        // CommandInputBar text field for instant typing feedback.
+        // Auto-focus so keyboard appears
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            _ = terminalView.becomeFirstResponder()
+        }
         return terminalView
     }
 
