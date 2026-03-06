@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { TerminalSession } from '../hooks/useSessionManager';
 
 interface TabBarProps {
@@ -10,8 +11,16 @@ interface TabBarProps {
 }
 
 export function TabBar({ sessions, activeId, onSelect, onClose, onCreate }: TabBarProps) {
+  const handleDrag = useCallback((e: React.MouseEvent) => {
+    // Only drag if clicking directly on the tab-bar (not on child buttons/tabs)
+    if (e.target === e.currentTarget) {
+      e.preventDefault();
+      getCurrentWindow().startDragging();
+    }
+  }, []);
+
   return (
-    <div className="tab-bar" data-tauri-drag-region>
+    <div className="tab-bar" onMouseDown={handleDrag} data-tauri-drag-region>
       <div className="tabs">
         {sessions.map((session) => (
           <Tab
