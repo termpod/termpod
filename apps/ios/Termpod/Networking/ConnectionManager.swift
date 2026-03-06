@@ -84,13 +84,9 @@ final class ConnectionManager: ObservableObject {
     }
 
     private func setupCallbacks() {
-        // Relay callbacks — only deliver data when relay is the active transport
+        // Deliver data from ALL transports — any source can provide terminal output
         relay.onTerminalData = { [weak self] data in
-            guard let self else { return }
-
-            if self.activeTransport == .relay {
-                self.onTerminalData?(data)
-            }
+            self?.onTerminalData?(data)
         }
 
         relay.onResize = { [weak self] cols, rows in
@@ -123,11 +119,7 @@ final class ConnectionManager: ObservableObject {
 
         // WebRTC transport callbacks
         webrtcTransport.onTerminalData = { [weak self] data in
-            guard let self else { return }
-
-            if self.activeTransport == .webrtc {
-                self.onTerminalData?(data)
-            }
+            self?.onTerminalData?(data)
         }
 
         webrtcTransport.onResize = { [weak self] cols, rows in
