@@ -216,6 +216,17 @@ export class User extends DurableObject {
   // --- Devices ---
 
   private handleListDevices(): Response {
+    // Keep only the most recently seen device per platform to avoid duplicates
+    // from cleared localStorage generating new device IDs
+    this.ctx.storage.sql.exec(`
+      DELETE FROM devices WHERE id NOT IN (
+        SELECT id FROM (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY platform ORDER BY last_seen_at DESC, created_at DESC) AS rn
+          FROM devices
+        ) WHERE rn = 1
+      )
+    `);
+
     const rows = this.ctx.storage.sql
       .exec('SELECT id, name, device_type, platform, is_online, last_seen_at, created_at FROM devices ORDER BY created_at')
       .toArray();
