@@ -428,6 +428,7 @@ export interface Settings {
   cursorStyle: CursorStyle;
   cursorBlink: boolean;
   lineHeight: number;
+  windowPadding: number;
   backgroundBlur: BlurStyle;
   backgroundOpacity: number;
 
@@ -454,6 +455,7 @@ const DEFAULTS: Settings = {
   cursorStyle: 'block',
   cursorBlink: true,
   lineHeight: 1.0,
+  windowPadding: 0,
   backgroundBlur: 'none',
   backgroundOpacity: 1.0,
 

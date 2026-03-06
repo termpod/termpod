@@ -344,6 +344,7 @@ export function App() {
             fontSmoothing={settings.fontSmoothing}
             fontLigatures={settings.fontLigatures}
             drawBoldInBold={settings.drawBoldInBold}
+            windowPadding={settings.windowPadding}
             cursorStyle={settings.cursorStyle}
             cursorBlink={settings.cursorBlink}
             lineHeight={settings.lineHeight}

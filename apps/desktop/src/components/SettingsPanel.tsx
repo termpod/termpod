@@ -169,6 +169,18 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                     />
                   </SettingRow>
                   <div className="sp-separator" />
+                  <SettingRow label="Window Padding" badge={`${settings.windowPadding}px`}>
+                    <input
+                      className="sp-range"
+                      type="range"
+                      min={0}
+                      max={32}
+                      step={2}
+                      value={settings.windowPadding}
+                      onChange={(e) => onUpdate({ windowPadding: Number(e.target.value) })}
+                    />
+                  </SettingRow>
+                  <div className="sp-separator" />
                   <SettingRow label="Background Blur">
                     <SegmentedControl
                       options={BLUR_OPTIONS}
