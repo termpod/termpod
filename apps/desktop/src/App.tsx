@@ -15,21 +15,9 @@ import { LoginScreen } from './components/LoginScreen';
 
 export function App() {
   const auth = useAuth();
-  // device hook needs createSession, but that's defined after the auth check.
-  // Use a ref to forward the callback.
   const createSessionRef = useRef<(() => void) | null>(null);
   const device = useDevice(auth.isAuthenticated, () => createSessionRef.current?.());
 
-  if (!auth.isAuthenticated) {
-    return (
-      <LoginScreen
-        onLogin={auth.login}
-        onSignup={auth.signup}
-        loading={auth.loading}
-        error={auth.error}
-      />
-    );
-  }
   const {
     sessions,
     activeId,
@@ -49,7 +37,7 @@ export function App() {
   const initializedRef = useRef(false);
   const [relayMap, setRelayMap] = useState<Map<string, RelayInfo>>(new Map());
 
-  const handleCloseSession = (id: string) => {
+  const handleCloseSession = useCallback((id: string) => {
     const { wasLast } = closeSession(id);
 
     if (wasLast) {
@@ -58,7 +46,7 @@ export function App() {
     }
 
     setTimeout(focusActive, 50);
-  };
+  }, [closeSession, focusActive]);
 
   const activeRelay = activeId ? relayMap.get(activeId) : null;
 
@@ -70,15 +58,15 @@ export function App() {
     });
   }, []);
 
-  // Create initial session on mount
+  // Create initial session on mount (only when authenticated)
   useEffect(() => {
-    if (initializedRef.current) {
+    if (!auth.isAuthenticated || initializedRef.current) {
       return;
     }
 
     initializedRef.current = true;
     createSession({ shell: settings.shellPath });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [auth.isAuthenticated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Clean up relay info for closed sessions
   useEffect(() => {
@@ -176,6 +164,17 @@ export function App() {
       unlisten.then((fn) => fn());
     };
   }, []);
+
+  if (!auth.isAuthenticated) {
+    return (
+      <LoginScreen
+        onLogin={auth.login}
+        onSignup={auth.signup}
+        loading={auth.loading}
+        error={auth.error}
+      />
+    );
+  }
 
   return (
     <div className="app">
