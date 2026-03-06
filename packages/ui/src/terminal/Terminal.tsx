@@ -51,6 +51,10 @@ export interface TerminalProps {
   onReady?: () => void;
   fontSize?: number;
   fontFamily?: string;
+  fontWeight?: string;
+  fontSmoothing?: string;
+  fontLigatures?: boolean;
+  drawBoldInBold?: boolean;
   scrollbackLines?: number;
   cursorStyle?: 'block' | 'underline' | 'bar';
   cursorBlink?: boolean;
@@ -68,7 +72,7 @@ const SEARCH_DECORATIONS = {
 };
 
 export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
-  ({ onData, onResize, onTitleChange, onBell, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', scrollbackLines = 5000, cursorStyle = 'block', cursorBlink = true, lineHeight = 1.0, theme }, ref) => {
+  ({ onData, onResize, onTitleChange, onBell, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', fontWeight = 'normal', fontSmoothing = 'antialiased', fontLigatures = false, drawBoldInBold = true, scrollbackLines = 5000, cursorStyle = 'block', cursorBlink = true, lineHeight = 1.0, theme }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const terminalRef = useRef<XTerm | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -190,9 +194,13 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         selectionBackground: '#33467c',
       };
 
+      const xtermWeight = fontWeight === 'normal' ? 'normal' : fontWeight;
+
       const term = new XTerm({
         fontSize,
         fontFamily,
+        fontWeight: xtermWeight as any,
+        fontWeightBold: (drawBoldInBold ? 'bold' : xtermWeight) as any,
         scrollback: scrollbackLines,
         cursorBlink,
         cursorStyle,
@@ -280,7 +288,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         fitAddonRef.current = null;
         searchAddonRef.current = null;
       };
-    }, [fontSize, fontFamily, scrollbackLines]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [fontSize, fontFamily, fontWeight, drawBoldInBold, scrollbackLines]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Apply appearance changes dynamically without recreating the terminal
     useEffect(() => {
@@ -294,7 +302,21 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       if (theme) {
         term.options.theme = theme;
       }
-    }, [cursorBlink, cursorStyle, lineHeight, theme, backgroundOpacity]);
+    }, [cursorBlink, cursorStyle, lineHeight, theme]);
+
+    // Apply font smoothing and ligatures via CSS on the terminal container
+    useEffect(() => {
+      const el = containerRef.current;
+      if (!el) return;
+
+      const smoothingMap: Record<string, string> = {
+        auto: 'auto',
+        antialiased: 'antialiased',
+        none: 'none',
+      };
+      el.style.setProperty('-webkit-font-smoothing', smoothingMap[fontSmoothing] ?? 'auto');
+      el.style.fontVariantLigatures = fontLigatures ? 'normal' : 'none';
+    }, [fontSmoothing, fontLigatures]);
 
     return (
       <div style={{ width: '100%', height: '100%', position: 'relative' }}>

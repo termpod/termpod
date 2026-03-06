@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Settings, CursorStyle, NewTabCwd, TerminalTheme, BlurStyle } from '../hooks/useSettings';
+import type { Settings, CursorStyle, NewTabCwd, TerminalTheme, BlurStyle, FontSmoothing, FontWeight } from '../hooks/useSettings';
 import { THEMES } from '../hooks/useSettings';
 
 type SettingsTab = 'appearance' | 'terminal' | 'behavior' | 'account';
@@ -35,10 +35,23 @@ const BLUR_OPTIONS: { value: BlurStyle; label: string }[] = [
   { value: 'full', label: 'Full' },
 ];
 
-const CURSOR_OPTIONS: { value: CursorStyle; label: string; icon: string }[] = [
-  { value: 'block', label: 'Block', icon: '█' },
-  { value: 'underline', label: 'Underline', icon: '▁' },
-  { value: 'bar', label: 'Bar', icon: '▏' },
+const CURSOR_OPTIONS: { value: CursorStyle; label: string }[] = [
+  { value: 'block', label: 'Block' },
+  { value: 'underline', label: 'Line' },
+  { value: 'bar', label: 'Bar' },
+];
+
+const FONT_WEIGHT_OPTIONS: { value: FontWeight; label: string }[] = [
+  { value: '300', label: 'Light' },
+  { value: 'normal', label: 'Regular' },
+  { value: '500', label: 'Medium' },
+  { value: '700', label: 'Bold' },
+];
+
+const FONT_SMOOTHING_OPTIONS: { value: FontSmoothing; label: string }[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'antialiased', label: 'Antialiased' },
+  { value: 'none', label: 'None' },
 ];
 
 const TABS: { id: SettingsTab; label: string; icon: string }[] = [
@@ -123,34 +136,30 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                 />
 
                 {/* Cursor */}
-                <div className="sp-section">
-                  <label className="sp-label">Cursor Style</label>
-                  <div className="sp-cursor-options">
-                    {CURSOR_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.value}
-                        className={`sp-cursor-btn ${settings.cursorStyle === opt.value ? 'sp-cursor-active' : ''}`}
-                        onClick={() => onUpdate({ cursorStyle: opt.value })}
-                      >
-                        <span className="sp-cursor-icon">{opt.icon}</span>
-                        <span className="sp-cursor-label">{opt.label}</span>
-                      </button>
-                    ))}
-                  </div>
+                <div className="sp-group-label">Cursor</div>
+                <div className="sp-group">
+                  <SettingRow label="Style">
+                    <SegmentedControl
+                      options={CURSOR_OPTIONS}
+                      value={settings.cursorStyle}
+                      onChange={(v) => onUpdate({ cursorStyle: v })}
+                    />
+                  </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Blink">
+                    <NativeToggle
+                      value={settings.cursorBlink}
+                      onChange={(v) => onUpdate({ cursorBlink: v })}
+                    />
+                  </SettingRow>
                 </div>
 
-                <ToggleRow
-                  label="Cursor Blink"
-                  value={settings.cursorBlink}
-                  onChange={(v) => onUpdate({ cursorBlink: v })}
-                />
-
-                {/* Line Height */}
-                <div className="sp-section">
-                  <label className="sp-label">Line Height</label>
-                  <div className="sp-slider-row">
+                {/* Display */}
+                <div className="sp-group-label">Display</div>
+                <div className="sp-group">
+                  <SettingRow label="Line Height" badge={settings.lineHeight.toFixed(2)}>
                     <input
-                      className="settings-range"
+                      className="sp-range"
                       type="range"
                       min={0.8}
                       max={1.6}
@@ -158,129 +167,128 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                       value={settings.lineHeight}
                       onChange={(e) => onUpdate({ lineHeight: Number(e.target.value) })}
                     />
-                    <span className="sp-value">{settings.lineHeight.toFixed(2)}</span>
-                  </div>
-                </div>
-
-                {/* Background Blur */}
-                <div className="sp-section">
-                  <label className="sp-label">Background Blur</label>
-                  <div className="sp-blur-options">
-                    {BLUR_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.value}
-                        className={`sp-blur-btn ${settings.backgroundBlur === opt.value ? 'sp-blur-active' : ''}`}
-                        onClick={() => onUpdate({ backgroundBlur: opt.value })}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="sp-section">
-                  <div className="sp-label-row">
-                    <label className="sp-label">Opacity</label>
-                    <span className="sp-badge">{Math.round(settings.backgroundOpacity * 100)}%</span>
-                  </div>
-                  <input
-                    className="settings-range"
-                    type="range"
-                    min={0.3}
-                    max={1.0}
-                    step={0.05}
-                    value={settings.backgroundOpacity}
-                    onChange={(e) => onUpdate({ backgroundOpacity: Number(e.target.value) })}
-                  />
+                  </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Background Blur">
+                    <SegmentedControl
+                      options={BLUR_OPTIONS}
+                      value={settings.backgroundBlur}
+                      onChange={(v) => onUpdate({ backgroundBlur: v })}
+                    />
+                  </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Opacity" badge={`${Math.round(settings.backgroundOpacity * 100)}%`}>
+                    <input
+                      className="sp-range"
+                      type="range"
+                      min={0.3}
+                      max={1.0}
+                      step={0.05}
+                      value={settings.backgroundOpacity}
+                      onChange={(e) => onUpdate({ backgroundOpacity: Number(e.target.value) })}
+                    />
+                  </SettingRow>
                 </div>
               </>
             )}
 
             {activeTab === 'terminal' && (
               <>
-                {/* Font section card */}
-                <div className="sp-card">
-                  <div className="sp-card-header">
-                    <span className="sp-card-icon">Aa</span>
-                    <span className="sp-card-title">Font</span>
-                  </div>
-
-                  <FontPicker
-                    value={settings.fontFamily}
-                    options={FONT_OPTIONS}
-                    onChange={(v) => onUpdate({ fontFamily: v })}
-                  />
-
-                  <div className="sp-section">
-                    <div className="sp-label-row">
-                      <label className="sp-label">Size</label>
-                      <span className="sp-badge">{settings.fontSize}px</span>
-                    </div>
+                {/* Font */}
+                <div className="sp-group-label">Font</div>
+                <div className="sp-group">
+                  <SettingRow label="Family">
+                    <FontPicker
+                      value={settings.fontFamily}
+                      options={FONT_OPTIONS}
+                      onChange={(v) => onUpdate({ fontFamily: v })}
+                    />
+                  </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Size" badge={`${settings.fontSize}px`}>
                     <input
-                      className="settings-range"
+                      className="sp-range"
                       type="range"
                       min={10}
                       max={24}
                       value={settings.fontSize}
                       onChange={(e) => onUpdate({ fontSize: Number(e.target.value) })}
                     />
-                  </div>
-
-                  {/* Live font preview */}
-                  <div
-                    className="sp-font-preview"
-                    style={{
-                      fontFamily: settings.fontFamily,
-                      fontSize: `${settings.fontSize}px`,
-                      lineHeight: settings.lineHeight,
-                      background: THEMES[settings.theme]?.background ?? '#1a1b26',
-                      color: THEMES[settings.theme]?.foreground ?? '#c0caf5',
-                    }}
-                  >
-                    <div>
-                      <span style={{ color: THEMES[settings.theme]?.green }}>~/termpod</span>
-                      <span style={{ color: THEMES[settings.theme]?.foreground }}> $ echo &quot;Hello, world!&quot;</span>
-                    </div>
-                    <div style={{ color: THEMES[settings.theme]?.foreground }}>Hello, world!</div>
-                  </div>
+                  </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Weight">
+                    <SegmentedControl
+                      options={FONT_WEIGHT_OPTIONS}
+                      value={settings.fontWeight}
+                      onChange={(v) => onUpdate({ fontWeight: v })}
+                    />
+                  </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Smoothing">
+                    <SegmentedControl
+                      options={FONT_SMOOTHING_OPTIONS}
+                      value={settings.fontSmoothing}
+                      onChange={(v) => onUpdate({ fontSmoothing: v })}
+                    />
+                  </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Draw Bold in Bold Font">
+                    <NativeToggle
+                      value={settings.drawBoldInBold}
+                      onChange={(v) => onUpdate({ drawBoldInBold: v })}
+                    />
+                  </SettingRow>
                 </div>
 
-                {/* Shell section card */}
-                <div className="sp-card">
-                  <div className="sp-card-header">
-                    <span className="sp-card-icon">&gt;_</span>
-                    <span className="sp-card-title">Shell</span>
+                {/* Font preview */}
+                <div
+                  className="sp-font-preview"
+                  style={{
+                    fontFamily: settings.fontFamily,
+                    fontSize: `${settings.fontSize}px`,
+                    fontWeight: settings.fontWeight === 'normal' ? 400 : Number(settings.fontWeight),
+                    lineHeight: settings.lineHeight,
+                    WebkitFontSmoothing: settings.fontSmoothing === 'antialiased' ? 'antialiased' : settings.fontSmoothing === 'none' ? 'none' : 'auto',
+                    background: THEMES[settings.theme]?.background ?? '#1a1b26',
+                    color: THEMES[settings.theme]?.foreground ?? '#c0caf5',
+                  }}
+                >
+                  <div>
+                    <span style={{ color: THEMES[settings.theme]?.green }}>~/termpod</span>
+                    <span style={{ color: THEMES[settings.theme]?.foreground }}> $ echo &quot;Hello, world!&quot;</span>
                   </div>
+                  <div style={{ color: THEMES[settings.theme]?.foreground }}>Hello, world!</div>
+                </div>
 
-                  <div className="sp-section">
-                    <label className="sp-label">Path</label>
-                    <input
-                      className={`settings-input sp-full-width ${shellValid === false ? 'settings-input-error' : ''}`}
-                      type="text"
-                      value={shellInput}
-                      onChange={(e) => {
-                        setShellInput(e.target.value);
-                        setShellValid(null);
-                      }}
-                      onBlur={() => validateShell(shellInput)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                      }}
-                      spellCheck={false}
-                      placeholder="/bin/zsh"
-                    />
-                    {shellValid === false && (
-                      <span className="settings-hint-error">Path must start with /</span>
-                    )}
-                  </div>
-
-                  <div className="sp-section">
-                    <div className="sp-label-row">
-                      <label className="sp-label">Scrollback Lines</label>
-                      <span className="sp-badge">{settings.scrollbackLines.toLocaleString()}</span>
+                {/* Shell */}
+                <div className="sp-group-label">Shell</div>
+                <div className="sp-group">
+                  <SettingRow label="Path">
+                    <div className="sp-input-wrap">
+                      <input
+                        className={`sp-input ${shellValid === false ? 'sp-input-error' : ''}`}
+                        type="text"
+                        value={shellInput}
+                        onChange={(e) => {
+                          setShellInput(e.target.value);
+                          setShellValid(null);
+                        }}
+                        onBlur={() => validateShell(shellInput)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                        }}
+                        spellCheck={false}
+                        placeholder="/bin/zsh"
+                      />
+                      {shellValid === false && (
+                        <span className="sp-input-hint">Must start with /</span>
+                      )}
                     </div>
+                  </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Scrollback" badge={settings.scrollbackLines.toLocaleString()}>
                     <input
-                      className="settings-range"
+                      className="sp-range"
                       type="range"
                       min={1000}
                       max={50000}
@@ -288,81 +296,79 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                       value={settings.scrollbackLines}
                       onChange={(e) => onUpdate({ scrollbackLines: Number(e.target.value) })}
                     />
-                  </div>
-
-                  <ToggleRow
-                    label="Bell Sound"
-                    value={settings.bellEnabled}
-                    onChange={(v) => onUpdate({ bellEnabled: v })}
-                  />
+                  </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Bell Sound">
+                    <NativeToggle
+                      value={settings.bellEnabled}
+                      onChange={(v) => onUpdate({ bellEnabled: v })}
+                    />
+                  </SettingRow>
                 </div>
               </>
             )}
 
             {activeTab === 'behavior' && (
               <>
-                {/* New Tab Working Directory */}
-                <div className="sp-section">
-                  <label className="sp-label">New Tab Working Directory</label>
-                  <div className="sp-radio-group">
-                    <RadioOption
-                      name="newTabCwd"
-                      value="home"
-                      label="Home directory"
-                      description="Always open in ~"
-                      checked={settings.newTabCwd === 'home'}
-                      onChange={() => onUpdate({ newTabCwd: 'home' as NewTabCwd })}
+                <div className="sp-group-label">Tabs</div>
+                <div className="sp-group">
+                  <SettingRow label="New Tab Directory">
+                    <SegmentedControl
+                      options={[
+                        { value: 'home' as NewTabCwd, label: 'Home' },
+                        { value: 'current' as NewTabCwd, label: 'Current' },
+                      ]}
+                      value={settings.newTabCwd}
+                      onChange={(v) => onUpdate({ newTabCwd: v })}
                     />
-                    <RadioOption
-                      name="newTabCwd"
-                      value="current"
-                      label="Current directory"
-                      description="Inherit from active tab"
-                      checked={settings.newTabCwd === 'current'}
-                      onChange={() => onUpdate({ newTabCwd: 'current' as NewTabCwd })}
+                  </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Close Window on Last Tab">
+                    <NativeToggle
+                      value={settings.closeWindowOnLastTab}
+                      onChange={(v) => onUpdate({ closeWindowOnLastTab: v })}
                     />
-                  </div>
+                  </SettingRow>
                 </div>
 
-                <ToggleRow
-                  label="Close Window on Last Tab"
-                  description="Close the app when the last tab is closed"
-                  value={settings.closeWindowOnLastTab}
-                  onChange={(v) => onUpdate({ closeWindowOnLastTab: v })}
-                />
-
-                {/* Keyboard Shortcuts link */}
                 {onOpenKeybindings && (
-                  <div className="sp-section">
-                    <button
-                      className="sp-link-btn"
-                      onClick={() => {
-                        onClose();
-                        onOpenKeybindings();
-                      }}
-                    >
-                      <span>Keyboard Shortcuts</span>
-                      <span className="sp-link-arrow">→</span>
-                    </button>
-                  </div>
+                  <>
+                    <div className="sp-group-label">Keyboard</div>
+                    <div className="sp-group">
+                      <button
+                        className="sp-nav-row"
+                        onClick={() => {
+                          onClose();
+                          onOpenKeybindings();
+                        }}
+                      >
+                        <span className="sp-nav-row-label">Keyboard Shortcuts</span>
+                        <span className="sp-nav-row-chevron">&#x203A;</span>
+                      </button>
+                    </div>
+                  </>
                 )}
               </>
             )}
 
             {activeTab === 'account' && (
               <>
-                <div className="sp-section">
-                  <label className="sp-label">Signed In As</label>
-                  <div className="sp-account-email">{email || 'Not signed in'}</div>
+                <div className="sp-group-label">Account</div>
+                <div className="sp-group">
+                  <SettingRow label="Signed In As">
+                    <span className="sp-account-value">{email || 'Not signed in'}</span>
+                  </SettingRow>
+                  {onLogout && (
+                    <>
+                      <div className="sp-separator" />
+                      <div className="sp-row sp-row-center">
+                        <button className="sp-danger-btn" onClick={onLogout}>
+                          Sign Out
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
-
-                {onLogout && (
-                  <div className="sp-section">
-                    <button className="sp-danger-btn" onClick={onLogout}>
-                      Sign Out
-                    </button>
-                  </div>
-                )}
               </>
             )}
           </div>
@@ -374,54 +380,55 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
 
 // --- Sub-components ---
 
-function ToggleRow({ label, description, value, onChange }: {
+function SettingRow({ label, badge, children }: {
   label: string;
-  description?: string;
-  value: boolean;
-  onChange: (v: boolean) => void;
+  badge?: string;
+  children: React.ReactNode;
 }) {
   return (
-    <div className="sp-section sp-toggle-row">
-      <div className="sp-toggle-info">
-        <span className="sp-label">{label}</span>
-        {description && <span className="sp-description">{description}</span>}
+    <div className="sp-row">
+      <div className="sp-row-label">
+        <span>{label}</span>
+        {badge && <span className="sp-row-badge">{badge}</span>}
       </div>
-      <button
-        className={`sp-toggle ${value ? 'sp-toggle-on' : ''}`}
-        onClick={() => onChange(!value)}
-        role="switch"
-        aria-checked={value}
-      >
-        <span className="sp-toggle-thumb" />
-      </button>
+      <div className="sp-row-control">{children}</div>
     </div>
   );
 }
 
-function RadioOption({ name, value, label, description, checked, onChange }: {
-  name: string;
-  value: string;
-  label: string;
-  description: string;
-  checked: boolean;
-  onChange: () => void;
+function NativeToggle({ value, onChange }: {
+  value: boolean;
+  onChange: (v: boolean) => void;
 }) {
   return (
-    <label className={`sp-radio-option ${checked ? 'sp-radio-active' : ''}`}>
-      <input
-        type="radio"
-        name={name}
-        value={value}
-        checked={checked}
-        onChange={onChange}
-        className="sp-radio-input"
-      />
-      <div className="sp-radio-dot" />
-      <div className="sp-radio-content">
-        <span className="sp-radio-label">{label}</span>
-        <span className="sp-radio-desc">{description}</span>
-      </div>
-    </label>
+    <button
+      className={`sp-toggle ${value ? 'sp-toggle-on' : ''}`}
+      onClick={() => onChange(!value)}
+      role="switch"
+      aria-checked={value}
+    >
+      <span className="sp-toggle-thumb" />
+    </button>
+  );
+}
+
+function SegmentedControl<T extends string>({ options, value, onChange }: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="sp-segmented">
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          className={`sp-segmented-item ${value === opt.value ? 'sp-segmented-active' : ''}`}
+          onClick={() => onChange(opt.value)}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -466,21 +473,17 @@ function ThemeSection({ themes, selected, onSelect }: {
 
   return (
     <>
-      <div className="sp-section">
-        <label className="sp-label">Dark Themes</label>
-        <div className="sp-theme-grid">
-          {dark.map(([key, theme]) => (
-            <ThemeCard key={key} themeKey={key} theme={theme} selected={selected === key} onSelect={() => onSelect(key)} />
-          ))}
-        </div>
+      <div className="sp-group-label">Dark Themes</div>
+      <div className="sp-theme-grid">
+        {dark.map(([key, theme]) => (
+          <ThemeCard key={key} themeKey={key} theme={theme} selected={selected === key} onSelect={() => onSelect(key)} />
+        ))}
       </div>
-      <div className="sp-section">
-        <label className="sp-label">Light Themes</label>
-        <div className="sp-theme-grid">
-          {light.map(([key, theme]) => (
-            <ThemeCard key={key} themeKey={key} theme={theme} selected={selected === key} onSelect={() => onSelect(key)} />
-          ))}
-        </div>
+      <div className="sp-group-label">Light Themes</div>
+      <div className="sp-theme-grid">
+        {light.map(([key, theme]) => (
+          <ThemeCard key={key} themeKey={key} theme={theme} selected={selected === key} onSelect={() => onSelect(key)} />
+        ))}
       </div>
     </>
   );
@@ -504,7 +507,6 @@ function FontPicker({ value, options, onChange }: {
     displayName(f).toLowerCase().includes(query.toLowerCase()),
   );
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
 
@@ -519,7 +521,6 @@ function FontPicker({ value, options, onChange }: {
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  // Focus input when opened
   useEffect(() => {
     if (open) {
       inputRef.current?.focus();
@@ -527,7 +528,6 @@ function FontPicker({ value, options, onChange }: {
     }
   }, [open]);
 
-  // Scroll highlighted item into view
   useEffect(() => {
     if (highlightIdx < 0 || !listRef.current) return;
     const items = listRef.current.children;
@@ -562,22 +562,21 @@ function FontPicker({ value, options, onChange }: {
   return (
     <div className="sp-font-picker" ref={containerRef}>
       <button
-        className="sp-font-picker-trigger"
+        className="sp-font-trigger"
         onClick={() => setOpen(!open)}
         style={{ fontFamily: value }}
         type="button"
       >
-        <span className="sp-font-picker-value">{displayName(value)}</span>
-        <span className="sp-font-picker-chevron">{open ? '\u25B4' : '\u25BE'}</span>
+        <span className="sp-font-trigger-name">{displayName(value)}</span>
+        <span className="sp-font-trigger-chevron">{open ? '\u25B4' : '\u25BE'}</span>
       </button>
 
       {open && (
-        <div className="sp-font-picker-dropdown">
-          <div className="sp-font-picker-search">
-            <span className="sp-font-picker-search-icon">&#x1F50D;</span>
+        <div className="sp-font-dropdown">
+          <div className="sp-font-search">
             <input
               ref={inputRef}
-              className="sp-font-picker-input"
+              className="sp-font-search-input"
               type="text"
               value={query}
               onChange={(e) => {
@@ -590,14 +589,14 @@ function FontPicker({ value, options, onChange }: {
             />
           </div>
 
-          <div className="sp-font-picker-list" ref={listRef}>
+          <div className="sp-font-list" ref={listRef}>
             {filtered.length === 0 ? (
-              <div className="sp-font-picker-empty">No matching fonts</div>
+              <div className="sp-font-empty">No matching fonts</div>
             ) : (
               filtered.map((font, i) => (
                 <button
                   key={font}
-                  className={`sp-font-picker-item ${font === value ? 'sp-font-picker-selected' : ''} ${i === highlightIdx ? 'sp-font-picker-highlighted' : ''}`}
+                  className={`sp-font-item ${font === value ? 'sp-font-selected' : ''} ${i === highlightIdx ? 'sp-font-highlighted' : ''}`}
                   onClick={() => {
                     onChange(font);
                     setOpen(false);
@@ -606,11 +605,11 @@ function FontPicker({ value, options, onChange }: {
                   style={{ fontFamily: font }}
                   type="button"
                 >
-                  <span className="sp-font-picker-item-name">{displayName(font)}</span>
-                  <span className="sp-font-picker-item-sample" style={{ fontFamily: font }}>
+                  <span className="sp-font-item-name">{displayName(font)}</span>
+                  <span className="sp-font-item-sample" style={{ fontFamily: font }}>
                     AaBb 0Oo {'{}'}
                   </span>
-                  {font === value && <span className="sp-font-picker-check">&#x2713;</span>}
+                  {font === value && <span className="sp-font-check">&#x2713;</span>}
                 </button>
               ))
             )}

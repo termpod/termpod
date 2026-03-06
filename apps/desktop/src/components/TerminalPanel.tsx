@@ -19,6 +19,10 @@ interface TerminalPanelProps {
   visible: boolean;
   fontSize?: number;
   fontFamily?: string;
+  fontWeight?: string;
+  fontSmoothing?: string;
+  fontLigatures?: boolean;
+  drawBoldInBold?: boolean;
   cursorStyle?: 'block' | 'underline' | 'bar';
   cursorBlink?: boolean;
   lineHeight?: number;
@@ -31,7 +35,7 @@ interface TerminalPanelProps {
   onSessionClosed?: () => void;
 }
 
-export function TerminalPanel({ session, visible, fontSize, fontFamily, cursorStyle, cursorBlink, lineHeight, theme, bellEnabled, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onSessionClosed }: TerminalPanelProps) {
+export function TerminalPanel({ session, visible, fontSize, fontFamily, fontWeight, fontSmoothing, fontLigatures, drawBoldInBold, cursorStyle, cursorBlink, lineHeight, theme, bellEnabled, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onSessionClosed }: TerminalPanelProps) {
   const onCreateSessionRequestRef = useRef(onCreateSessionRequest);
   onCreateSessionRequestRef.current = onCreateSessionRequest;
   const onSessionClosedRef = useRef(onSessionClosed);
@@ -159,6 +163,10 @@ export function TerminalPanel({ session, visible, fontSize, fontFamily, cursorSt
         onBell={bellEnabled ? () => { /* system bell */ } : undefined}
         fontSize={fontSize}
         fontFamily={fontFamily}
+        fontWeight={fontWeight}
+        fontSmoothing={fontSmoothing}
+        fontLigatures={fontLigatures}
+        drawBoldInBold={drawBoldInBold}
         cursorStyle={cursorStyle}
         cursorBlink={cursorBlink}
         lineHeight={lineHeight}

@@ -3,6 +3,8 @@ import { useCallback, useSyncExternalStore } from 'react';
 export type CursorStyle = 'block' | 'underline' | 'bar';
 export type NewTabCwd = 'home' | 'current';
 export type BlurStyle = 'none' | 'subtle' | 'medium' | 'full';
+export type FontSmoothing = 'auto' | 'antialiased' | 'none';
+export type FontWeight = 'normal' | '100' | '200' | '300' | '400' | '500' | '600' | '700' | '800' | '900';
 
 export interface TerminalTheme {
   name: string;
@@ -432,6 +434,10 @@ export interface Settings {
   // Terminal
   fontSize: number;
   fontFamily: string;
+  fontWeight: FontWeight;
+  fontSmoothing: FontSmoothing;
+  fontLigatures: boolean;
+  drawBoldInBold: boolean;
   shellPath: string;
   scrollbackLines: number;
   bellEnabled: boolean;
@@ -453,6 +459,10 @@ const DEFAULTS: Settings = {
 
   fontSize: 14,
   fontFamily: 'Menlo, monospace',
+  fontWeight: 'normal',
+  fontSmoothing: 'antialiased',
+  fontLigatures: false,
+  drawBoldInBold: true,
   shellPath: '/bin/zsh',
   scrollbackLines: 5000,
   bellEnabled: false,

@@ -340,6 +340,10 @@ export function App() {
             visible={session.id === activeId}
             fontSize={settings.fontSize}
             fontFamily={settings.fontFamily}
+            fontWeight={settings.fontWeight}
+            fontSmoothing={settings.fontSmoothing}
+            fontLigatures={settings.fontLigatures}
+            drawBoldInBold={settings.drawBoldInBold}
             cursorStyle={settings.cursorStyle}
             cursorBlink={settings.cursorBlink}
             lineHeight={settings.lineHeight}
