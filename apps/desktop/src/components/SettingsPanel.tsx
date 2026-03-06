@@ -75,6 +75,7 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
+    modalRef.current?.focus();
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
@@ -97,6 +98,7 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label="Settings"
+        tabIndex={-1}
       >
         {/* Sidebar */}
         <nav className="sp-sidebar">
