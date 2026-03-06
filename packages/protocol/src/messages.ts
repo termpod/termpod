@@ -158,6 +158,10 @@ export interface SessionCreatedMessage {
   ptyRows: number;
 }
 
+export interface SessionClosedMessage {
+  type: 'session_closed';
+}
+
 export type RelayMessage =
   | SessionInfoMessage
   | ReadyMessage
@@ -171,6 +175,7 @@ export type RelayMessage =
   | ErrorMessage
   | SignalingMessage
   | CreateSessionRequestMessage
-  | SessionCreatedMessage;
+  | SessionCreatedMessage
+  | SessionClosedMessage;
 
 export type ControlMessage = ClientMessage | RelayMessage;
