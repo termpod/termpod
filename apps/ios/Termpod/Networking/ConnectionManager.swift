@@ -5,7 +5,9 @@ import Foundation
 ///
 /// Priority: local WebSocket > WebRTC > relay.
 /// The relay always stays connected for signaling and as a fallback.
-/// Both input AND output go through the best available transport.
+/// Input is sent through the best transport only.
+/// Output is accepted from ALL transports — duplicates are harmless for
+/// terminal rendering, and this avoids data loss during transport switches.
 @MainActor
 final class ConnectionManager: ObservableObject {
 
@@ -49,7 +51,7 @@ final class ConnectionManager: ObservableObject {
         activeTransport = .relay
     }
 
-    // MARK: - Sending (through best transport)
+    // MARK: - Sending (through best transport only)
 
     func sendInput(_ data: Data) {
         bestTransport.sendInput(data)
@@ -84,41 +86,32 @@ final class ConnectionManager: ObservableObject {
         }
     }
 
-    /// Only deliver output from a transport if it's the current best one.
-    /// Exception: relay data is always accepted when relay is the active transport
-    /// (needed for scrollback on initial connection before P2P is established).
-    private func shouldAcceptData(from type: TransportType) -> Bool {
-        return type == activeTransport
-    }
-
     private func setupCallbacks() {
-        // Relay output — only deliver if relay is the active transport
+        // Accept terminal output from ALL transports — duplicates are harmless
+        // for terminal rendering, and this prevents data loss during transport
+        // switches (e.g. relay delivers scrollback before local connects).
         relay.onTerminalData = { [weak self] data in
-            guard let self, self.shouldAcceptData(from: .relay) else { return }
-            self.onTerminalData?(data)
+            self?.onTerminalData?(data)
         }
 
         relay.onResize = { [weak self] cols, rows in
-            guard let self, self.shouldAcceptData(from: .relay) else { return }
-            self.ptySize = (cols, rows)
-            self.onResize?(cols, rows)
+            self?.ptySize = (cols, rows)
+            self?.onResize?(cols, rows)
         }
 
-        // Forward WebRTC signaling from relay (always — signaling isn't data)
+        // Forward WebRTC signaling from relay (always needed)
         relay.onSignaling = { [weak self] json in
             self?.webrtcTransport.handleSignaling(json)
         }
 
-        // Local transport output — only deliver if local is active
+        // Local transport callbacks
         localTransport.onTerminalData = { [weak self] data in
-            guard let self, self.shouldAcceptData(from: .local) else { return }
-            self.onTerminalData?(data)
+            self?.onTerminalData?(data)
         }
 
         localTransport.onResize = { [weak self] cols, rows in
-            guard let self, self.shouldAcceptData(from: .local) else { return }
-            self.ptySize = (cols, rows)
-            self.onResize?(cols, rows)
+            self?.ptySize = (cols, rows)
+            self?.onResize?(cols, rows)
         }
 
         localTransport.onConnected = { [weak self] in
@@ -129,16 +122,14 @@ final class ConnectionManager: ObservableObject {
             self?.updateActiveTransport()
         }
 
-        // WebRTC transport output — only deliver if WebRTC is active
+        // WebRTC transport callbacks
         webrtcTransport.onTerminalData = { [weak self] data in
-            guard let self, self.shouldAcceptData(from: .webrtc) else { return }
-            self.onTerminalData?(data)
+            self?.onTerminalData?(data)
         }
 
         webrtcTransport.onResize = { [weak self] cols, rows in
-            guard let self, self.shouldAcceptData(from: .webrtc) else { return }
-            self.ptySize = (cols, rows)
-            self.onResize?(cols, rows)
+            self?.ptySize = (cols, rows)
+            self?.onResize?(cols, rows)
         }
 
         webrtcTransport.onConnected = { [weak self] in
