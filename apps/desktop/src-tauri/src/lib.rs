@@ -33,6 +33,11 @@ fn get_pid_cwd(pid: u32) -> Option<String> {
     path.to_str().ok().map(|s| s.to_string())
 }
 
+#[tauri::command]
+fn open_url(url: String) {
+    let _ = std::process::Command::new("open").arg(&url).spawn();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -40,6 +45,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_home_dir,
             get_pid_cwd,
+            open_url,
             local_server::start_local_server,
             local_server::stop_local_server,
             local_server::local_server_broadcast,

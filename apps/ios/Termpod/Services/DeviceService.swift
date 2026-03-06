@@ -135,6 +135,23 @@ final class DeviceService: ObservableObject {
         return []
     }
 
+    // MARK: - Session Deletion
+
+    func deleteSession(auth: AuthService, sessionId: String) async -> Bool {
+        guard auth.isAuthenticated else { return false }
+
+        do {
+            let (_, response) = try await auth.apiFetch(
+                path: "/sessions/\(sessionId)",
+                method: "DELETE"
+            )
+
+            return response.statusCode == 200
+        } catch {
+            return false
+        }
+    }
+
     // MARK: - Remote Session Creation
 
     func requestSession(auth: AuthService, deviceId: String) async {

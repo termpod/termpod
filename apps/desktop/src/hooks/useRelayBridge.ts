@@ -6,6 +6,7 @@ import type { TerminalSession } from './useSessionManager';
 
 interface UseRelayBridgeOptions {
   onCreateSessionRequest?: (requestId: string, source: 'relay' | 'local', localClientId?: string) => void;
+  onSessionClosed?: () => void;
 }
 
 export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: UseRelayBridgeOptions) {
@@ -76,6 +77,9 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
     },
     onCreateSessionRequest: (requestId) => {
       bridgeOptionsRef.current?.onCreateSessionRequest?.(requestId, 'relay');
+    },
+    onSessionClosed: () => {
+      bridgeOptionsRef.current?.onSessionClosed?.();
     },
   });
 

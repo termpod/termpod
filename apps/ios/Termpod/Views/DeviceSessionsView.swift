@@ -62,6 +62,23 @@ struct DeviceSessionsView: View {
                             .padding(.vertical, 4)
                         }
                     }
+                    .onDelete { indexSet in
+                        let toDelete = indexSet.map { sessions[$0] }
+
+                        for session in toDelete {
+                            sessions.removeAll { $0.id == session.id }
+
+                            // Disconnect and remove from appState if joined
+                            if let joined = appState.sessions.first(where: { $0.id == session.id }) {
+                                joined.connection.disconnect()
+                                appState.removeSession(joined)
+                            }
+
+                            Task {
+                                await deviceService.deleteSession(auth: auth, sessionId: session.id)
+                            }
+                        }
+                    }
                 }
             }
         }

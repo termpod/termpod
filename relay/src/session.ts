@@ -45,6 +45,17 @@ export class TerminalSession extends DurableObject {
       return new Response(null, { status: 101, webSocket: client });
     }
 
+    if (url.pathname === '/close' && request.method === 'POST') {
+      const json = JSON.stringify({ type: 'session_closed' });
+
+      for (const ws of this.ctx.getWebSockets()) {
+        ws.send(json);
+        ws.close(1000, 'session deleted');
+      }
+
+      return new Response(JSON.stringify({ ok: true }));
+    }
+
     return new Response('Not found', { status: 404 });
   }
 

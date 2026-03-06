@@ -21,15 +21,21 @@ interface TerminalPanelProps {
   onRelayChange?: (info: RelayInfo) => void;
   onSessionRegistered?: (relaySessionId: string) => void;
   onCreateSessionRequest?: (requestId: string, source: 'relay' | 'local', localClientId?: string) => void;
+  onSessionClosed?: () => void;
 }
 
-export function TerminalPanel({ session, visible, fontSize, fontFamily, onRelayChange, onSessionRegistered, onCreateSessionRequest }: TerminalPanelProps) {
+export function TerminalPanel({ session, visible, fontSize, fontFamily, onRelayChange, onSessionRegistered, onCreateSessionRequest, onSessionClosed }: TerminalPanelProps) {
   const onCreateSessionRequestRef = useRef(onCreateSessionRequest);
   onCreateSessionRequestRef.current = onCreateSessionRequest;
+  const onSessionClosedRef = useRef(onSessionClosed);
+  onSessionClosedRef.current = onSessionClosed;
 
   const relay = useRelayBridge(session.exited ? null : session, {
     onCreateSessionRequest: (requestId, source, localClientId) => {
       onCreateSessionRequestRef.current?.(requestId, source, localClientId);
+    },
+    onSessionClosed: () => {
+      onSessionClosedRef.current?.();
     },
   });
   const onRelayChangeRef = useRef(onRelayChange);

@@ -512,6 +512,72 @@ body,
   background: rgba(247, 118, 142, 0.1);
 }
 
+/* ── Full Disk Access Banner ── */
+.fda-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(240, 160, 48, 0.08);
+  border-bottom: 1px solid rgba(240, 160, 48, 0.2);
+  flex-shrink: 0;
+}
+
+.fda-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.fda-text {
+  font-size: 12px;
+  font-family: var(--font-sans);
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.fda-text strong {
+  color: var(--text-primary);
+}
+
+.fda-open {
+  padding: 3px 10px;
+  border: 1px solid rgba(240, 160, 48, 0.3);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--warning);
+  font-size: 11px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.fda-open:hover {
+  background: rgba(240, 160, 48, 0.1);
+  border-color: var(--warning);
+}
+
+.fda-dismiss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.fda-dismiss:hover {
+  color: var(--text-primary);
+  background: var(--border);
+}
+
 /* ── Terminal Area ── */
 .terminal-area {
   position: relative;

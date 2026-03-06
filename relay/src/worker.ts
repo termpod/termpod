@@ -323,6 +323,11 @@ async function handleSessionDelete(
     new Request(`http://internal/sessions/${sessionId}`, { method: 'DELETE' }),
   );
 
+  // Notify connected clients that the session is closed
+  const sessionDOId = env.TERMINAL_SESSION.idFromName(sessionId);
+  const sessionStub = env.TERMINAL_SESSION.get(sessionDOId);
+  await sessionStub.fetch(new Request('http://internal/close', { method: 'POST' })).catch(() => {});
+
   return corsJson(await res.json());
 }
 

@@ -12,6 +12,7 @@ import { RelayStatus } from './components/RelayStatus';
 import { QRPairing } from './components/QRPairing';
 import { SettingsPanel } from './components/SettingsPanel';
 import { LoginScreen } from './components/LoginScreen';
+import { FullDiskAccessBanner } from './components/FullDiskAccessBanner';
 
 export function App() {
   const auth = useAuth();
@@ -267,6 +268,7 @@ export function App() {
         onClose={handleCloseSession}
         onCreate={() => createSession({ shell: settings.shellPath })}
       />
+      <FullDiskAccessBanner />
       <RelayStatus
         status={activeRelay?.status ?? 'disconnected'}
         viewers={activeRelay?.viewers ?? 0}
@@ -293,6 +295,7 @@ export function App() {
               );
             }}
             onCreateSessionRequest={handleCreateSessionRequest}
+            onSessionClosed={() => handleCloseSession(session.id)}
           />
         ))}
       </div>

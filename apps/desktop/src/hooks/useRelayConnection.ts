@@ -24,6 +24,7 @@ interface UseRelayConnectionOptions {
   onViewerResize?: (cols: number, rows: number) => void;
   onSignaling?: (msg: Record<string, unknown>) => void;
   onCreateSessionRequest?: (requestId: string) => void;
+  onSessionClosed?: () => void;
 }
 
 const RELAY_BASE = import.meta.env.VITE_RELAY_URL || RELAY_URL.production;
@@ -149,6 +150,11 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
               (msg as unknown as { requestId: string }).requestId,
             );
           }
+          break;
+
+        case 'session_closed':
+          intentionalCloseRef.current = true;
+          optionsRef.current.onSessionClosed?.();
           break;
       }
     };
