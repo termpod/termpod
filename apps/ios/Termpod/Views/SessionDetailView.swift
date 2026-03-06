@@ -19,13 +19,10 @@ struct SessionDetailView: View {
             statusBanner
 
             // Terminal output (SwiftTerm native view)
+            // SwiftTerm provides its own TerminalAccessory (Esc, Ctrl, Tab, arrows)
+            // as the keyboard inputAccessoryView — no need for a separate bar.
             TerminalHostView(relay: relay)
                 .ignoresSafeArea(.keyboard)
-
-            // Input accessory bar
-            InputAccessoryBar { data in
-                relay.sendInput(data)
-            }
         }
         .navigationTitle(terminalTitle)
         .navigationBarTitleDisplayMode(.inline)

@@ -17,6 +17,7 @@ class RemoteTerminalView: TerminalView {
     init(frame: CGRect, relay: RelayClient) {
         self.relay = relay
         super.init(frame: frame)
+        _ = Self.swizzleOnce
         self.terminalDelegate = self
 
         // Appearance
@@ -41,9 +42,6 @@ class RemoteTerminalView: TerminalView {
     private func wireRelay(_ relay: RelayClient) {
         relay.onTerminalData = { [weak self] data in
             guard let self else { return }
-            // Feed immediately — no batching delay. This is critical for typing
-            // responsiveness: echoed keystrokes appear without waiting an extra
-            // run loop cycle.
             self.feed(byteArray: ArraySlice<UInt8>(data))
             self.scheduleFullRedraw()
         }
@@ -51,6 +49,35 @@ class RemoteTerminalView: TerminalView {
         // Don't set relay.onResize — mobile manages its own dimensions.
         // SwiftTerm auto-sizes from the physical frame in layoutSubviews,
         // then sizeChanged sends the mobile dimensions to the relay.
+    }
+
+    // MARK: - Suppress iOS composing text preview
+
+    /// Swizzle firstRect(for:) and caretRect(for:) at runtime to move the
+    /// iOS inline composition overlay off-screen.  SwiftTerm marks these
+    /// `public` (not `open`), so a normal `override` is not allowed.
+    private static let swizzleOnce: Void = {
+        let cls: AnyClass = RemoteTerminalView.self
+
+        // firstRect(for:)
+        if let original = class_getInstanceMethod(cls, #selector(TerminalView.firstRect(for:))),
+           let replacement = class_getInstanceMethod(cls, #selector(RemoteTerminalView._swizzled_firstRect(for:))) {
+            method_exchangeImplementations(original, replacement)
+        }
+
+        // caretRect(for:)
+        if let original = class_getInstanceMethod(cls, #selector(TerminalView.caretRect(for:))),
+           let replacement = class_getInstanceMethod(cls, #selector(RemoteTerminalView._swizzled_caretRect(for:))) {
+            method_exchangeImplementations(original, replacement)
+        }
+    }()
+
+    @objc private func _swizzled_firstRect(for range: UITextRange) -> CGRect {
+        return CGRect(x: 0, y: -1000, width: 0, height: 0)
+    }
+
+    @objc private func _swizzled_caretRect(for position: UITextPosition) -> CGRect {
+        return CGRect(x: 0, y: -1000, width: 0, height: 0)
     }
 
     /// Schedule a single setNeedsDisplay() per frame to fix cursor ghosting.
@@ -78,9 +105,7 @@ extension RemoteTerminalView: TerminalViewDelegate {
         relay?.sendInput(Data(data))
     }
 
-    func scrolled(source: TerminalView, position: Double) {
-        // Optional: track scroll position
-    }
+    func scrolled(source: TerminalView, position: Double) {}
 
     func setTerminalTitle(source: TerminalView, title: String) {
         NotificationCenter.default.post(
@@ -95,9 +120,6 @@ extension RemoteTerminalView: TerminalViewDelegate {
     }
 
     func sizeChanged(source: TerminalView, newCols: Int, newRows: Int) {
-        // Send mobile dimensions to relay so the PTY adapts.
-        // This lets TUI apps (Claude Code, vim, htop) render correctly
-        // for the mobile screen size.
         relay?.sendResize(cols: newCols, rows: newRows)
     }
 
