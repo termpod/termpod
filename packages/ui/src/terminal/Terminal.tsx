@@ -383,23 +383,15 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       }
     }, [cursorBlink, cursorStyle, lineHeight, theme]);
 
-    // Apply padding on .xterm-scrollable-element
+    // Re-fit when padding changes so FitAddon picks up the new container size
     useEffect(() => {
-      const el = containerRef.current;
-      if (!el) return;
-
-      el.querySelectorAll<HTMLElement>('.xterm-scrollable-element').forEach(s => {
-        s.style.padding = padding ? `${padding}px` : '';
-        s.style.boxSizing = 'border-box';
-      });
-
       if (fitAddonRef.current && terminalRef.current && !sizeLockedRef.current) {
         try {
           fitAddonRef.current.fit();
           onResizeRef.current?.({ cols: terminalRef.current.cols, rows: terminalRef.current.rows });
         } catch { /* ignore */ }
       }
-    });
+    }, [padding]);
 
     // Apply font smoothing and ligatures via CSS on the terminal container
     useEffect(() => {
@@ -450,7 +442,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
             </button>
           </div>
         )}
-        <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+        <div ref={containerRef} style={{
+          position: 'absolute',
+          inset: padding ? `${padding}px` : 0,
+        }} />
       </div>
     );
   },
