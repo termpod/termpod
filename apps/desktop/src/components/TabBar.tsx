@@ -11,7 +11,7 @@ interface TabBarProps {
 
 export function TabBar({ sessions, activeId, onSelect, onClose, onCreate }: TabBarProps) {
   return (
-    <div className="tab-bar">
+    <div className="tab-bar" data-tauri-drag-region>
       <div className="tabs">
         {sessions.map((session) => (
           <Tab
