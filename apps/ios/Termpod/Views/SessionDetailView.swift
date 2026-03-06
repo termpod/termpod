@@ -85,6 +85,9 @@ struct SessionDetailView: View {
                     .font(.system(.body, design: .monospaced))
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    .onChange(of: commandText) { oldValue, newValue in
+                        sendDiff(old: oldValue, new: newValue)
+                    }
                     .onSubmit {
                         sendCommand()
                     }
@@ -95,7 +98,6 @@ struct SessionDetailView: View {
                     Image(systemName: "return")
                         .fontWeight(.semibold)
                 }
-                .disabled(commandText.isEmpty)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -118,15 +120,25 @@ struct SessionDetailView: View {
         }
     }
 
-    private func sendCommand() {
-        guard !commandText.isEmpty else { return }
-        let text = commandText
-        commandText = ""
-        // Send each character followed by carriage return
-        if let data = text.data(using: .utf8) {
-            relay.sendInput(data)
+    private func sendDiff(old: String, new: String) {
+        if new.count > old.count, new.hasPrefix(old) {
+            let added = String(new.dropFirst(old.count))
+            if let data = added.data(using: .utf8) {
+                relay.sendInput(data)
+            }
+        } else if new.count < old.count, old.hasPrefix(new) {
+            let deleted = old.count - new.count
+            relay.sendInput(Data(repeating: 0x7F, count: deleted))
+        } else if new != old {
+            relay.sendInput(Data(repeating: 0x7F, count: old.count))
+            if let data = new.data(using: .utf8) {
+                relay.sendInput(data)
+            }
         }
-        // Send Enter (carriage return)
+    }
+
+    private func sendCommand() {
+        commandText = ""
         relay.sendInput(Data([0x0D]))
     }
 
