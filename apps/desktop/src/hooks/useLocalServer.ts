@@ -44,6 +44,7 @@ export function useLocalServer(options: UseLocalServerOptions) {
     invoke<LocalServerInfo>('start_local_server')
       .then((info) => {
         if (!cancelled) {
+          console.log('[LocalServer] Started on port', info.port, 'addresses:', info.addresses);
           setServerInfo(info);
         }
       })

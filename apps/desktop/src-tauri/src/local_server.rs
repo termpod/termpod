@@ -1,17 +1,15 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use std::process::Child;
 use std::sync::Arc;
 
 use futures_util::{SinkExt, StreamExt};
-use mdns_sd::{ServiceDaemon, ServiceInfo};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 use tokio::net::TcpListener;
 use tokio::sync::{mpsc, RwLock};
 use tokio_tungstenite::accept_async;
 use tokio_tungstenite::tungstenite::Message;
-
-const SERVICE_TYPE: &str = "_termpod._tcp.local.";
 
 #[derive(Clone)]
 struct Client {
@@ -27,8 +25,7 @@ type Clients = Arc<RwLock<HashMap<String, Client>>>;
 struct ServerState {
     shutdown_tx: mpsc::Sender<()>,
     clients: Clients,
-    mdns: ServiceDaemon,
-    service_fullname: String,
+    dns_sd_process: Option<Child>,
 }
 
 static SERVER: std::sync::OnceLock<tokio::sync::Mutex<Option<ServerState>>> =
@@ -101,25 +98,22 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
     // Get local IP addresses for discovery
     let addresses = get_local_addresses();
 
-    // Register mDNS service
-    let mdns = ServiceDaemon::new().map_err(|e| e.to_string())?;
+    // Register mDNS service using macOS dns-sd command (reliable native implementation)
     let hostname = gethostname::gethostname()
         .to_string_lossy()
         .to_string();
     let service_name = format!("Termpod-{hostname}");
 
-    let service_info = ServiceInfo::new(
-        SERVICE_TYPE,
-        &service_name,
-        &format!("{hostname}.local."),
-        "",
-        port,
-        None,
-    )
-    .map_err(|e| e.to_string())?;
+    eprintln!("[LocalServer] Registering mDNS via dns-sd: {} on port {}", service_name, port);
 
-    let service_fullname = service_info.get_fullname().to_string();
-    mdns.register(service_info).map_err(|e| e.to_string())?;
+    let dns_sd_process = std::process::Command::new("dns-sd")
+        .args(["-R", &service_name, "_termpod._tcp", "local.", &port.to_string()])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map_err(|e| format!("Failed to start dns-sd: {e}"))?;
+
+    eprintln!("[LocalServer] dns-sd process started (pid: {})", dns_sd_process.id());
 
     let clients_clone = clients.clone();
     let app_clone = app.clone();
@@ -153,8 +147,7 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
     *guard = Some(ServerState {
         shutdown_tx,
         clients,
-        mdns,
-        service_fullname,
+        dns_sd_process: Some(dns_sd_process),
     });
 
     Ok(info)
@@ -164,10 +157,12 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
 pub async fn stop_local_server() -> Result<(), String> {
     let mut guard = server_lock().lock().await;
 
-    if let Some(state) = guard.take() {
+    if let Some(mut state) = guard.take() {
         let _ = state.shutdown_tx.send(()).await;
-        let _ = state.mdns.unregister(&state.service_fullname);
-        let _ = state.mdns.shutdown();
+
+        if let Some(mut child) = state.dns_sd_process.take() {
+            let _ = child.kill();
+        }
     }
 
     Ok(())

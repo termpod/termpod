@@ -33,6 +33,7 @@ final class ConnectionManager: ObservableObject {
     // MARK: - Connection
 
     func connect(wsURL: URL) {
+        print("[ConnectionManager] Connecting — relay: \(wsURL), starting local discovery")
         // Always connect relay (needed for signaling + fallback)
         relay.connect(wsURL: wsURL)
 

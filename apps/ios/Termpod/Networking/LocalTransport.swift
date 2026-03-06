@@ -31,15 +31,18 @@ final class LocalTransport: Transport {
     // MARK: - Discovery
 
     func startDiscovery() {
+        print("[LocalTransport] Starting Bonjour discovery for _termpod._tcp")
+
         let params = NWParameters()
         params.includePeerToPeer = true
 
         browser = NWBrowser(for: .bonjour(type: "_termpod._tcp", domain: "local."), using: params)
 
         browser?.stateUpdateHandler = { state in
+            print("[LocalTransport] Browser state: \(state)")
             switch state {
             case .ready:
-                print("[LocalTransport] Browser ready")
+                print("[LocalTransport] Browser ready — scanning for services")
             case .failed(let error):
                 print("[LocalTransport] Browser failed: \(error)")
             default:
@@ -62,15 +65,24 @@ final class LocalTransport: Transport {
     }
 
     private func handleBrowseResults(_ results: Set<NWBrowser.Result>) {
-        guard webSocket == nil else { return }
+        print("[LocalTransport] Browse results changed: \(results.count) services found")
+        guard webSocket == nil else {
+            print("[LocalTransport] Already connected, ignoring browse results")
+            return
+        }
 
         for result in results {
+            print("[LocalTransport] Result endpoint: \(result.endpoint)")
             if case .service(let name, _, _, _) = result.endpoint {
-                print("[LocalTransport] Found service: \(name)")
+                print("[LocalTransport] Found service: \(name) — resolving...")
                 resolve(result: result)
 
                 return
             }
+        }
+
+        if results.isEmpty {
+            print("[LocalTransport] No services found on network")
         }
     }
 
@@ -79,6 +91,7 @@ final class LocalTransport: Transport {
 
         connection.stateUpdateHandler = { [weak self] state in
             guard let self else { return }
+            print("[LocalTransport] Resolve connection state: \(state)")
 
             if case .ready = state {
                 if let path = connection.currentPath,
@@ -111,7 +124,11 @@ final class LocalTransport: Transport {
     // MARK: - WebSocket Connection
 
     private func connectWebSocket(host: String, port: UInt16) {
-        guard let url = URL(string: "ws://\(host):\(port)") else { return }
+        print("[LocalTransport] Connecting WebSocket to ws://\(host):\(port)")
+        guard let url = URL(string: "ws://\(host):\(port)") else {
+            print("[LocalTransport] Invalid URL for ws://\(host):\(port)")
+            return
+        }
 
         intentionalClose = false
         webSocket = urlSession.webSocketTask(with: url)
@@ -179,6 +196,7 @@ final class LocalTransport: Transport {
             else { return }
 
             if type == "ready" {
+                print("[LocalTransport] Got ready — local transport is CONNECTED")
                 connected = true
                 onConnected?()
             } else if type == "pty_resize" {
@@ -193,6 +211,7 @@ final class LocalTransport: Transport {
     }
 
     private func handleDisconnect() {
+        print("[LocalTransport] Disconnected (intentional: \(intentionalClose))")
         connected = false
         webSocket = nil
 
