@@ -21,6 +21,10 @@ Thumbs.db
 *.swp
 *.swo
 
+# Xcode
+*.xcuserstate
+xcuserdata/
+
 # Tauri
 apps/desktop/src-tauri/target/
 apps/mobile/src-tauri/target/
