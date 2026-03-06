@@ -143,6 +143,17 @@ export function useDevice(isAuthenticated: boolean, onCreateSessionRequest?: () 
     [deviceId],
   );
 
+  const updateSession = useCallback(
+    async (sessionId: string, updates: { name?: string; cwd?: string }) => {
+      if (!registeredRef.current) {
+        return;
+      }
+
+      await deviceFetch(`/sessions/${sessionId}`, 'PATCH', updates).catch(() => {});
+    },
+    [],
+  );
+
   const removeSession = useCallback(
     async (sessionId: string) => {
       await deviceFetch(`/sessions/${sessionId}`, 'DELETE');
@@ -154,6 +165,7 @@ export function useDevice(isAuthenticated: boolean, onCreateSessionRequest?: () 
     deviceId,
     registered,
     registerSession,
+    updateSession,
     removeSession,
   };
 }

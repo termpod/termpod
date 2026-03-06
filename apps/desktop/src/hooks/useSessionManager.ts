@@ -248,6 +248,18 @@ export function useSessionManager() {
     [updateStore],
   );
 
+  const updateSessionCwd = useCallback(
+    (id: string, cwd: string) => {
+      updateStore((prev) => ({
+        ...prev,
+        sessions: prev.sessions.map((s) =>
+          s.id === id ? { ...s, cwd, name: nameFromCwd(cwd) } : s,
+        ),
+      }));
+    },
+    [updateStore],
+  );
+
   const focusActive = useCallback(() => {
     const { sessions: s, activeId: id } = storeRef.current;
     const active = s.find((sess) => sess.id === id);
@@ -265,6 +277,7 @@ export function useSessionManager() {
     switchSession,
     focusActive,
     renameSession,
+    updateSessionCwd,
     onSessionExitRef,
   };
 }

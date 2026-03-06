@@ -30,6 +30,7 @@ export function App() {
     closeSession,
     switchSession,
     focusActive,
+    updateSessionCwd,
     onSessionExitRef,
   } = useSessionManager();
 
@@ -464,6 +465,16 @@ export function App() {
             }}
             onCreateSessionRequest={handleCreateSessionRequest}
             onSessionClosed={() => handleCloseSession(session.id)}
+            onCwdChange={(cwd) => {
+              updateSessionCwd(session.id, cwd);
+              const relayInfo = relayMapRef.current.get(session.id);
+
+              if (relayInfo?.sessionId) {
+                const parts = cwd.split('/').filter(Boolean);
+                const name = parts[parts.length - 1] || 'shell';
+                device.updateSession(relayInfo.sessionId, { name, cwd });
+              }
+            }}
           />
         ))}
       </div>

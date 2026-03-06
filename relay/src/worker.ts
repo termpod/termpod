@@ -11,7 +11,7 @@ interface Env {
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
@@ -104,6 +104,10 @@ export default {
 
     if (sessionDeleteMatch && request.method === 'DELETE') {
       return handleSessionDelete(request, env, sessionDeleteMatch[1]);
+    }
+
+    if (sessionDeleteMatch && request.method === 'PATCH') {
+      return handleSessionUpdate(request, env, sessionDeleteMatch[1]);
     }
 
     // Pending session request routes
@@ -329,6 +333,28 @@ async function handleSessionDelete(
   await sessionStub.fetch(new Request('http://internal/close', { method: 'POST' })).catch(() => {});
 
   return corsJson(await res.json());
+}
+
+async function handleSessionUpdate(
+  request: Request,
+  env: Env,
+  sessionId: string,
+): Promise<Response> {
+  const userIdOrError = await requireAuth(request, env);
+
+  if (userIdOrError instanceof Response) {
+    return userIdOrError;
+  }
+
+  const stub = getUserDO(env, userIdOrError);
+  const res = await stub.fetch(
+    new Request(`http://internal/sessions/${sessionId}`, {
+      method: 'PATCH',
+      body: request.body,
+    }),
+  );
+
+  return corsJson(await res.json(), { status: res.status });
 }
 
 // --- Pending session request handlers ---

@@ -55,6 +55,7 @@ export interface TerminalProps {
   onData?: (data: string) => void;
   onResize?: (size: PtySize) => void;
   onTitleChange?: (title: string) => void;
+  onCwdChange?: (cwd: string) => void;
   onBell?: () => void;
   onReady?: () => void;
   fontSize?: number;
@@ -81,7 +82,7 @@ const SEARCH_DECORATIONS = {
 };
 
 export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
-  ({ onData, onResize, onTitleChange, onBell, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', fontWeight = 'normal', fontSmoothing = 'antialiased', fontLigatures = false, drawBoldInBold = true, scrollbackLines = 5000, cursorStyle = 'block', cursorBlink = true, lineHeight = 1.0, padding = 0, theme }, ref) => {
+  ({ onData, onResize, onTitleChange, onCwdChange, onBell, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', fontWeight = 'normal', fontSmoothing = 'antialiased', fontLigatures = false, drawBoldInBold = true, scrollbackLines = 5000, cursorStyle = 'block', cursorBlink = true, lineHeight = 1.0, padding = 0, theme }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const terminalRef = useRef<XTerm | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -98,6 +99,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     onResizeRef.current = onResize;
     const onTitleChangeRef = useRef(onTitleChange);
     onTitleChangeRef.current = onTitleChange;
+    const onCwdChangeRef = useRef(onCwdChange);
+    onCwdChangeRef.current = onCwdChange;
     const onBellRef = useRef(onBell);
     onBellRef.current = onBell;
     const onReadyRef = useRef(onReady);
@@ -289,6 +292,24 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       // Use refs for callbacks so they always call the latest version
       term.onData((data) => onDataRef.current?.(data));
       term.onTitleChange((title) => onTitleChangeRef.current?.(title));
+
+      // OSC 7: shell reports current working directory (emitted by zsh on macOS by default)
+      // Format: file://hostname/path/to/dir
+      term.parser.registerOscHandler(7, (data) => {
+        try {
+          const url = new URL(data);
+          const cwd = decodeURIComponent(url.pathname);
+
+          if (cwd) {
+            onCwdChangeRef.current?.(cwd);
+          }
+        } catch {
+          // Not a valid URL, ignore
+        }
+
+        return false;
+      });
+
       term.onBell(() => onBellRef.current?.());
 
       onReadyRef.current?.();

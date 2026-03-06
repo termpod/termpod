@@ -141,6 +141,10 @@ export class User extends DurableObject {
       return this.handleRemoveSession(sessionMatch[1]);
     }
 
+    if (sessionMatch && request.method === 'PATCH') {
+      return this.handleUpdateSession(sessionMatch[1], request);
+    }
+
     // Pending session request routes
     const requestSessionMatch = path.match(/^\/devices\/([^/]+)\/request-session$/);
 
@@ -361,6 +365,31 @@ export class User extends DurableObject {
     );
 
     return Response.json({ ok: true, sessionId: body.id }, { status: 201 });
+  }
+
+  private async handleUpdateSession(sessionId: string, request: Request): Promise<Response> {
+    const body = (await request.json()) as {
+      name?: string;
+      cwd?: string;
+    };
+
+    const existing = this.ctx.storage.sql
+      .exec('SELECT id FROM sessions WHERE id = ?', sessionId)
+      .toArray();
+
+    if (existing.length === 0) {
+      return Response.json({ error: 'Session not found' }, { status: 404 });
+    }
+
+    if (body.name !== undefined) {
+      this.ctx.storage.sql.exec('UPDATE sessions SET name = ? WHERE id = ?', body.name, sessionId);
+    }
+
+    if (body.cwd !== undefined) {
+      this.ctx.storage.sql.exec('UPDATE sessions SET cwd = ? WHERE id = ?', body.cwd, sessionId);
+    }
+
+    return Response.json({ ok: true });
   }
 
   private handleRemoveSession(sessionId: string): Response {
