@@ -13,6 +13,8 @@ import { QRPairing } from './components/QRPairing';
 import { SettingsPanel } from './components/SettingsPanel';
 import { LoginScreen } from './components/LoginScreen';
 import { FullDiskAccessBanner } from './components/FullDiskAccessBanner';
+import { KeybindingsPanel } from './components/KeybindingsPanel';
+import { useKeybindings, matchesShortcut } from './hooks/useKeybindings';
 
 export function App() {
   const auth = useAuth();
@@ -105,6 +107,8 @@ export function App() {
 
   const [showQR, setShowQR] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showKeybindings, setShowKeybindings] = useState(false);
+  const { bindings } = useKeybindings();
   const initializedRef = useRef(false);
   const [relayMap, setRelayMap] = useState<Map<string, RelayInfo>>(new Map());
   const relayMapRef = useRef(relayMap);
@@ -210,6 +214,10 @@ export function App() {
         setShowSettings((v) => !v);
         break;
 
+      case 'keybindings':
+        setShowKeybindings((v) => !v);
+        break;
+
       case 'next_tab': {
         const idx = sessions.findIndex((s) => s.id === activeId);
         const next = sessions[(idx + 1) % sessions.length];
@@ -252,6 +260,25 @@ export function App() {
     return () => {
       unlisten.then((fn) => fn());
     };
+  }, []);
+
+  // JS-level keybinding listener for custom shortcuts
+  const bindingsRef = useRef(bindings);
+  bindingsRef.current = bindings;
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      for (const kb of bindingsRef.current) {
+        if (matchesShortcut(e, kb.shortcut)) {
+          e.preventDefault();
+          menuHandlerRef.current(kb.id);
+          return;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
   }, []);
 
   if (!auth.isAuthenticated) {
@@ -318,6 +345,9 @@ export function App() {
           email={auth.email}
           onLogout={auth.logout}
         />
+      )}
+      {showKeybindings && (
+        <KeybindingsPanel onClose={() => setShowKeybindings(false)} />
       )}
     </div>
   );

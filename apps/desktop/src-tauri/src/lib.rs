@@ -89,6 +89,9 @@ pub fn run() {
                 .accelerator("CmdOrCtrl+,")
                 .build(app)?;
 
+            let keybindings = MenuItemBuilder::with_id("keybindings", "Keyboard Shortcuts...")
+                .build(app)?;
+
             let edit_menu = SubmenuBuilder::new(app, "Edit")
                 .undo()
                 .redo()
@@ -121,6 +124,7 @@ pub fn run() {
                     .about(None)
                     .separator()
                     .item(&settings)
+                    .item(&keybindings)
                     .separator()
                     .quit()
                     .build()?)
