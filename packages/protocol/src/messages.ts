@@ -41,11 +41,42 @@ export interface PingMessage {
   timestamp: number;
 }
 
+// WebRTC signaling (forwarded through relay)
+
+export interface WebRTCOfferMessage {
+  type: 'webrtc_offer';
+  sdp: string;
+  fromClientId: string;
+  toClientId: string;
+}
+
+export interface WebRTCAnswerMessage {
+  type: 'webrtc_answer';
+  sdp: string;
+  fromClientId: string;
+  toClientId: string;
+}
+
+export interface WebRTCIceCandidateMessage {
+  type: 'webrtc_ice';
+  candidate: string;
+  sdpMid: string | null;
+  sdpMLineIndex: number | null;
+  fromClientId: string;
+  toClientId: string;
+}
+
+export type SignalingMessage =
+  | WebRTCOfferMessage
+  | WebRTCAnswerMessage
+  | WebRTCIceCandidateMessage;
+
 export type ClientMessage =
   | HelloMessage
   | InputLockRequestMessage
   | InputLockReleaseMessage
-  | PingMessage;
+  | PingMessage
+  | SignalingMessage;
 
 // Relay -> Client
 
@@ -121,6 +152,7 @@ export type RelayMessage =
   | InputLockDeniedMessage
   | SessionEndedMessage
   | PongMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | SignalingMessage;
 
 export type ControlMessage = ClientMessage | RelayMessage;

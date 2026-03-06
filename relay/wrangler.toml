@@ -2,11 +2,19 @@ name = "termpod-relay"
 main = "src/worker.ts"
 compatibility_date = "2025-03-05"
 
+[vars]
+JWT_SECRET = "dev-secret-change-in-production"
+
 [durable_objects]
 bindings = [
-  { name = "TERMINAL_SESSION", class_name = "TerminalSession" }
+  { name = "TERMINAL_SESSION", class_name = "TerminalSession" },
+  { name = "USER", class_name = "User" }
 ]
 
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["TerminalSession"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["User"]

@@ -20,8 +20,9 @@ interface RelaySession {
 interface UseRelayConnectionOptions {
   onViewerInput?: (data: string) => void;
   onStatusChange?: (status: RelayStatus) => void;
-  onViewerJoined?: () => void;
+  onViewerJoined?: (clientId: string) => void;
   onViewerResize?: (cols: number, rows: number) => void;
+  onSignaling?: (msg: Record<string, unknown>) => void;
 }
 
 const RELAY_BASE = import.meta.env.VITE_RELAY_URL || RELAY_URL.production;
@@ -39,6 +40,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const reconnectDelayRef = useRef<number>(RECONNECT.initialDelay);
   const pingIntervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
+  const clientIdRef = useRef<string>(crypto.randomUUID());
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
@@ -83,7 +85,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
         version: PROTOCOL_VERSION,
         role: 'desktop',
         device: 'macos',
-        clientId: crypto.randomUUID(),
+        clientId: clientIdRef.current,
       }));
 
       pingIntervalRef.current = setInterval(() => {
@@ -114,7 +116,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
         case 'client_joined':
           if (msg.role === 'viewer') {
             setViewers((v) => v + 1);
-            optionsRef.current.onViewerJoined?.();
+            optionsRef.current.onViewerJoined?.(msg.clientId);
           }
           break;
 
@@ -130,6 +132,12 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
           if ('cols' in msg && 'rows' in msg) {
             optionsRef.current.onViewerResize?.(msg.cols as number, msg.rows as number);
           }
+          break;
+
+        case 'webrtc_offer':
+        case 'webrtc_answer':
+        case 'webrtc_ice':
+          optionsRef.current.onSignaling?.(msg as unknown as Record<string, unknown>);
           break;
       }
     };
@@ -259,6 +267,14 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     }
   }, []);
 
+  const sendSignaling = useCallback((msg: Record<string, unknown>) => {
+    const ws = wsRef.current;
+
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(msg));
+    }
+  }, []);
+
   useEffect(() => {
     return () => {
       intentionalCloseRef.current = true;
@@ -277,9 +293,11 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     status,
     sessionId,
     viewers,
+    clientId: clientIdRef.current,
     connect,
     disconnect,
     sendTerminalData,
     sendResize,
+    sendSignaling,
   };
 }

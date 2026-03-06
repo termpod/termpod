@@ -8,7 +8,7 @@ import UIKit
 /// and coalesces setNeedsDisplay() once per frame to fix cursor ghosting.
 class RemoteTerminalView: TerminalView {
 
-    private var relay: RelayClient?
+    private var connection: ConnectionManager?
 
     // Coalesce setNeedsDisplay calls — one per frame is enough to fix
     // cursor ghosting without the latency cost of data batching.
@@ -17,8 +17,8 @@ class RemoteTerminalView: TerminalView {
     // Accumulated scroll delta for smooth line-by-line scrolling
     private var scrollAccumulator: CGFloat = 0
 
-    init(frame: CGRect, relay: RelayClient) {
-        self.relay = relay
+    init(frame: CGRect, connection: ConnectionManager) {
+        self.connection = connection
         super.init(frame: frame)
         _ = Self.swizzleOnce
         self.terminalDelegate = self
@@ -31,7 +31,7 @@ class RemoteTerminalView: TerminalView {
         self.optionAsMetaKey = true
 
         setupScrollGesture()
-        wireRelay(relay)
+        wireConnection(connection)
     }
 
     private func setupScrollGesture() {
@@ -80,21 +80,21 @@ class RemoteTerminalView: TerminalView {
         fatalError("init(coder:) not implemented")
     }
 
-    func updateRelay(_ relay: RelayClient) {
-        self.relay = relay
-        wireRelay(relay)
+    func updateConnection(_ connection: ConnectionManager) {
+        self.connection = connection
+        wireConnection(connection)
     }
 
-    private func wireRelay(_ relay: RelayClient) {
-        relay.onTerminalData = { [weak self] data in
+    private func wireConnection(_ connection: ConnectionManager) {
+        connection.onTerminalData = { [weak self] data in
             guard let self else { return }
             self.feed(byteArray: ArraySlice<UInt8>(data))
             self.scheduleFullRedraw()
         }
 
-        // Don't set relay.onResize — mobile manages its own dimensions.
+        // Don't set connection.onResize — mobile manages its own dimensions.
         // SwiftTerm auto-sizes from the physical frame in layoutSubviews,
-        // then sizeChanged sends the mobile dimensions to the relay.
+        // then sizeChanged sends the mobile dimensions to the connection.
     }
 
     // MARK: - Suppress iOS composing text preview
@@ -146,9 +146,9 @@ class RemoteTerminalView: TerminalView {
 
 extension RemoteTerminalView: TerminalViewDelegate {
 
-    /// Called when the user types — send input to relay
+    /// Called when the user types — send input through best transport
     func send(source: TerminalView, data: ArraySlice<UInt8>) {
-        relay?.sendInput(Data(data))
+        connection?.sendInput(Data(data))
     }
 
     func scrolled(source: TerminalView, position: Double) {}
@@ -166,7 +166,7 @@ extension RemoteTerminalView: TerminalViewDelegate {
     }
 
     func sizeChanged(source: TerminalView, newCols: Int, newRows: Int) {
-        relay?.sendResize(cols: newCols, rows: newRows)
+        connection?.sendResize(cols: newCols, rows: newRows)
     }
 
     func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}

@@ -76,12 +76,15 @@ struct SessionCard: View {
     }
 
     private var stateLabel: String {
-        switch session.relay.state {
+        let transport = session.connection.activeTransport
+        let prefix = transport != .relay ? "[\(transport.label)] " : ""
+
+        switch session.connection.state {
         case .disconnected: return "Disconnected"
         case .connecting: return "Connecting..."
         case .connected: return "Connected"
         case .loadingScrollback: return "Loading history..."
-        case .live: return "Live"
+        case .live: return "\(prefix)Live"
         case .reconnecting(let attempt): return "Reconnecting (\(attempt))..."
         }
     }

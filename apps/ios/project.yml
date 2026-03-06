@@ -10,6 +10,10 @@ packages:
   SwiftTerm:
     url: https://github.com/migueldeicaza/SwiftTerm.git
     from: "1.0.0"
+  # WebRTC: Uncomment when stasel/WebRTC supports Xcode 26+ / iOS 26 SDK
+  # WebRTC:
+  #   url: https://github.com/stasel/WebRTC.git
+  #   from: "141.0.0"
 
 targets:
   Termpod:
@@ -27,10 +31,12 @@ targets:
         CURRENT_PROJECT_VERSION: 1
         SWIFT_VERSION: "5.9"
         TARGETED_DEVICE_FAMILY: "1,2"
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_APPICON_NAME: termpod
+        ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: true
         CODE_SIGN_STYLE: Automatic
     dependencies:
       - package: SwiftTerm
+      # - package: WebRTC
 
   TermpodTests:
     type: bundle.unit-test

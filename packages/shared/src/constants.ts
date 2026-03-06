@@ -13,3 +13,13 @@ export const RECONNECT = {
 } as const;
 
 export const PAIRING_TOKEN_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+
+export const LOCAL_SERVER_SERVICE_TYPE = '_termpod._tcp';
+export const LOCAL_SERVER_SERVICE_DOMAIN = 'local.';
+
+export const WEBRTC_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ],
+} as const;

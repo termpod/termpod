@@ -3,6 +3,7 @@ import type {
   HelloMessage,
   ClientMessage,
   ClientInfo,
+  SignalingMessage,
 } from '@termpod/protocol';
 import { SCROLLBACK_BUFFER_SIZE, Channel } from '@termpod/protocol';
 
@@ -120,6 +121,12 @@ export class TerminalSession extends DurableObject {
           }),
         );
         break;
+
+      case 'webrtc_offer':
+      case 'webrtc_answer':
+      case 'webrtc_ice':
+        this.forwardSignaling(ws, msg as SignalingMessage);
+        break;
     }
   }
 
@@ -229,6 +236,20 @@ export class TerminalSession extends DurableObject {
     for (const ws of this.ctx.getWebSockets()) {
       if (ws !== sender) {
         ws.send(json);
+      }
+    }
+  }
+
+  private forwardSignaling(_sender: WebSocket, msg: SignalingMessage): void {
+    const json = JSON.stringify(msg);
+
+    for (const ws of this.ctx.getWebSockets()) {
+      const tag = getTag(ws);
+
+      if (tag?.clientId === msg.toClientId) {
+        ws.send(json);
+
+        return;
       }
     }
   }

@@ -6,16 +6,16 @@ import SwiftTerm
 /// device sends its dimensions to the relay so the PTY adapts.
 struct TerminalHostView: UIViewRepresentable {
 
-    let relay: RelayClient
+    let connection: ConnectionManager
 
     func makeUIView(context: Context) -> RemoteTerminalView {
-        let terminalView = RemoteTerminalView(frame: .zero, relay: relay)
+        let terminalView = RemoteTerminalView(frame: .zero, connection: connection)
         // Don't auto-focus terminal — keyboard input goes to the
         // CommandInputBar text field for instant typing feedback.
         return terminalView
     }
 
     func updateUIView(_ uiView: RemoteTerminalView, context: Context) {
-        // Data flows via relay callbacks, no SwiftUI-driven updates needed
+        // Data flows via connection callbacks, no SwiftUI-driven updates needed
     }
 }

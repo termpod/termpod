@@ -1,0 +1,51 @@
+{
+  "fill" : {
+    "automatic-gradient" : "srgb:0.99370,1.00000,0.97769,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "fill-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "srgb:0.96559,1.00000,0.96997,1.00000"
+              }
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "solid" : "srgb:0.95181,1.00000,0.97929,1.00000"
+              }
+            }
+          ],
+          "glass" : true,
+          "image-name" : "terminal.svg",
+          "name" : "terminal",
+          "position" : {
+            "scale" : 22,
+            "translation-in-points" : [
+              5.8046875,
+              5.4609375
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

@@ -4,14 +4,14 @@ import SwiftUI
 struct SessionDetailView: View {
 
     let session: Session
-    @ObservedObject var relay: RelayClient
+    @ObservedObject var connection: ConnectionManager
     @State private var terminalTitle: String
     @State private var commandText: String = ""
     @FocusState private var isInputFocused: Bool
 
     init(session: Session) {
         self.session = session
-        self.relay = session.relay
+        self.connection = session.connection
         self._terminalTitle = State(initialValue: session.name)
     }
 
@@ -21,7 +21,7 @@ struct SessionDetailView: View {
             statusBanner
 
             // Terminal output (read-only display)
-            TerminalHostView(relay: relay)
+            TerminalHostView(connection: connection)
         }
         .safeAreaInset(edge: .bottom) {
             commandInputBar
@@ -32,13 +32,21 @@ struct SessionDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 12) {
-                    if relay.connectedViewers > 0 {
-                        Label("\(relay.connectedViewers)", systemImage: "eye")
+                    Text(connection.activeTransport.label)
+                        .font(.caption2)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(transportColor.opacity(0.2))
+                        .foregroundColor(transportColor)
+                        .clipShape(Capsule())
+
+                    if connection.connectedViewers > 0 {
+                        Label("\(connection.connectedViewers)", systemImage: "eye")
                             .font(.caption)
                     }
 
                     Circle()
-                        .fill(relay.state == .live ? Color.green : Color.orange)
+                        .fill(connection.state == .live ? Color.green : Color.orange)
                         .frame(width: 8, height: 8)
                 }
             }
@@ -105,9 +113,17 @@ struct SessionDetailView: View {
         .background(Color(UIColor.secondarySystemBackground))
     }
 
+    private var transportColor: Color {
+        switch connection.activeTransport {
+        case .local: return .green
+        case .webrtc: return .blue
+        case .relay: return .orange
+        }
+    }
+
     private func specialKey(_ label: String, bytes: [UInt8]) -> some View {
         Button {
-            relay.sendInput(Data(bytes))
+            connection.sendInput(Data(bytes))
         } label: {
             Text(label)
                 .font(.system(size: 14, weight: .medium, design: .monospaced))
@@ -124,27 +140,27 @@ struct SessionDetailView: View {
         if new.count > old.count, new.hasPrefix(old) {
             let added = String(new.dropFirst(old.count))
             if let data = added.data(using: .utf8) {
-                relay.sendInput(data)
+                connection.sendInput(data)
             }
         } else if new.count < old.count, old.hasPrefix(new) {
             let deleted = old.count - new.count
-            relay.sendInput(Data(repeating: 0x7F, count: deleted))
+            connection.sendInput(Data(repeating: 0x7F, count: deleted))
         } else if new != old {
-            relay.sendInput(Data(repeating: 0x7F, count: old.count))
+            connection.sendInput(Data(repeating: 0x7F, count: old.count))
             if let data = new.data(using: .utf8) {
-                relay.sendInput(data)
+                connection.sendInput(data)
             }
         }
     }
 
     private func sendCommand() {
         commandText = ""
-        relay.sendInput(Data([0x0D]))
+        connection.sendInput(Data([0x0D]))
     }
 
     @ViewBuilder
     private var statusBanner: some View {
-        switch relay.state {
+        switch connection.state {
         case .reconnecting(let attempt):
             HStack {
                 ProgressView()

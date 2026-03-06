@@ -1,3 +1,5 @@
+mod local_server;
+
 use std::ffi::CStr;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::{Emitter, Manager};
@@ -35,7 +37,14 @@ fn get_pid_cwd(pid: u32) -> Option<String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_pty::init())
-        .invoke_handler(tauri::generate_handler![get_home_dir, get_pid_cwd])
+        .invoke_handler(tauri::generate_handler![
+            get_home_dir,
+            get_pid_cwd,
+            local_server::start_local_server,
+            local_server::stop_local_server,
+            local_server::local_server_broadcast,
+            local_server::local_server_send_control,
+        ])
         .setup(|app| {
             let new_tab = MenuItemBuilder::with_id("new_tab", "New Tab")
                 .accelerator("CmdOrCtrl+T")

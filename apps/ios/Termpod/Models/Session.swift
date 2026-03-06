@@ -5,10 +5,12 @@ struct Session: Identifiable {
 
     let id: String
     var name: String
-    let relay: RelayClient
+    let connection: ConnectionManager
     let createdAt: Date = .now
 
+    var relay: RelayClient { connection.relay }
+
     var isConnected: Bool {
-        relay.state == .live
+        connection.state == .live
     }
 }

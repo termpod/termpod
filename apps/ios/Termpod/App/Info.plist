@@ -15,7 +15,7 @@
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundleIconName</key>
-	<string>AppIcon</string>
+	<string>termpod</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -26,6 +26,12 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Termpod needs camera access to scan QR codes for pairing with your Mac.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Termpod uses your local network to connect directly to your Mac for lower latency.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_termpod._tcp</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UIRequiredDeviceCapabilities</key>

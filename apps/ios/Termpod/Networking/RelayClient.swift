@@ -3,7 +3,14 @@ import UIKit
 
 /// Manages the WebSocket connection to the Termpod relay server.
 @MainActor
-final class RelayClient: ObservableObject {
+final class RelayClient: ObservableObject, Transport {
+
+    let transportType: TransportType = .relay
+
+    var isConnected: Bool { state == .live }
+
+    var onConnected: (() -> Void)?
+    var onDisconnected: (() -> Void)?
 
     @Published var state: ConnectionState = .disconnected
     @Published var connectedViewers: Int = 0
@@ -11,6 +18,7 @@ final class RelayClient: ObservableObject {
 
     var onTerminalData: ((Data) -> Void)?
     var onResize: ((Int, Int) -> Void)?
+    var onSignaling: (([String: Any]) -> Void)?
 
     private var webSocket: URLSessionWebSocketTask?
     private let session = URLSession(configuration: .default)
@@ -85,6 +93,14 @@ final class RelayClient: ObservableObject {
         ]
 
         guard let jsonData = try? JSONSerialization.data(withJSONObject: hello),
+              let jsonString = String(data: jsonData, encoding: .utf8)
+        else { return }
+
+        webSocket?.send(.string(jsonString)) { _ in }
+    }
+
+    func sendSignaling(_ msg: [String: Any]) {
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: msg),
               let jsonString = String(data: jsonData, encoding: .utf8)
         else { return }
 
@@ -172,6 +188,7 @@ final class RelayClient: ObservableObject {
         case "ready":
             state = .live
             reconnectionManager.reset()
+            onConnected?()
 
         case "pty_resize":
             if let cols = json["cols"] as? Int, let rows = json["rows"] as? Int {
@@ -192,6 +209,9 @@ final class RelayClient: ObservableObject {
             let code = json["code"] as? String ?? "UNKNOWN"
             let message = json["message"] as? String ?? "Unknown error"
             print("[Relay] Error: \(code) — \(message)")
+
+        case "webrtc_offer", "webrtc_answer", "webrtc_ice":
+            onSignaling?(json)
 
         default:
             break
