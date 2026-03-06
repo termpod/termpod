@@ -100,9 +100,54 @@ struct DeviceSessionsView: View {
         requestingSession = true
         HapticService.shared.playTap()
 
-        await deviceService.requestSession(auth: auth, deviceId: device.id)
+        // Try push-based creation through an existing session's connection
+        if let activeSession = appState.sessions.first(where: { $0.isConnected }) {
+            let requestId = UUID().uuidString
 
-        // Wait briefly for the desktop to pick up the request and create the session
+            let result = await withCheckedContinuation { (continuation: CheckedContinuation<(String, String, String, Int, Int)?, Never>) in
+                var resumed = false
+
+                activeSession.connection.onSessionCreated = { rId, sessionId, name, cwd, ptyCols, ptyRows in
+                    guard rId == requestId, !resumed else { return }
+                    resumed = true
+                    activeSession.connection.onSessionCreated = nil
+                    continuation.resume(returning: (sessionId, name, cwd, ptyCols, ptyRows))
+                }
+
+                activeSession.connection.sendCreateSessionRequest(requestId: requestId)
+
+                // Timeout fallback after 5 seconds
+                Task {
+                    try? await Task.sleep(for: .seconds(5))
+                    guard !resumed else { return }
+                    resumed = true
+                    activeSession.connection.onSessionCreated = nil
+                    continuation.resume(returning: nil)
+                }
+            }
+
+            if let (sessionId, name, _, _, _) = result {
+                // Session created — join it directly
+                guard let wsURL = auth.authenticatedWSURL(sessionId: sessionId) else {
+                    requestingSession = false
+                    return
+                }
+
+                let connection = ConnectionManager(sessionId: sessionId)
+                let newSession = Session(id: sessionId, name: name, connection: connection)
+                appState.sessions.append(newSession)
+                connection.connect(wsURL: wsURL)
+                joinedSession = newSession
+                requestingSession = false
+
+                // Also refresh the session list
+                await loadSessions()
+                return
+            }
+        }
+
+        // Fallback: HTTP request + poll (no active session or push timed out)
+        await deviceService.requestSession(auth: auth, deviceId: device.id)
         try? await Task.sleep(for: .seconds(2))
         await loadSessions()
 

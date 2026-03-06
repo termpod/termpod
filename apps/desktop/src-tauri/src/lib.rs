@@ -44,6 +44,7 @@ pub fn run() {
             local_server::stop_local_server,
             local_server::local_server_broadcast,
             local_server::local_server_send_control,
+            local_server::local_server_send_to_client,
         ])
         .setup(|app| {
             let new_tab = MenuItemBuilder::with_id("new_tab", "New Tab")

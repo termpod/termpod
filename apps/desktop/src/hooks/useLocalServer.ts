@@ -24,12 +24,18 @@ interface ResizeEvent {
   rows: number;
 }
 
+interface CreateSessionEvent {
+  requestId: string;
+  clientId: string;
+}
+
 interface UseLocalServerOptions {
   sessionId: string | null;
   onViewerInput?: (data: string) => void;
   onViewerJoined?: () => void;
   onViewerLeft?: () => void;
   onViewerResize?: (cols: number, rows: number) => void;
+  onCreateSessionRequest?: (requestId: string, clientId: string) => void;
 }
 
 export function useLocalServer(options: UseLocalServerOptions) {
@@ -97,6 +103,13 @@ export function useLocalServer(options: UseLocalServerOptions) {
       }
     }).then((fn) => unlisten.push(fn));
 
+    listen<CreateSessionEvent>('local-ws-create-session', (event) => {
+      optionsRef.current.onCreateSessionRequest?.(
+        event.payload.requestId,
+        event.payload.clientId,
+      );
+    }).then((fn) => unlisten.push(fn));
+
     return () => {
       for (const fn of unlisten) {
         fn();
@@ -119,10 +132,18 @@ export function useLocalServer(options: UseLocalServerOptions) {
     [],
   );
 
+  const sendToClient = useCallback(
+    (clientId: string, json: string) => {
+      invoke('local_server_send_to_client', { clientId, json }).catch(() => {});
+    },
+    [],
+  );
+
   return {
     serverInfo,
     localViewers,
     broadcastTerminalData,
     sendControl,
+    sendToClient,
   };
 }

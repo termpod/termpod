@@ -4,9 +4,15 @@ import { useLocalServer } from './useLocalServer';
 import { useWebRTC } from './useWebRTC';
 import type { TerminalSession } from './useSessionManager';
 
-export function useRelayBridge(session: TerminalSession | null) {
+interface UseRelayBridgeOptions {
+  onCreateSessionRequest?: (requestId: string, source: 'relay' | 'local', localClientId?: string) => void;
+}
+
+export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: UseRelayBridgeOptions) {
   const sessionRef = useRef(session);
   sessionRef.current = session;
+  const bridgeOptionsRef = useRef(bridgeOptions);
+  bridgeOptionsRef.current = bridgeOptions;
 
   // Track actual PTY size (may differ from desktop xterm when a mobile viewer is connected)
   const ptySizeRef = useRef<{ cols: number; rows: number } | null>(null);
@@ -68,6 +74,9 @@ export function useRelayBridge(session: TerminalSession | null) {
         console.warn('[WebRTC] Signaling error:', err);
       });
     },
+    onCreateSessionRequest: (requestId) => {
+      bridgeOptionsRef.current?.onCreateSessionRequest?.(requestId, 'relay');
+    },
   });
 
   const { connect, disconnect, sendTerminalData, sendResize, sendSignaling } = relay;
@@ -110,6 +119,9 @@ export function useRelayBridge(session: TerminalSession | null) {
         ptySizeRef.current = { cols, rows };
         s.pty.resize(cols, rows);
       }
+    },
+    onCreateSessionRequest: (requestId, clientId) => {
+      bridgeOptionsRef.current?.onCreateSessionRequest?.(requestId, 'local', clientId);
     },
   });
 
@@ -168,5 +180,6 @@ export function useRelayBridge(session: TerminalSession | null) {
     localServerInfo: localServer.serverInfo,
     localViewers: localServer.localViewers,
     webrtcStatus: webrtc.status,
+    sendToLocalClient: localServer.sendToClient,
   };
 }

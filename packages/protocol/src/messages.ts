@@ -71,12 +71,18 @@ export type SignalingMessage =
   | WebRTCAnswerMessage
   | WebRTCIceCandidateMessage;
 
+export interface CreateSessionRequestMessage {
+  type: 'create_session_request';
+  requestId: string;
+}
+
 export type ClientMessage =
   | HelloMessage
   | InputLockRequestMessage
   | InputLockReleaseMessage
   | PingMessage
-  | SignalingMessage;
+  | SignalingMessage
+  | CreateSessionRequestMessage;
 
 // Relay -> Client
 
@@ -142,6 +148,16 @@ export interface ErrorMessage {
   message: string;
 }
 
+export interface SessionCreatedMessage {
+  type: 'session_created';
+  requestId: string;
+  sessionId: string;
+  name: string;
+  cwd: string;
+  ptyCols: number;
+  ptyRows: number;
+}
+
 export type RelayMessage =
   | SessionInfoMessage
   | ReadyMessage
@@ -153,6 +169,8 @@ export type RelayMessage =
   | SessionEndedMessage
   | PongMessage
   | ErrorMessage
-  | SignalingMessage;
+  | SignalingMessage
+  | CreateSessionRequestMessage
+  | SessionCreatedMessage;
 
 export type ControlMessage = ClientMessage | RelayMessage;

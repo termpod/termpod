@@ -40,6 +40,7 @@ function nameFromCwd(cwd: string): string {
 export function useSessionManager() {
   const storeRef = useRef<SessionStore>({ sessions: [], activeId: null });
   const listenersRef = useRef<Set<() => void>>(new Set());
+  const onSessionExitRef = useRef<((id: string) => void) | null>(null);
 
   const emit = useCallback(() => {
     for (const listener of listenersRef.current) {
@@ -117,7 +118,7 @@ export function useSessionManager() {
       const sessionCwd = options?.cwd || await invoke<string>('get_home_dir');
       const shell = options?.shell || DEFAULT_SHELL;
 
-      const pty = spawn(shell, [], {
+      const pty = spawn(shell, ['-l'], {
         cols: DEFAULT_PTY_SIZE.cols,
         rows: DEFAULT_PTY_SIZE.rows,
         cwd: sessionCwd,
@@ -169,7 +170,8 @@ export function useSessionManager() {
             s.id === id ? { ...s, exited: true, exitCode } : s,
           ),
         }));
-        session.termRef.current?.write(`\r\n[Process exited with code ${exitCode}]\r\n`);
+
+        onSessionExitRef.current?.(id);
       });
 
       updateStore((prev) => ({
@@ -263,5 +265,6 @@ export function useSessionManager() {
     switchSession,
     focusActive,
     renameSession,
+    onSessionExitRef,
   };
 }

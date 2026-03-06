@@ -10,22 +10,6 @@ struct DeviceListView: View {
     var body: some View {
         NavigationStack {
             List {
-                // Active sessions
-                if !appState.sessions.isEmpty {
-                    Section("Active Sessions") {
-                        ForEach(appState.sessions) { session in
-                            NavigationLink(destination: SessionDetailView(session: session)) {
-                                SessionCard(session: session)
-                            }
-                        }
-                        .onDelete { indexSet in
-                            for index in indexSet {
-                                appState.removeSession(appState.sessions[index])
-                            }
-                        }
-                    }
-                }
-
                 // Registered devices
                 Section {
                     if deviceService.loading {
@@ -54,7 +38,6 @@ struct DeviceListView: View {
                     Text("Devices running Termpod on your account. Tap a device to see its terminal sessions.")
                 }
             }
-            .animation(.default, value: appState.sessions.count)
             .animation(.default, value: deviceService.devices.count)
             .navigationTitle("Termpod")
             .toolbar {

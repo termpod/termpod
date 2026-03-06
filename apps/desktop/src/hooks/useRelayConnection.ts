@@ -23,6 +23,7 @@ interface UseRelayConnectionOptions {
   onViewerLeft?: () => void;
   onViewerResize?: (cols: number, rows: number) => void;
   onSignaling?: (msg: Record<string, unknown>) => void;
+  onCreateSessionRequest?: (requestId: string) => void;
 }
 
 const RELAY_BASE = import.meta.env.VITE_RELAY_URL || RELAY_URL.production;
@@ -141,6 +142,14 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
         case 'webrtc_ice':
           optionsRef.current.onSignaling?.(msg as unknown as Record<string, unknown>);
           break;
+
+        case 'create_session_request':
+          if ('requestId' in msg) {
+            optionsRef.current.onCreateSessionRequest?.(
+              (msg as unknown as { requestId: string }).requestId,
+            );
+          }
+          break;
       }
     };
 
@@ -246,6 +255,25 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     }
   }, []);
 
+  const sendSessionCreated = useCallback(
+    (requestId: string, sessionId: string, name: string, cwd: string, ptyCols: number, ptyRows: number) => {
+      const ws = wsRef.current;
+
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'session_created',
+          requestId,
+          sessionId,
+          name,
+          cwd,
+          ptyCols,
+          ptyRows,
+        }));
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     return () => {
       intentionalCloseRef.current = true;
@@ -270,5 +298,6 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     sendTerminalData,
     sendResize,
     sendSignaling,
+    sendSessionCreated,
   };
 }

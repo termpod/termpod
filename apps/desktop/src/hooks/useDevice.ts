@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAccessToken, getRelayHttp } from './useAuth';
 
 const HEARTBEAT_INTERVAL = 30_000; // 30 seconds
-const POLL_INTERVAL = 5_000; // 5 seconds for pending request polling
+const POLL_INTERVAL = 30_000; // 30 seconds — backup only, primary path is push-based WS
 const DEVICE_ID_KEY = 'termpod-device-id';
 
 function getOrCreateDeviceId(): string {

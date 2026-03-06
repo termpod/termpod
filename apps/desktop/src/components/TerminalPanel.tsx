@@ -9,6 +9,8 @@ export interface RelayInfo {
   status: RelayStatus;
   viewers: number;
   sessionId: string | null;
+  sendSessionCreated?: (requestId: string, sessionId: string, name: string, cwd: string, ptyCols: number, ptyRows: number) => void;
+  sendToLocalClient?: (clientId: string, json: string) => void;
 }
 
 interface TerminalPanelProps {
@@ -18,10 +20,18 @@ interface TerminalPanelProps {
   fontFamily?: string;
   onRelayChange?: (info: RelayInfo) => void;
   onSessionRegistered?: (relaySessionId: string) => void;
+  onCreateSessionRequest?: (requestId: string, source: 'relay' | 'local', localClientId?: string) => void;
 }
 
-export function TerminalPanel({ session, visible, fontSize, fontFamily, onRelayChange, onSessionRegistered }: TerminalPanelProps) {
-  const relay = useRelayBridge(session.exited ? null : session);
+export function TerminalPanel({ session, visible, fontSize, fontFamily, onRelayChange, onSessionRegistered, onCreateSessionRequest }: TerminalPanelProps) {
+  const onCreateSessionRequestRef = useRef(onCreateSessionRequest);
+  onCreateSessionRequestRef.current = onCreateSessionRequest;
+
+  const relay = useRelayBridge(session.exited ? null : session, {
+    onCreateSessionRequest: (requestId, source, localClientId) => {
+      onCreateSessionRequestRef.current?.(requestId, source, localClientId);
+    },
+  });
   const onRelayChangeRef = useRef(onRelayChange);
   onRelayChangeRef.current = onRelayChange;
   const onSessionRegisteredRef = useRef(onSessionRegistered);
@@ -32,8 +42,10 @@ export function TerminalPanel({ session, visible, fontSize, fontFamily, onRelayC
       status: relay.status,
       viewers: relay.viewers,
       sessionId: relay.sessionId,
+      sendSessionCreated: relay.sendSessionCreated,
+      sendToLocalClient: relay.sendToLocalClient,
     });
-  }, [relay.status, relay.viewers, relay.sessionId]);
+  }, [relay.status, relay.viewers, relay.sessionId, relay.sendSessionCreated, relay.sendToLocalClient]);
 
   // Notify parent when relay session is created (for device registration)
   const registeredRef = useRef<string | null>(null);

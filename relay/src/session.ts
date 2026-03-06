@@ -4,6 +4,7 @@ import type {
   ClientMessage,
   ClientInfo,
   SignalingMessage,
+  SessionCreatedMessage,
 } from '@termpod/protocol';
 import { SCROLLBACK_BUFFER_SIZE, Channel } from '@termpod/protocol';
 
@@ -49,7 +50,7 @@ export class TerminalSession extends DurableObject {
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
     if (typeof message === 'string') {
-      this.handleControlMessage(ws, JSON.parse(message) as ClientMessage);
+      this.handleControlMessage(ws, JSON.parse(message) as ClientMessage | SessionCreatedMessage);
 
       return;
     }
@@ -106,7 +107,7 @@ export class TerminalSession extends DurableObject {
     }
   }
 
-  private handleControlMessage(ws: WebSocket, msg: ClientMessage): void {
+  private handleControlMessage(ws: WebSocket, msg: ClientMessage | SessionCreatedMessage): void {
     switch (msg.type) {
       case 'hello':
         this.handleHello(ws, msg);
@@ -126,6 +127,16 @@ export class TerminalSession extends DurableObject {
       case 'webrtc_answer':
       case 'webrtc_ice':
         this.forwardSignaling(ws, msg as SignalingMessage);
+        break;
+
+      case 'create_session_request':
+        // Forward from viewer → desktop
+        this.forwardToRole(ws, 'desktop', msg as unknown as Record<string, unknown>);
+        break;
+
+      case 'session_created':
+        // Forward from desktop → all viewers
+        this.forwardToRole(ws, 'viewer', msg as unknown as Record<string, unknown>);
         break;
     }
   }
@@ -235,6 +246,22 @@ export class TerminalSession extends DurableObject {
 
     for (const ws of this.ctx.getWebSockets()) {
       if (ws !== sender) {
+        ws.send(json);
+      }
+    }
+  }
+
+  private forwardToRole(_sender: WebSocket, targetRole: string, msg: Record<string, unknown>): void {
+    const json = JSON.stringify(msg);
+
+    for (const ws of this.ctx.getWebSockets()) {
+      if (ws === _sender) {
+        continue;
+      }
+
+      const tag = getTag(ws);
+
+      if (tag?.role === targetRole) {
         ws.send(json);
       }
     }

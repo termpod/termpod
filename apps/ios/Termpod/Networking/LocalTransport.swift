@@ -15,6 +15,7 @@ final class LocalTransport: Transport {
     var onResize: ((Int, Int) -> Void)?
     var onConnected: (() -> Void)?
     var onDisconnected: (() -> Void)?
+    var onSessionCreated: ((_ requestId: String, _ sessionId: String, _ name: String, _ cwd: String, _ ptyCols: Int, _ ptyRows: Int) -> Void)?
 
     private var browser: NWBrowser?
     private var webSocket: URLSessionWebSocketTask?
@@ -178,6 +179,15 @@ final class LocalTransport: Transport {
                 if let cols = json["cols"] as? Int, let rows = json["rows"] as? Int {
                     onResize?(cols, rows)
                 }
+            } else if type == "session_created" {
+                if let requestId = json["requestId"] as? String,
+                   let sessionId = json["sessionId"] as? String,
+                   let name = json["name"] as? String,
+                   let cwd = json["cwd"] as? String,
+                   let ptyCols = json["ptyCols"] as? Int,
+                   let ptyRows = json["ptyRows"] as? Int {
+                    onSessionCreated?(requestId, sessionId, name, cwd, ptyCols, ptyRows)
+                }
             }
 
         @unknown default:
@@ -195,6 +205,10 @@ final class LocalTransport: Transport {
     }
 
     // MARK: - Transport
+
+    func sendControlMessage(_ json: String) {
+        webSocket?.send(.string(json)) { _ in }
+    }
 
     func sendInput(_ data: Data) {
         var frame = Data([0x00])

@@ -18,6 +18,7 @@ final class ConnectionManager: ObservableObject {
 
     var onTerminalData: ((Data) -> Void)?
     var onResize: ((Int, Int) -> Void)?
+    var onSessionCreated: ((_ requestId: String, _ sessionId: String, _ name: String, _ cwd: String, _ ptyCols: Int, _ ptyRows: Int) -> Void)?
 
     let relay: RelayClient
     private let localTransport: LocalTransport
@@ -60,6 +61,23 @@ final class ConnectionManager: ObservableObject {
     func sendResize(cols: Int, rows: Int) {
         lastRequestedSize = (cols, rows)
         bestTransport.sendResize(cols: cols, rows: rows)
+    }
+
+    func sendCreateSessionRequest(requestId: String) {
+        let msg: [String: Any] = [
+            "type": "create_session_request",
+            "requestId": requestId,
+        ]
+
+        guard let data = try? JSONSerialization.data(withJSONObject: msg),
+              let str = String(data: data, encoding: .utf8)
+        else { return }
+
+        if localTransport.isConnected {
+            localTransport.sendControlMessage(str)
+        } else {
+            relay.sendSignaling(msg)
+        }
     }
 
     // MARK: - Private
@@ -106,6 +124,10 @@ final class ConnectionManager: ObservableObject {
             self?.onResize?(cols, rows)
         }
 
+        relay.onSessionCreated = { [weak self] requestId, sessionId, name, cwd, ptyCols, ptyRows in
+            self?.onSessionCreated?(requestId, sessionId, name, cwd, ptyCols, ptyRows)
+        }
+
         // Forward WebRTC signaling from relay (always needed)
         relay.onSignaling = { [weak self] json in
             self?.webrtcTransport.handleSignaling(json)
@@ -120,6 +142,10 @@ final class ConnectionManager: ObservableObject {
         localTransport.onResize = { [weak self] cols, rows in
             self?.ptySize = (cols, rows)
             self?.onResize?(cols, rows)
+        }
+
+        localTransport.onSessionCreated = { [weak self] requestId, sessionId, name, cwd, ptyCols, ptyRows in
+            self?.onSessionCreated?(requestId, sessionId, name, cwd, ptyCols, ptyRows)
         }
 
         localTransport.onConnected = { [weak self] in

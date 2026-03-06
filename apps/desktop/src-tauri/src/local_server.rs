@@ -63,6 +63,14 @@ struct ViewerEvent {
 }
 
 #[derive(Serialize, Clone)]
+struct CreateSessionEvent {
+    #[serde(rename = "requestId")]
+    request_id: String,
+    #[serde(rename = "clientId")]
+    client_id: String,
+}
+
+#[derive(Serialize, Clone)]
 struct InputEvent {
     #[serde(rename = "sessionId")]
     session_id: String,
@@ -225,6 +233,27 @@ pub async fn local_server_send_control(
     Ok(())
 }
 
+#[tauri::command]
+pub async fn local_server_send_to_client(
+    client_id: String,
+    json: String,
+) -> Result<(), String> {
+    let guard = server_lock().lock().await;
+
+    let Some(state) = guard.as_ref() else {
+        return Ok(());
+    };
+
+    let clients = state.clients.read().await;
+    let msg = Message::Text(json.into());
+
+    if let Some(client) = clients.get(&client_id) {
+        let _ = client.tx.send(msg);
+    }
+
+    Ok(())
+}
+
 async fn handle_connection(
     stream: tokio::net::TcpStream,
     peer_addr: SocketAddr,
@@ -288,10 +317,11 @@ async fn handle_connection(
                             );
                         }
                     }
-                } else if let Some(sid) = &session_id {
-                    // Forward other text (control messages) as JSON to JS
-                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
-                        if json.get("type").and_then(|t| t.as_str()) == Some("ping") {
+                } else if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
+                    let msg_type = json.get("type").and_then(|t| t.as_str());
+
+                    match msg_type {
+                        Some("ping") => {
                             let pong = serde_json::json!({
                                 "type": "pong",
                                 "timestamp": json.get("timestamp"),
@@ -302,9 +332,22 @@ async fn handle_connection(
                             });
                             let _ = tx.send(Message::Text(pong.to_string().into()));
                         }
-                    }
 
-                    let _ = sid; // suppress unused warning
+                        Some("create_session_request") => {
+                            if let Some(request_id) = json.get("requestId").and_then(|r| r.as_str()) {
+                                let cid = registered_id.clone().unwrap_or_default();
+                                let _ = app.emit(
+                                    "local-ws-create-session",
+                                    CreateSessionEvent {
+                                        request_id: request_id.to_string(),
+                                        client_id: cid,
+                                    },
+                                );
+                            }
+                        }
+
+                        _ => {}
+                    }
                 }
             }
 

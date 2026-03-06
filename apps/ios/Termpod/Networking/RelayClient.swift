@@ -19,6 +19,7 @@ final class RelayClient: ObservableObject, Transport {
     var onTerminalData: ((Data) -> Void)?
     var onResize: ((Int, Int) -> Void)?
     var onSignaling: (([String: Any]) -> Void)?
+    var onSessionCreated: ((_ requestId: String, _ sessionId: String, _ name: String, _ cwd: String, _ ptyCols: Int, _ ptyRows: Int) -> Void)?
 
     private var webSocket: URLSessionWebSocketTask?
     private let session = URLSession(configuration: .default)
@@ -212,6 +213,16 @@ final class RelayClient: ObservableObject, Transport {
 
         case "error":
             break
+
+        case "session_created":
+            if let requestId = json["requestId"] as? String,
+               let sessionId = json["sessionId"] as? String,
+               let name = json["name"] as? String,
+               let cwd = json["cwd"] as? String,
+               let ptyCols = json["ptyCols"] as? Int,
+               let ptyRows = json["ptyRows"] as? Int {
+                onSessionCreated?(requestId, sessionId, name, cwd, ptyCols, ptyRows)
+            }
 
         case "webrtc_offer", "webrtc_answer", "webrtc_ice":
             onSignaling?(json)

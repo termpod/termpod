@@ -26,18 +26,97 @@ export function App() {
     closeSession,
     switchSession,
     focusActive,
+    onSessionExitRef,
   } = useSessionManager();
 
   const { settings, update: updateSettings, reset: resetSettings, defaults: settingsDefaults } = useSettings();
 
-  // Wire up remote session creation callback
+  // Wire up remote session creation callback (legacy polling fallback)
   createSessionRef.current = () => createSession({ shell: settings.shellPath });
+
+  // Handle push-based session creation requests from mobile
+  const handleCreateSessionRequest = useCallback(
+    async (requestId: string, source: 'relay' | 'local', localClientId?: string) => {
+      const newSession = await createSession({ shell: settings.shellPath });
+
+      if (!newSession) {
+        return;
+      }
+
+      // Wait briefly for relay connection to establish and session to register
+      const waitForRelay = () =>
+        new Promise<RelayInfo | null>((resolve) => {
+          let attempts = 0;
+          const check = () => {
+            const info = relayMapRef.current.get(newSession.id);
+
+            if (info?.sessionId) {
+              resolve(info);
+              return;
+            }
+
+            attempts++;
+
+            if (attempts > 50) {
+              resolve(null);
+              return;
+            }
+
+            setTimeout(check, 100);
+          };
+          check();
+        });
+
+      const relayInfo = await waitForRelay();
+
+      if (!relayInfo?.sessionId) {
+        return;
+      }
+
+      const term = newSession.termRef.current;
+      const response = JSON.stringify({
+        type: 'session_created',
+        requestId,
+        sessionId: relayInfo.sessionId,
+        name: newSession.name,
+        cwd: newSession.cwd,
+        ptyCols: term?.cols ?? 120,
+        ptyRows: term?.rows ?? 40,
+      });
+
+      if (source === 'local' && localClientId) {
+        // Respond directly to the requesting local client
+        relayInfo.sendToLocalClient?.(localClientId, response);
+      } else {
+        // Respond via relay (broadcast to all viewers)
+        relayInfo.sendSessionCreated?.(
+          requestId,
+          relayInfo.sessionId,
+          newSession.name,
+          newSession.cwd,
+          term?.cols ?? 120,
+          term?.rows ?? 40,
+        );
+      }
+    },
+    [createSession, settings.shellPath],
+  );
+
   const [showQR, setShowQR] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const initializedRef = useRef(false);
   const [relayMap, setRelayMap] = useState<Map<string, RelayInfo>>(new Map());
+  const relayMapRef = useRef(relayMap);
+  relayMapRef.current = relayMap;
 
   const handleCloseSession = useCallback((id: string) => {
+    // Unregister session from relay before closing
+    const relayInfo = relayMapRef.current.get(id);
+
+    if (relayInfo?.sessionId) {
+      device.removeSession(relayInfo.sessionId);
+    }
+
     const { wasLast } = closeSession(id);
 
     if (wasLast) {
@@ -46,7 +125,10 @@ export function App() {
     }
 
     setTimeout(focusActive, 50);
-  }, [closeSession, focusActive]);
+  }, [closeSession, focusActive, device]);
+
+  // Auto-close tab when shell exits (e.g. ctrl+d)
+  onSessionExitRef.current = handleCloseSession;
 
   const activeRelay = activeId ? relayMap.get(activeId) : null;
 
@@ -210,6 +292,7 @@ export function App() {
                 term?.rows ?? 40,
               );
             }}
+            onCreateSessionRequest={handleCreateSessionRequest}
           />
         ))}
       </div>
