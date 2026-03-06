@@ -77,6 +77,10 @@ pub fn run() {
                 tab_items.push(item);
             }
 
+            let clear = MenuItemBuilder::with_id("clear", "Clear")
+                .accelerator("CmdOrCtrl+K")
+                .build(app)?;
+
             let find = MenuItemBuilder::with_id("find", "Find...")
                 .accelerator("CmdOrCtrl+F")
                 .build(app)?;
@@ -95,6 +99,7 @@ pub fn run() {
                 .select_all()
                 .separator()
                 .item(&find)
+                .item(&clear)
                 .build()?;
 
             let mut session_menu = SubmenuBuilder::new(app, "Session")

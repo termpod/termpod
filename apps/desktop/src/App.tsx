@@ -194,6 +194,12 @@ export function App() {
         }
         break;
 
+      case 'clear':
+        if (activeSession) {
+          activeSession.termRef.current?.clear();
+        }
+        break;
+
       case 'find':
         if (activeSession) {
           activeSession.termRef.current?.openSearch();
