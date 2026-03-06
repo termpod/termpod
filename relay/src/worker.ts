@@ -106,6 +106,19 @@ export default {
       return handleSessionDelete(request, env, sessionDeleteMatch[1]);
     }
 
+    // Pending session request routes
+    const requestSessionMatch = url.pathname.match(/^\/devices\/([^/]+)\/request-session$/);
+
+    if (requestSessionMatch && request.method === 'POST') {
+      return handleRequestSession(request, env, requestSessionMatch[1]);
+    }
+
+    const pendingRequestsMatch = url.pathname.match(/^\/devices\/([^/]+)\/pending-requests$/);
+
+    if (pendingRequestsMatch) {
+      return handlePendingRequests(request, env, pendingRequestsMatch[1]);
+    }
+
     // WebSocket upgrade for terminal sessions
     const wsMatch = url.pathname.match(/^\/sessions\/([^/]+)\/ws$/);
 
@@ -311,6 +324,63 @@ async function handleSessionDelete(
   );
 
   return corsJson(await res.json());
+}
+
+// --- Pending session request handlers ---
+
+async function handleRequestSession(
+  request: Request,
+  env: Env,
+  deviceId: string,
+): Promise<Response> {
+  const userIdOrError = await requireAuth(request, env);
+
+  if (userIdOrError instanceof Response) {
+    return userIdOrError;
+  }
+
+  const stub = getUserDO(env, userIdOrError);
+  const body = await request.json();
+  const res = await stub.fetch(
+    new Request(`http://internal/devices/${deviceId}/request-session`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  );
+
+  return corsJson(await res.json(), { status: res.status });
+}
+
+async function handlePendingRequests(
+  request: Request,
+  env: Env,
+  deviceId: string,
+): Promise<Response> {
+  const userIdOrError = await requireAuth(request, env);
+
+  if (userIdOrError instanceof Response) {
+    return userIdOrError;
+  }
+
+  const stub = getUserDO(env, userIdOrError);
+
+  if (request.method === 'GET') {
+    const res = await stub.fetch(
+      new Request(`http://internal/devices/${deviceId}/pending-requests`),
+    );
+
+    return corsJson(await res.json());
+  }
+
+  if (request.method === 'DELETE') {
+    const res = await stub.fetch(
+      new Request(`http://internal/devices/${deviceId}/pending-requests`, { method: 'DELETE' }),
+    );
+
+    return corsJson(await res.json());
+  }
+
+  return corsJson({ error: 'Method not allowed' }, { status: 405 });
 }
 
 // --- WebSocket handler ---

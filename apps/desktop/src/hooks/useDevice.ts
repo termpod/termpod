@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAccessToken, getRelayHttp } from './useAuth';
 
 const HEARTBEAT_INTERVAL = 30_000; // 30 seconds
+const POLL_INTERVAL = 5_000; // 5 seconds for pending request polling
 const DEVICE_ID_KEY = 'termpod-device-id';
 
 function getOrCreateDeviceId(): string {
@@ -38,12 +39,13 @@ interface PendingSession {
   ptyRows: number;
 }
 
-export function useDevice(isAuthenticated: boolean) {
+export function useDevice(isAuthenticated: boolean, onCreateSessionRequest?: () => void) {
   const [deviceId] = useState(getOrCreateDeviceId);
   const [registered, setRegistered] = useState(false);
-  const heartbeatRef = useRef<ReturnType<typeof setInterval>>(undefined);
   const registeredRef = useRef(false);
   const pendingRef = useRef<PendingSession[]>([]);
+  const onCreateRef = useRef(onCreateSessionRequest);
+  onCreateRef.current = onCreateSessionRequest;
 
   // Flush any queued session registrations
   const flushPending = useCallback(async () => {
@@ -66,7 +68,6 @@ export function useDevice(isAuthenticated: boolean) {
     if (!isAuthenticated) {
       setRegistered(false);
       registeredRef.current = false;
-
       return;
     }
 
@@ -87,17 +88,39 @@ export function useDevice(isAuthenticated: boolean) {
       })
       .catch(() => {});
 
-    // Start heartbeat
-    heartbeatRef.current = setInterval(() => {
+    // Poll for pending remote session creation requests
+    const pollPending = async () => {
+      try {
+        const res = await deviceFetch(`/devices/${deviceId}/pending-requests`);
+
+        if (res.ok) {
+          const { requests } = (await res.json()) as { requests: { id: string }[] };
+
+          if (requests.length > 0) {
+            await deviceFetch(`/devices/${deviceId}/pending-requests`, 'DELETE');
+
+            for (const _req of requests) {
+              onCreateRef.current?.();
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    const heartbeatInterval = setInterval(() => {
       deviceFetch(`/devices/${deviceId}/heartbeat`, 'POST').catch(() => {});
     }, HEARTBEAT_INTERVAL);
 
-    return () => {
-      if (heartbeatRef.current) {
-        clearInterval(heartbeatRef.current);
-      }
+    const pollInterval = setInterval(pollPending, POLL_INTERVAL);
 
-      // Mark device offline on cleanup
+    // Poll immediately after registration
+    pollPending();
+
+    return () => {
+      clearInterval(heartbeatInterval);
+      clearInterval(pollInterval);
       deviceFetch(`/devices/${deviceId}/offline`, 'POST').catch(() => {});
     };
   }, [isAuthenticated, deviceId, flushPending]);
@@ -105,9 +128,7 @@ export function useDevice(isAuthenticated: boolean) {
   const registerSession = useCallback(
     async (sessionId: string, name: string, cwd: string, ptyCols: number, ptyRows: number) => {
       if (!registeredRef.current) {
-        // Queue for later — device registration hasn't completed yet
         pendingRef.current.push({ sessionId, name, cwd, ptyCols, ptyRows });
-
         return;
       }
 

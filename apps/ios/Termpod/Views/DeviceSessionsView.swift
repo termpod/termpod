@@ -10,6 +10,7 @@ struct DeviceSessionsView: View {
     @State private var sessions: [DeviceService.DeviceSession] = []
     @State private var loading = true
     @State private var joinedSession: Session?
+    @State private var requestingSession = false
 
     var body: some View {
         Group {
@@ -17,11 +18,19 @@ struct DeviceSessionsView: View {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if sessions.isEmpty {
-                ContentUnavailableView(
-                    "No Sessions",
-                    systemImage: "terminal",
-                    description: Text("This device has no active terminal sessions.")
-                )
+                ContentUnavailableView {
+                    Label("No Sessions", systemImage: "terminal")
+                } description: {
+                    Text("This device has no active terminal sessions.")
+                } actions: {
+                    Button {
+                        Task { await requestNewSession() }
+                    } label: {
+                        Label("New Session", systemImage: "plus")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(requestingSession)
+                }
             } else {
                 List {
                     ForEach(sessions) { session in
@@ -58,6 +67,18 @@ struct DeviceSessionsView: View {
         }
         .animation(.default, value: sessions.count)
         .navigationTitle(device.displayName)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task { await requestNewSession() }
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .disabled(requestingSession || !device.isOnline)
+                .accessibilityLabel("New session")
+                .accessibilityHint("Create a new terminal session on this device")
+            }
+        }
         .navigationDestination(item: $joinedSession) { session in
             SessionDetailView(session: session)
         }
@@ -73,6 +94,19 @@ struct DeviceSessionsView: View {
         loading = true
         sessions = await deviceService.fetchSessions(auth: auth, deviceId: device.id)
         loading = false
+    }
+
+    private func requestNewSession() async {
+        requestingSession = true
+        HapticService.shared.playTap()
+
+        await deviceService.requestSession(auth: auth, deviceId: device.id)
+
+        // Wait briefly for the desktop to pick up the request and create the session
+        try? await Task.sleep(for: .seconds(2))
+        await loadSessions()
+
+        requestingSession = false
     }
 
     private func joinSession(_ session: DeviceService.DeviceSession) {

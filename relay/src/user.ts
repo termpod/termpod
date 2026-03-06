@@ -26,6 +26,13 @@ export interface SessionInfo {
   createdAt: string;
 }
 
+export interface PendingSessionRequest {
+  id: string;
+  deviceId: string;
+  requestedBy: string;
+  createdAt: string;
+}
+
 export class User extends DurableObject {
   private initialized = false;
 
@@ -59,6 +66,14 @@ export class User extends DurableObject {
         cwd TEXT DEFAULT '',
         pty_cols INTEGER DEFAULT 120,
         pty_rows INTEGER DEFAULT 40,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS pending_session_requests (
+        id TEXT PRIMARY KEY,
+        device_id TEXT NOT NULL,
+        requested_by TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL,
         FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
       );
@@ -124,6 +139,23 @@ export class User extends DurableObject {
 
     if (sessionMatch && request.method === 'DELETE') {
       return this.handleRemoveSession(sessionMatch[1]);
+    }
+
+    // Pending session request routes
+    const requestSessionMatch = path.match(/^\/devices\/([^/]+)\/request-session$/);
+
+    if (requestSessionMatch && request.method === 'POST') {
+      return this.handleRequestSession(requestSessionMatch[1], request);
+    }
+
+    const pendingMatch = path.match(/^\/devices\/([^/]+)\/pending-requests$/);
+
+    if (pendingMatch && request.method === 'GET') {
+      return this.handleGetPendingRequests(pendingMatch[1]);
+    }
+
+    if (pendingMatch && request.method === 'DELETE') {
+      return this.handleClearPendingRequests(pendingMatch[1]);
     }
 
     // Access check
@@ -208,6 +240,9 @@ export class User extends DurableObject {
       deviceType: 'desktop' | 'mobile';
       platform: string;
     };
+
+    // Clean up stale sessions from previous launches — desktop starts fresh each time
+    this.ctx.storage.sql.exec('DELETE FROM sessions WHERE device_id = ?', body.id);
 
     this.ctx.storage.sql.exec(
       `INSERT OR REPLACE INTO devices (id, name, device_type, platform, is_online, last_seen_at, created_at)
@@ -312,6 +347,59 @@ export class User extends DurableObject {
 
   private handleRemoveSession(sessionId: string): Response {
     this.ctx.storage.sql.exec('DELETE FROM sessions WHERE id = ?', sessionId);
+
+    return Response.json({ ok: true });
+  }
+
+  // --- Pending Session Requests ---
+
+  private async handleRequestSession(deviceId: string, request: Request): Promise<Response> {
+    const body = (await request.json()) as { requestedBy?: string };
+
+    const device = this.ctx.storage.sql
+      .exec('SELECT id FROM devices WHERE id = ?', deviceId)
+      .toArray();
+
+    if (device.length === 0) {
+      return Response.json({ error: 'Device not found' }, { status: 404 });
+    }
+
+    const id = crypto.randomUUID();
+
+    this.ctx.storage.sql.exec(
+      'INSERT INTO pending_session_requests (id, device_id, requested_by, created_at) VALUES (?, ?, ?, ?)',
+      id,
+      deviceId,
+      body.requestedBy ?? '',
+      new Date().toISOString(),
+    );
+
+    return Response.json({ ok: true, requestId: id }, { status: 201 });
+  }
+
+  private handleGetPendingRequests(deviceId: string): Response {
+    const rows = this.ctx.storage.sql
+      .exec(
+        'SELECT id, device_id, requested_by, created_at FROM pending_session_requests WHERE device_id = ? ORDER BY created_at',
+        deviceId,
+      )
+      .toArray();
+
+    const requests: PendingSessionRequest[] = rows.map((r) => ({
+      id: r.id as string,
+      deviceId: r.device_id as string,
+      requestedBy: r.requested_by as string,
+      createdAt: r.created_at as string,
+    }));
+
+    return Response.json({ requests });
+  }
+
+  private handleClearPendingRequests(deviceId: string): Response {
+    this.ctx.storage.sql.exec(
+      'DELETE FROM pending_session_requests WHERE device_id = ?',
+      deviceId,
+    );
 
     return Response.json({ ok: true });
   }

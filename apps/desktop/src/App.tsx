@@ -15,7 +15,10 @@ import { LoginScreen } from './components/LoginScreen';
 
 export function App() {
   const auth = useAuth();
-  const device = useDevice(auth.isAuthenticated);
+  // device hook needs createSession, but that's defined after the auth check.
+  // Use a ref to forward the callback.
+  const createSessionRef = useRef<(() => void) | null>(null);
+  const device = useDevice(auth.isAuthenticated, () => createSessionRef.current?.());
 
   if (!auth.isAuthenticated) {
     return (
@@ -38,6 +41,9 @@ export function App() {
   } = useSessionManager();
 
   const { settings, update: updateSettings, reset: resetSettings, defaults: settingsDefaults } = useSettings();
+
+  // Wire up remote session creation callback
+  createSessionRef.current = () => createSession({ shell: settings.shellPath });
   const [showQR, setShowQR] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const initializedRef = useRef(false);

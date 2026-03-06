@@ -135,6 +135,22 @@ final class DeviceService: ObservableObject {
         return []
     }
 
+    // MARK: - Remote Session Creation
+
+    func requestSession(auth: AuthService, deviceId: String) async {
+        guard auth.isAuthenticated else { return }
+
+        do {
+            let _ = try await auth.apiFetch(
+                path: "/devices/\(deviceId)/request-session",
+                method: "POST",
+                body: ["requestedBy": UIDevice.current.name]
+            )
+        } catch {
+            print("[DeviceService] Request session failed: \(error)")
+        }
+    }
+
     // MARK: - Heartbeat
 
     private func startHeartbeat(auth: AuthService) {
