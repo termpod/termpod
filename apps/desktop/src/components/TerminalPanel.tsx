@@ -96,7 +96,7 @@ export function TerminalPanel({ session, visible, fontSize, fontFamily, cursorSt
   const adjustedTheme = useMemo(() => {
     if (!theme || !backgroundOpacity || backgroundOpacity >= 1) return theme;
 
-    const terminalOpacity = 1 - (1 - backgroundOpacity) * 0.35;
+    const terminalOpacity = 1 - (1 - backgroundOpacity) * 0.6;
     const factor = 1 / terminalOpacity;
     const boost = (hex: string) => {
       const n = parseInt(hex.slice(1), 16);
