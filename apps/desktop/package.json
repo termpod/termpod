@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
+    "build:release": "source ../../.env && tauri build",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

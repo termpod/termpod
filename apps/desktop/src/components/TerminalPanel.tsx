@@ -155,7 +155,6 @@ export function TerminalPanel({ session, visible, fontSize, fontFamily, fontWeig
       style={{
         visibility: active ? 'visible' : 'hidden',
         pointerEvents: active ? 'auto' : 'none',
-        padding: windowPadding ? `${windowPadding}px` : undefined,
       }}
     >
       <Terminal
@@ -172,6 +171,7 @@ export function TerminalPanel({ session, visible, fontSize, fontFamily, fontWeig
         cursorStyle={cursorStyle}
         cursorBlink={cursorBlink}
         lineHeight={lineHeight}
+        padding={windowPadding}
         theme={adjustedTheme}
       />
     </div>

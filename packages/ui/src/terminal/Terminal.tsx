@@ -67,6 +67,7 @@ export interface TerminalProps {
   cursorStyle?: 'block' | 'underline' | 'bar';
   cursorBlink?: boolean;
   lineHeight?: number;
+  padding?: number;
   theme?: TerminalThemeColors;
 }
 
@@ -80,7 +81,7 @@ const SEARCH_DECORATIONS = {
 };
 
 export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
-  ({ onData, onResize, onTitleChange, onBell, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', fontWeight = 'normal', fontSmoothing = 'antialiased', fontLigatures = false, drawBoldInBold = true, scrollbackLines = 5000, cursorStyle = 'block', cursorBlink = true, lineHeight = 1.0, theme }, ref) => {
+  ({ onData, onResize, onTitleChange, onBell, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', fontWeight = 'normal', fontSmoothing = 'antialiased', fontLigatures = false, drawBoldInBold = true, scrollbackLines = 5000, cursorStyle = 'block', cursorBlink = true, lineHeight = 1.0, padding = 0, theme }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const terminalRef = useRef<XTerm | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -333,6 +334,24 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         term.options.theme = theme;
       }
     }, [cursorBlink, cursorStyle, lineHeight, theme]);
+
+    // Apply padding on .xterm-scrollable-element
+    useEffect(() => {
+      const el = containerRef.current;
+      if (!el) return;
+
+      el.querySelectorAll<HTMLElement>('.xterm-scrollable-element').forEach(s => {
+        s.style.padding = padding ? `${padding}px` : '';
+        s.style.boxSizing = 'border-box';
+      });
+
+      if (fitAddonRef.current && terminalRef.current) {
+        try {
+          fitAddonRef.current.fit();
+          onResizeRef.current?.({ cols: terminalRef.current.cols, rows: terminalRef.current.rows });
+        } catch { /* ignore */ }
+      }
+    });
 
     // Apply font smoothing and ligatures via CSS on the terminal container
     useEffect(() => {
