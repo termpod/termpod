@@ -434,6 +434,28 @@ body,
   border-color: var(--border-focus);
 }
 
+.settings-font-preview {
+  padding: 8px 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-input-error {
+  border-color: var(--error) !important;
+}
+
+.settings-hint-error {
+  font-size: 11px;
+  font-family: var(--font-sans);
+  color: var(--error);
+}
+
 .settings-divider {
   height: 1px;
   background: var(--border);

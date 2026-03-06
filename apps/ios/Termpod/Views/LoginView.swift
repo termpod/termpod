@@ -71,6 +71,16 @@ struct LoginView: View {
             }
             .padding(.horizontal, 32)
 
+            if !isSignup {
+                Button {
+                    // Placeholder — no backend support yet
+                } label: {
+                    Text("Forgot password?")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     isSignup.toggle()

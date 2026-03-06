@@ -24,6 +24,7 @@ const FONT_OPTIONS = [
 
 export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, email, onLogout }: SettingsPanelProps) {
   const [shellInput, setShellInput] = useState(settings.shellPath);
+  const [shellValid, setShellValid] = useState<boolean | null>(null);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -35,6 +36,24 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
+  const validateShell = (path: string) => {
+    const trimmed = path.trim();
+    if (!trimmed) {
+      setShellValid(false);
+      setShellInput(settings.shellPath);
+      return;
+    }
+
+    // Basic path validation — must start with /
+    if (!trimmed.startsWith('/')) {
+      setShellValid(false);
+      return;
+    }
+
+    setShellValid(true);
+    onUpdate({ shellPath: trimmed });
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-panel settings-modal" onClick={(e) => e.stopPropagation()}>
@@ -45,8 +64,20 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
 
         <div className="settings-body">
           <div className="settings-group">
-            <label className="settings-label">Font Size</label>
+            <label className="settings-label">Font</label>
             <div className="settings-row">
+              <select
+                className="settings-select"
+                style={{ flex: 1 }}
+                value={settings.fontFamily}
+                onChange={(e) => onUpdate({ fontFamily: e.target.value })}
+              >
+                {FONT_OPTIONS.map((font) => (
+                  <option key={font} value={font}>
+                    {font.split(',')[0]}
+                  </option>
+                ))}
+              </select>
               <input
                 className="settings-range"
                 type="range"
@@ -57,44 +88,39 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
               />
               <span className="settings-value">{settings.fontSize}px</span>
             </div>
-          </div>
-
-          <div className="settings-group">
-            <label className="settings-label">Font Family</label>
-            <select
-              className="settings-select"
-              value={settings.fontFamily}
-              onChange={(e) => onUpdate({ fontFamily: e.target.value })}
+            <div
+              className="settings-font-preview"
+              style={{
+                fontFamily: settings.fontFamily,
+                fontSize: `${settings.fontSize}px`,
+              }}
             >
-              {FONT_OPTIONS.map((font) => (
-                <option key={font} value={font}>
-                  {font.split(',')[0]}
-                </option>
-              ))}
-            </select>
+              ~/termpod $ echo &quot;Hello, world!&quot;
+            </div>
           </div>
 
           <div className="settings-group">
             <label className="settings-label">Shell</label>
             <input
-              className="settings-input"
+              className={`settings-input ${shellValid === false ? 'settings-input-error' : ''}`}
               type="text"
               value={shellInput}
-              onChange={(e) => setShellInput(e.target.value)}
-              onBlur={() => {
-                if (shellInput.trim()) {
-                  onUpdate({ shellPath: shellInput.trim() });
-                } else {
-                  setShellInput(settings.shellPath);
-                }
+              onChange={(e) => {
+                setShellInput(e.target.value);
+                setShellValid(null);
               }}
+              onBlur={() => validateShell(shellInput)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   (e.target as HTMLInputElement).blur();
                 }
               }}
               spellCheck={false}
+              placeholder="/bin/zsh"
             />
+            {shellValid === false && (
+              <span className="settings-hint-error">Path must start with /</span>
+            )}
           </div>
 
           <div className="settings-group">

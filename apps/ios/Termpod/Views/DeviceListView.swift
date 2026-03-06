@@ -27,7 +27,7 @@ struct DeviceListView: View {
                 }
 
                 // Registered devices
-                Section("Devices") {
+                Section {
                     if deviceService.loading {
                         HStack {
                             Spacer()
@@ -48,6 +48,10 @@ struct DeviceListView: View {
                             }
                         }
                     }
+                } header: {
+                    Text("Devices")
+                } footer: {
+                    Text("Devices running Termpod on your account. Tap a device to see its terminal sessions.")
                 }
             }
             .animation(.default, value: appState.sessions.count)
