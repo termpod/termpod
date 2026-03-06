@@ -33,13 +33,16 @@ interface TerminalPanelProps {
   onRelayChange?: (info: RelayInfo) => void;
   onSessionRegistered?: (relaySessionId: string) => void;
   onCreateSessionRequest?: (requestId: string, source: 'relay' | 'local', localClientId?: string) => void;
+  onDeleteSession?: (relaySessionId: string) => void;
   onSessionClosed?: () => void;
   onCwdChange?: (cwd: string) => void;
 }
 
-export function TerminalPanel({ session, visible, fontSize, fontFamily, fontWeight, fontSmoothing, fontLigatures, drawBoldInBold, windowPadding, cursorStyle, cursorBlink, lineHeight, theme, bellEnabled, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onSessionClosed, onCwdChange }: TerminalPanelProps) {
+export function TerminalPanel({ session, visible, fontSize, fontFamily, fontWeight, fontSmoothing, fontLigatures, drawBoldInBold, windowPadding, cursorStyle, cursorBlink, lineHeight, theme, bellEnabled, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onDeleteSession, onSessionClosed, onCwdChange }: TerminalPanelProps) {
   const onCreateSessionRequestRef = useRef(onCreateSessionRequest);
   onCreateSessionRequestRef.current = onCreateSessionRequest;
+  const onDeleteSessionRef = useRef(onDeleteSession);
+  onDeleteSessionRef.current = onDeleteSession;
   const onSessionClosedRef = useRef(onSessionClosed);
   onSessionClosedRef.current = onSessionClosed;
   const onCwdChangeRef = useRef(onCwdChange);
@@ -48,6 +51,9 @@ export function TerminalPanel({ session, visible, fontSize, fontFamily, fontWeig
   const relay = useRelayBridge(session.exited ? null : session, {
     onCreateSessionRequest: (requestId, source, localClientId) => {
       onCreateSessionRequestRef.current?.(requestId, source, localClientId);
+    },
+    onDeleteSession: (relaySessionId) => {
+      onDeleteSessionRef.current?.(relaySessionId);
     },
     onSessionClosed: () => {
       onSessionClosedRef.current?.();

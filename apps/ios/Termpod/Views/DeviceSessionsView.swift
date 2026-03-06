@@ -74,8 +74,13 @@ struct DeviceSessionsView: View {
                                 appState.removeSession(joined)
                             }
 
-                            Task {
-                                await deviceService.deleteSession(auth: auth, sessionId: session.id)
+                            // Delete via local WS if available, otherwise relay
+                            if localDiscovery.isDiscovered {
+                                localDiscovery.sendDeleteSession(sessionId: session.id)
+                            } else {
+                                Task {
+                                    await deviceService.deleteSession(auth: auth, sessionId: session.id)
+                                }
                             }
                         }
                     }
@@ -172,6 +177,47 @@ struct DeviceSessionsView: View {
         requestingSession = true
         HapticService.shared.playTap()
 
+        // Try local discovery WebSocket first (no active session needed)
+        if localDiscovery.isDiscovered {
+            let requestId = UUID().uuidString
+
+            let result = await withCheckedContinuation { (continuation: CheckedContinuation<(String, String, String, Int, Int)?, Never>) in
+                var resumed = false
+
+                localDiscovery.onSessionCreated = { rId, sessionId, name, cwd, ptyCols, ptyRows in
+                    guard rId == requestId, !resumed else { return }
+                    resumed = true
+                    localDiscovery.onSessionCreated = nil
+                    continuation.resume(returning: (sessionId, name, cwd, ptyCols, ptyRows))
+                }
+
+                localDiscovery.sendCreateSessionRequest(requestId: requestId)
+
+                Task {
+                    try? await Task.sleep(for: .seconds(5))
+                    guard !resumed else { return }
+                    resumed = true
+                    localDiscovery.onSessionCreated = nil
+                    continuation.resume(returning: nil)
+                }
+            }
+
+            if let (sessionId, name, _, _, _) = result {
+                guard let wsURL = auth.authenticatedWSURL(sessionId: sessionId) else {
+                    requestingSession = false
+                    return
+                }
+
+                let connection = ConnectionManager(sessionId: sessionId)
+                let newSession = Session(id: sessionId, name: name, connection: connection)
+                appState.sessions.append(newSession)
+                connection.connect(wsURL: wsURL)
+                joinedSession = newSession
+                requestingSession = false
+                return
+            }
+        }
+
         // Try push-based creation through an existing session's connection
         if let activeSession = appState.sessions.first(where: { $0.isConnected }) {
             let requestId = UUID().uuidString
@@ -188,7 +234,6 @@ struct DeviceSessionsView: View {
 
                 activeSession.connection.sendCreateSessionRequest(requestId: requestId)
 
-                // Timeout fallback after 5 seconds
                 Task {
                     try? await Task.sleep(for: .seconds(5))
                     guard !resumed else { return }
@@ -199,7 +244,6 @@ struct DeviceSessionsView: View {
             }
 
             if let (sessionId, name, _, _, _) = result {
-                // Session created — join it directly
                 guard let wsURL = auth.authenticatedWSURL(sessionId: sessionId) else {
                     requestingSession = false
                     return
@@ -211,9 +255,6 @@ struct DeviceSessionsView: View {
                 connection.connect(wsURL: wsURL)
                 joinedSession = newSession
                 requestingSession = false
-
-                // Also refresh the session list
-                await loadSessions()
                 return
             }
         }

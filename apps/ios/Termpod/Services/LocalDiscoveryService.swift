@@ -19,6 +19,8 @@ final class LocalDiscoveryService: ObservableObject {
     @Published var sessions: [LocalSession] = []
     @Published var isDiscovered = false
 
+    var onSessionCreated: ((_ requestId: String, _ sessionId: String, _ name: String, _ cwd: String, _ ptyCols: Int, _ ptyRows: Int) -> Void)?
+
     private var browser: NWBrowser?
     private var webSocket: URLSessionWebSocketTask?
     private let urlSession = URLSession(configuration: .default)
@@ -59,6 +61,22 @@ final class LocalDiscoveryService: ObservableObject {
     func refresh() async {
         guard webSocket != nil else { return }
         requestSessionList()
+    }
+
+    func sendCreateSessionRequest(requestId: String) {
+        sendControlMessage(["type": "create_session_request", "requestId": requestId])
+    }
+
+    func sendDeleteSession(sessionId: String) {
+        sendControlMessage(["type": "delete_session", "sessionId": sessionId])
+    }
+
+    private func sendControlMessage(_ msg: [String: Any]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: msg),
+              let str = String(data: data, encoding: .utf8)
+        else { return }
+
+        webSocket?.send(.string(str)) { _ in }
     }
 
     // MARK: - Browse Results
@@ -207,6 +225,16 @@ final class LocalDiscoveryService: ObservableObject {
                 self.sessions = decoded
             } catch {
                 // Decode failed — ignore
+            }
+
+        case "session_created":
+            if let requestId = json["requestId"] as? String,
+               let sessionId = json["sessionId"] as? String,
+               let name = json["name"] as? String,
+               let cwd = json["cwd"] as? String,
+               let ptyCols = json["ptyCols"] as? Int,
+               let ptyRows = json["ptyRows"] as? Int {
+                onSessionCreated?(requestId, sessionId, name, cwd, ptyCols, ptyRows)
             }
 
         default:

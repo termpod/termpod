@@ -87,6 +87,14 @@ struct CreateSessionEvent {
 }
 
 #[derive(Serialize, Clone)]
+struct DeleteSessionEvent {
+    #[serde(rename = "sessionId")]
+    session_id: String,
+    #[serde(rename = "clientId")]
+    client_id: String,
+}
+
+#[derive(Serialize, Clone)]
 struct InputEvent {
     #[serde(rename = "sessionId")]
     session_id: String,
@@ -399,6 +407,19 @@ async fn handle_connection(
                                 "sessions": *list,
                             });
                             let _ = tx.send(Message::Text(response.to_string().into()));
+                        }
+
+                        Some("delete_session") => {
+                            if let Some(sid) = json.get("sessionId").and_then(|s| s.as_str()) {
+                                let cid = registered_id.clone().unwrap_or_default();
+                                let _ = app.emit(
+                                    "local-ws-delete-session",
+                                    DeleteSessionEvent {
+                                        session_id: sid.to_string(),
+                                        client_id: cid,
+                                    },
+                                );
+                            }
                         }
 
                         _ => {}

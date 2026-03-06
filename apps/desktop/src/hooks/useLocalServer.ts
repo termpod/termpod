@@ -29,6 +29,11 @@ interface CreateSessionEvent {
   clientId: string;
 }
 
+interface DeleteSessionEvent {
+  sessionId: string;
+  clientId: string;
+}
+
 interface UseLocalServerOptions {
   sessionId: string | null;
   onViewerInput?: (data: string) => void;
@@ -36,6 +41,7 @@ interface UseLocalServerOptions {
   onViewerLeft?: () => void;
   onViewerResize?: (cols: number, rows: number) => void;
   onCreateSessionRequest?: (requestId: string, clientId: string) => void;
+  onDeleteSession?: (sessionId: string) => void;
 }
 
 export function useLocalServer(options: UseLocalServerOptions) {
@@ -108,6 +114,10 @@ export function useLocalServer(options: UseLocalServerOptions) {
         event.payload.requestId,
         event.payload.clientId,
       );
+    }).then((fn) => unlisten.push(fn));
+
+    listen<DeleteSessionEvent>('local-ws-delete-session', (event) => {
+      optionsRef.current.onDeleteSession?.(event.payload.sessionId);
     }).then((fn) => unlisten.push(fn));
 
     return () => {

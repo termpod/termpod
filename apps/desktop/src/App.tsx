@@ -505,6 +505,15 @@ export function App() {
               );
             }}
             onCreateSessionRequest={handleCreateSessionRequest}
+            onDeleteSession={(relaySessionId) => {
+              // Find local session by relay session ID and close it
+              for (const [localId, info] of relayMapRef.current.entries()) {
+                if (info.sessionId === relaySessionId) {
+                  handleCloseSession(localId);
+                  break;
+                }
+              }
+            }}
             onSessionClosed={() => handleCloseSession(session.id)}
             onCwdChange={(cwd) => {
               updateSessionCwd(session.id, cwd);

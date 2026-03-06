@@ -1,10 +1,13 @@
 import SwiftUI
+import Network
 
 struct DeviceListView: View {
 
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var auth: AuthService
     @EnvironmentObject private var deviceService: DeviceService
+    @State private var localDesktopFound = false
+    @State private var bonjourBrowser: NWBrowser?
     var body: some View {
         NavigationStack {
             List {
@@ -24,7 +27,7 @@ struct DeviceListView: View {
                         }
                         .listRowBackground(Color.clear)
                     } else {
-                        ForEach(deviceService.devices) { device in
+                        ForEach(devicesWithLocalStatus) { device in
                             NavigationLink(destination: DeviceSessionsView(device: device)) {
                                 DeviceRow(device: device)
                             }
@@ -64,10 +67,62 @@ struct DeviceListView: View {
                 await deviceService.fetchDevices(auth: auth)
             }
             .task {
+                startBonjourBrowse()
                 await deviceService.registerThisDevice(auth: auth)
                 await deviceService.fetchDevices(auth: auth)
             }
+            .onDisappear {
+                bonjourBrowser?.cancel()
+                bonjourBrowser = nil
+            }
         }
+    }
+
+    private var devicesWithLocalStatus: [DeviceService.Device] {
+        deviceService.devices.map { device in
+            // Override online status for desktop devices when Bonjour detects them
+            if device.platform == "macos" && localDesktopFound {
+                return DeviceService.Device(
+                    id: device.id,
+                    name: device.name,
+                    deviceType: device.deviceType,
+                    platform: device.platform,
+                    isOnline: true,
+                    lastSeenAt: device.lastSeenAt
+                )
+            }
+
+            // Mark desktop offline if Bonjour doesn't see it
+            if device.platform == "macos" && !localDesktopFound && device.isOnline {
+                return DeviceService.Device(
+                    id: device.id,
+                    name: device.name,
+                    deviceType: device.deviceType,
+                    platform: device.platform,
+                    isOnline: false,
+                    lastSeenAt: device.lastSeenAt
+                )
+            }
+
+            return device
+        }
+    }
+
+    private func startBonjourBrowse() {
+        let params = NWParameters()
+        params.includePeerToPeer = true
+
+        let browser = NWBrowser(for: .bonjour(type: "_termpod._tcp", domain: "local."), using: params)
+
+        browser.browseResultsChangedHandler = { results, _ in
+            Task { @MainActor in
+                localDesktopFound = !results.isEmpty
+            }
+        }
+
+        browser.stateUpdateHandler = { _ in }
+        browser.start(queue: .main)
+        bonjourBrowser = browser
     }
 }
 
