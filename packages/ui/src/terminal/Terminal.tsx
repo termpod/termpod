@@ -20,14 +20,42 @@ export interface TerminalHandle {
   readonly rows: number;
 }
 
+export interface TerminalThemeColors {
+  background: string;
+  foreground: string;
+  cursor: string;
+  selectionBackground: string;
+  black?: string;
+  red?: string;
+  green?: string;
+  yellow?: string;
+  blue?: string;
+  magenta?: string;
+  cyan?: string;
+  white?: string;
+  brightBlack?: string;
+  brightRed?: string;
+  brightGreen?: string;
+  brightYellow?: string;
+  brightBlue?: string;
+  brightMagenta?: string;
+  brightCyan?: string;
+  brightWhite?: string;
+}
+
 export interface TerminalProps {
   onData?: (data: string) => void;
   onResize?: (size: PtySize) => void;
   onTitleChange?: (title: string) => void;
+  onBell?: () => void;
   onReady?: () => void;
   fontSize?: number;
   fontFamily?: string;
   scrollbackLines?: number;
+  cursorStyle?: 'block' | 'underline' | 'bar';
+  cursorBlink?: boolean;
+  lineHeight?: number;
+  theme?: TerminalThemeColors;
 }
 
 const SEARCH_DECORATIONS = {
@@ -40,7 +68,7 @@ const SEARCH_DECORATIONS = {
 };
 
 export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
-  ({ onData, onResize, onTitleChange, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', scrollbackLines = 5000 }, ref) => {
+  ({ onData, onResize, onTitleChange, onBell, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', scrollbackLines = 5000, cursorStyle = 'block', cursorBlink = true, lineHeight = 1.0, theme }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const terminalRef = useRef<XTerm | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -57,6 +85,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     onResizeRef.current = onResize;
     const onTitleChangeRef = useRef(onTitleChange);
     onTitleChangeRef.current = onTitleChange;
+    const onBellRef = useRef(onBell);
+    onBellRef.current = onBell;
     const onReadyRef = useRef(onReady);
     onReadyRef.current = onReady;
 
@@ -157,9 +187,11 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         fontSize,
         fontFamily,
         scrollback: scrollbackLines,
-        cursorBlink: true,
+        cursorBlink,
+        cursorStyle,
+        lineHeight,
         allowProposedApi: true,
-        theme: {
+        theme: theme ?? {
           background: '#1a1b26',
           foreground: '#c0caf5',
           cursor: '#c0caf5',
@@ -216,6 +248,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       // Use refs for callbacks so they always call the latest version
       term.onData((data) => onDataRef.current?.(data));
       term.onTitleChange((title) => onTitleChangeRef.current?.(title));
+      term.onBell(() => onBellRef.current?.());
 
       onReadyRef.current?.();
 
@@ -245,7 +278,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         fitAddonRef.current = null;
         searchAddonRef.current = null;
       };
-    }, [fontSize, fontFamily, scrollbackLines]);
+    }, [fontSize, fontFamily, scrollbackLines, cursorBlink, cursorStyle, lineHeight, theme]);
 
     return (
       <div style={{ width: '100%', height: '100%', position: 'relative' }}>

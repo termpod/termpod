@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Terminal } from '@termpod/ui';
+import type { TerminalThemeColors } from '@termpod/ui';
 import type { PtySize } from '@termpod/protocol';
 import type { TerminalSession } from '../hooks/useSessionManager';
 import { useRelayBridge } from '../hooks/useRelayBridge';
@@ -18,13 +19,18 @@ interface TerminalPanelProps {
   visible: boolean;
   fontSize?: number;
   fontFamily?: string;
+  cursorStyle?: 'block' | 'underline' | 'bar';
+  cursorBlink?: boolean;
+  lineHeight?: number;
+  theme?: TerminalThemeColors;
+  bellEnabled?: boolean;
   onRelayChange?: (info: RelayInfo) => void;
   onSessionRegistered?: (relaySessionId: string) => void;
   onCreateSessionRequest?: (requestId: string, source: 'relay' | 'local', localClientId?: string) => void;
   onSessionClosed?: () => void;
 }
 
-export function TerminalPanel({ session, visible, fontSize, fontFamily, onRelayChange, onSessionRegistered, onCreateSessionRequest, onSessionClosed }: TerminalPanelProps) {
+export function TerminalPanel({ session, visible, fontSize, fontFamily, cursorStyle, cursorBlink, lineHeight, theme, bellEnabled, onRelayChange, onSessionRegistered, onCreateSessionRequest, onSessionClosed }: TerminalPanelProps) {
   const onCreateSessionRequestRef = useRef(onCreateSessionRequest);
   onCreateSessionRequestRef.current = onCreateSessionRequest;
   const onSessionClosedRef = useRef(onSessionClosed);
@@ -105,7 +111,18 @@ export function TerminalPanel({ session, visible, fontSize, fontFamily, onRelayC
         pointerEvents: active ? 'auto' : 'none',
       }}
     >
-      <Terminal ref={session.termRef} onData={handleData} onResize={handleResize} fontSize={fontSize} fontFamily={fontFamily} />
+      <Terminal
+        ref={session.termRef}
+        onData={handleData}
+        onResize={handleResize}
+        onBell={bellEnabled ? () => { /* system bell */ } : undefined}
+        fontSize={fontSize}
+        fontFamily={fontFamily}
+        cursorStyle={cursorStyle}
+        cursorBlink={cursorBlink}
+        lineHeight={lineHeight}
+        theme={theme}
+      />
     </div>
   );
 }

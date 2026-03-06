@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useSessionManager } from './hooks/useSessionManager';
-import { useSettings } from './hooks/useSettings';
+import { useSettings, THEMES } from './hooks/useSettings';
 import { useAuth } from './hooks/useAuth';
 import { useDevice } from './hooks/useDevice';
 import { TabBar } from './components/TabBar';
@@ -124,7 +124,7 @@ export function App() {
 
     const { wasLast } = closeSession(id);
 
-    if (wasLast) {
+    if (wasLast && settings.closeWindowOnLastTab) {
       getCurrentWindow().close();
       return;
     }
@@ -189,7 +189,10 @@ export function App() {
   menuHandlerRef.current = (menuId: string) => {
     switch (menuId) {
       case 'new_tab':
-        createSession({ shell: settings.shellPath });
+        createSession({
+          shell: settings.shellPath,
+          cwd: settings.newTabCwd === 'current' ? activeSession?.cwd : undefined,
+        });
         break;
 
       case 'close_tab':
@@ -299,7 +302,10 @@ export function App() {
         activeId={activeId}
         onSelect={switchSession}
         onClose={handleCloseSession}
-        onCreate={() => createSession({ shell: settings.shellPath })}
+        onCreate={() => createSession({
+          shell: settings.shellPath,
+          cwd: settings.newTabCwd === 'current' ? activeSession?.cwd : undefined,
+        })}
       />
       <FullDiskAccessBanner />
       <RelayStatus
@@ -316,6 +322,11 @@ export function App() {
             visible={session.id === activeId}
             fontSize={settings.fontSize}
             fontFamily={settings.fontFamily}
+            cursorStyle={settings.cursorStyle}
+            cursorBlink={settings.cursorBlink}
+            lineHeight={settings.lineHeight}
+            theme={THEMES[settings.theme]}
+            bellEnabled={settings.bellEnabled}
             onRelayChange={(info) => handleRelayChange(session.id, info)}
             onSessionRegistered={(relaySessionId) => {
               const term = session.termRef.current;
@@ -342,6 +353,7 @@ export function App() {
           onUpdate={updateSettings}
           onReset={resetSettings}
           onClose={() => setShowSettings(false)}
+          onOpenKeybindings={() => setShowKeybindings(true)}
           email={auth.email}
           onLogout={auth.logout}
         />
