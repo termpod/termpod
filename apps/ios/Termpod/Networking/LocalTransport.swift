@@ -100,9 +100,13 @@ final class LocalTransport: Transport {
                     let hostStr: String
                     switch host {
                     case .ipv4(let addr):
-                        hostStr = "\(addr)"
+                        // Strip interface scope suffix (e.g. "%en0")
+                        let raw = "\(addr)"
+                        hostStr = raw.components(separatedBy: "%").first ?? raw
                     case .ipv6(let addr):
-                        hostStr = "[\(addr)]"
+                        let raw = "\(addr)"
+                        let clean = raw.components(separatedBy: "%").first ?? raw
+                        hostStr = "[\(clean)]"
                     case .name(let name, _):
                         hostStr = name
                     @unknown default:
