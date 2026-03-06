@@ -6,8 +6,8 @@ import Foundation
 /// Priority: local WebSocket > WebRTC > relay.
 /// The relay always stays connected for signaling and as a fallback.
 /// Input is sent through the best transport only.
-/// Output is accepted from ALL transports — duplicates are harmless for
-/// terminal rendering, and this avoids data loss during transport switches.
+/// Output is filtered by active transport once the session is live,
+/// but relay data is always accepted during initial connection (scrollback).
 @MainActor
 final class ConnectionManager: ObservableObject {
 
@@ -37,10 +37,7 @@ final class ConnectionManager: ObservableObject {
 
     func connect(wsURL: URL) {
         print("[ConnectionManager] Connecting — relay: \(wsURL), starting local discovery")
-        // Always connect relay (needed for signaling + fallback + initial scrollback)
         relay.connect(wsURL: wsURL)
-
-        // Start local network discovery
         localTransport.startDiscovery()
     }
 
@@ -66,7 +63,6 @@ final class ConnectionManager: ObservableObject {
     private var bestTransport: Transport {
         if localTransport.isConnected { return localTransport }
         if webrtcTransport.isConnected { return webrtcTransport }
-
         return relay
     }
 
@@ -86,12 +82,22 @@ final class ConnectionManager: ObservableObject {
         }
     }
 
+    /// During initial connection (connecting/loadingScrollback/connected), accept
+    /// relay data unconditionally — it's the only source of scrollback history.
+    /// Once the session is live, only accept data from the active transport.
+    private func shouldAcceptData(from type: TransportType) -> Bool {
+        // Before session is fully live, always accept relay data (scrollback)
+        if type == .relay && state != .live {
+            return true
+        }
+        return type == activeTransport
+    }
+
     private func setupCallbacks() {
-        // Accept terminal output from ALL transports — duplicates are harmless
-        // for terminal rendering, and this prevents data loss during transport
-        // switches (e.g. relay delivers scrollback before local connects).
+        // Relay output — accepted during scrollback phase, filtered once live
         relay.onTerminalData = { [weak self] data in
-            self?.onTerminalData?(data)
+            guard let self, self.shouldAcceptData(from: .relay) else { return }
+            self.onTerminalData?(data)
         }
 
         relay.onResize = { [weak self] cols, rows in
@@ -104,9 +110,10 @@ final class ConnectionManager: ObservableObject {
             self?.webrtcTransport.handleSignaling(json)
         }
 
-        // Local transport callbacks
+        // Local transport callbacks — accepted when local is active
         localTransport.onTerminalData = { [weak self] data in
-            self?.onTerminalData?(data)
+            guard let self, self.shouldAcceptData(from: .local) else { return }
+            self.onTerminalData?(data)
         }
 
         localTransport.onResize = { [weak self] cols, rows in
@@ -122,9 +129,10 @@ final class ConnectionManager: ObservableObject {
             self?.updateActiveTransport()
         }
 
-        // WebRTC transport callbacks
+        // WebRTC transport callbacks — accepted when WebRTC is active
         webrtcTransport.onTerminalData = { [weak self] data in
-            self?.onTerminalData?(data)
+            guard let self, self.shouldAcceptData(from: .webrtc) else { return }
+            self.onTerminalData?(data)
         }
 
         webrtcTransport.onResize = { [weak self] cols, rows in
