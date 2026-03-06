@@ -332,6 +332,50 @@ export const THEMES: Record<string, TerminalTheme> = {
   },
 };
 
+// ── Theme → App CSS variables ──
+
+function hexToRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  return '#' + [r, g, b]
+    .map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function adjust(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  const a = amount * 255;
+  return rgbToHex(r + a, g + a, b + a);
+}
+
+function isLightColor(hex: string): boolean {
+  const [r, g, b] = hexToRgb(hex);
+  return (r * 299 + g * 587 + b * 114) / 1000 > 128;
+}
+
+export function themeToAppStyles(theme: TerminalTheme): Record<string, string> {
+  const light = isLightColor(theme.background);
+  return {
+    '--bg-primary': theme.background,
+    '--bg-secondary': adjust(theme.background, light ? -0.035 : -0.025),
+    '--bg-elevated': adjust(theme.background, light ? -0.015 : 0.035),
+    '--bg-hover': adjust(theme.background, light ? -0.055 : 0.025),
+    '--border': adjust(theme.background, light ? -0.11 : 0.09),
+    '--border-focus': theme.blue,
+    '--text-primary': theme.foreground,
+    '--text-secondary': light ? adjust(theme.foreground, 0.15) : theme.white,
+    '--text-muted': theme.brightBlack,
+    '--accent': theme.blue,
+    '--accent-hover': theme.brightBlue,
+    '--error': theme.red,
+    '--success': theme.green,
+    '--warning': theme.yellow,
+  };
+}
+
 export interface Settings {
   // Appearance
   theme: string;

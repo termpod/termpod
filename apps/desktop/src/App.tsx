@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useSessionManager } from './hooks/useSessionManager';
-import { useSettings, THEMES } from './hooks/useSettings';
+import { useSettings, THEMES, themeToAppStyles } from './hooks/useSettings';
 import { useAuth } from './hooks/useAuth';
 import { useDevice } from './hooks/useDevice';
 import { TabBar } from './components/TabBar';
@@ -282,6 +282,11 @@ export function App() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
+  const appThemeStyles = useMemo(
+    () => themeToAppStyles(THEMES[settings.theme] ?? THEMES['tokyo-night']),
+    [settings.theme],
+  );
+
   if (!auth.isAuthenticated) {
     return (
       <LoginScreen
@@ -294,7 +299,7 @@ export function App() {
   }
 
   return (
-    <div className="app">
+    <div className="app" style={appThemeStyles as React.CSSProperties}>
       <TabBar
         sessions={sessions}
         activeId={activeId}
