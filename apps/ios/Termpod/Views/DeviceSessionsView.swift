@@ -110,13 +110,20 @@ struct DeviceSessionsView: View {
     }
 
     private func joinSession(_ session: DeviceService.DeviceSession) {
+        // If already joined, navigate to the existing session
+        if let existing = appState.sessions.first(where: { $0.id == session.id }) {
+            HapticService.shared.playTap()
+            joinedSession = existing
+            return
+        }
+
         guard let wsURL = auth.authenticatedWSURL(sessionId: session.id) else { return }
 
         HapticService.shared.playTap()
 
         let connection = ConnectionManager(sessionId: session.id)
         let newSession = Session(
-            id: UUID().uuidString,
+            id: session.id,
             name: session.name,
             connection: connection
         )

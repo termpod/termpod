@@ -54,6 +54,10 @@ export function useRelayBridge(session: TerminalSession | null) {
 
   const { connect, disconnect, sendTerminalData, sendResize, sendSignaling } = relay;
 
+  // Keep sessionId in a ref so the PTY data listener always has the current value
+  const relaySessionIdRef = useRef(relay.sessionId);
+  relaySessionIdRef.current = relay.sessionId;
+
   const localServer = useLocalServer({
     sessionId: relay.sessionId,
     onViewerInput: (data) => {
@@ -117,8 +121,9 @@ export function useRelayBridge(session: TerminalSession | null) {
       sendTerminalData(data);
 
       // Also broadcast to local WS viewers
-      if (relay.sessionId) {
-        localServer.broadcastTerminalData(relay.sessionId, data);
+      const sid = relaySessionIdRef.current;
+      if (sid) {
+        localServer.broadcastTerminalData(sid, data);
       }
 
       // Also send via WebRTC if connected

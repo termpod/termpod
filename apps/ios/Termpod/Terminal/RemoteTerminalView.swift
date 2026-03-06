@@ -29,6 +29,7 @@ class RemoteTerminalView: TerminalView {
         self.nativeForegroundColor = UIColor(red: 0.80, green: 0.83, blue: 0.90, alpha: 1)
         self.nativeBackgroundColor = UIColor(red: 0.09, green: 0.09, blue: 0.13, alpha: 1)
         self.optionAsMetaKey = true
+        self.inputAccessoryView = nil
 
         setupScrollGesture()
         wireConnection(connection)
