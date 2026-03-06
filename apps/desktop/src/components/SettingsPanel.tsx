@@ -170,7 +170,7 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                       <button
                         key={opt.value}
                         className={`sp-blur-btn ${settings.backgroundBlur === opt.value ? 'sp-blur-active' : ''}`}
-                        onClick={() => onUpdate({ backgroundBlur: opt.value, backgroundOpacity: opt.value === 'none' ? 1 : settings.backgroundOpacity })}
+                        onClick={() => onUpdate({ backgroundBlur: opt.value })}
                       >
                         {opt.label}
                       </button>
@@ -178,23 +178,21 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                   </div>
                 </div>
 
-                {settings.backgroundBlur !== 'none' && (
-                  <div className="sp-section">
-                    <div className="sp-label-row">
-                      <label className="sp-label">Opacity</label>
-                      <span className="sp-badge">{Math.round(settings.backgroundOpacity * 100)}%</span>
-                    </div>
-                    <input
-                      className="settings-range"
-                      type="range"
-                      min={0.3}
-                      max={0.95}
-                      step={0.05}
-                      value={settings.backgroundOpacity}
-                      onChange={(e) => onUpdate({ backgroundOpacity: Number(e.target.value) })}
-                    />
+                <div className="sp-section">
+                  <div className="sp-label-row">
+                    <label className="sp-label">Opacity</label>
+                    <span className="sp-badge">{Math.round(settings.backgroundOpacity * 100)}%</span>
                   </div>
-                )}
+                  <input
+                    className="settings-range"
+                    type="range"
+                    min={0.3}
+                    max={1.0}
+                    step={0.05}
+                    value={settings.backgroundOpacity}
+                    onChange={(e) => onUpdate({ backgroundOpacity: Number(e.target.value) })}
+                  />
+                </div>
               </>
             )}
 

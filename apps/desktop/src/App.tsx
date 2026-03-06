@@ -283,7 +283,7 @@ export function App() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  const opacity = settings.backgroundBlur !== 'none' ? settings.backgroundOpacity : 1;
+  const opacity = settings.backgroundOpacity;
   const appThemeStyles = useMemo(
     () => themeToAppStyles(THEMES[settings.theme] ?? THEMES['tokyo-night'], opacity),
     [settings.theme, opacity],
@@ -292,20 +292,20 @@ export function App() {
   // Apply/remove macOS vibrancy effect
   useEffect(() => {
     const win = getCurrentWindow();
-    const blurEffects: Record<BlurStyle, Effect | null> = {
-      none: null,
+    const blurEffects: Record<BlurStyle, Effect> = {
+      none: Effect.HudWindow,
       subtle: Effect.HudWindow,
       medium: Effect.UnderWindowBackground,
       full: Effect.Sidebar,
     };
-    const effect = blurEffects[settings.backgroundBlur];
 
-    if (effect) {
+    if (settings.backgroundOpacity < 1 || settings.backgroundBlur !== 'none') {
+      const effect = blurEffects[settings.backgroundBlur];
       win.setEffects({ effects: [effect], state: EffectState.FollowsWindowActiveState });
     } else {
       win.clearEffects();
     }
-  }, [settings.backgroundBlur]);
+  }, [settings.backgroundBlur, settings.backgroundOpacity]);
 
   if (!auth.isAuthenticated) {
     return (
@@ -345,6 +345,7 @@ export function App() {
             lineHeight={settings.lineHeight}
             theme={THEMES[settings.theme]}
             bellEnabled={settings.bellEnabled}
+            backgroundOpacity={settings.backgroundOpacity}
             onRelayChange={(info) => handleRelayChange(session.id, info)}
             onSessionRegistered={(relaySessionId) => {
               const term = session.termRef.current;

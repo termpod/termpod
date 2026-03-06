@@ -183,6 +183,13 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         return;
       }
 
+      const baseTheme = theme ?? {
+        background: '#1a1b26',
+        foreground: '#c0caf5',
+        cursor: '#c0caf5',
+        selectionBackground: '#33467c',
+      };
+
       const term = new XTerm({
         fontSize,
         fontFamily,
@@ -191,12 +198,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         cursorStyle,
         lineHeight,
         allowProposedApi: true,
-        theme: theme ?? {
-          background: '#1a1b26',
-          foreground: '#c0caf5',
-          cursor: '#c0caf5',
-          selectionBackground: '#33467c',
-        },
+        theme: baseTheme,
       });
 
       const fitAddon = new FitAddon();
@@ -292,7 +294,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       if (theme) {
         term.options.theme = theme;
       }
-    }, [cursorBlink, cursorStyle, lineHeight, theme]);
+    }, [cursorBlink, cursorStyle, lineHeight, theme, backgroundOpacity]);
 
     return (
       <div style={{ width: '100%', height: '100%', position: 'relative' }}>

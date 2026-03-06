@@ -415,6 +415,8 @@ export function themeToAppStyles(theme: TerminalTheme, opacity = 1): Record<stri
     '--error': theme.red,
     '--success': theme.green,
     '--warning': theme.yellow,
+    '--bg-opacity': String(opacity),
+    '--terminal-opacity': String(opacity < 1 ? 1 - (1 - opacity) * 0.35 : 1),
   };
 }
 

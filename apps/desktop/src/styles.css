@@ -77,9 +77,9 @@ body,
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 12px;
+  padding: 0 6px 0 12px;
   height: 30px;
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   color: var(--text-muted);
   font-size: 12px;
@@ -87,7 +87,7 @@ body,
   cursor: pointer;
   white-space: nowrap;
   -webkit-app-region: no-drag;
-  transition: color var(--transition-fast), background var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
   position: relative;
   border-radius: var(--radius-sm);
 }
@@ -95,11 +95,14 @@ body,
 .tab:hover {
   color: var(--text-secondary);
   background: var(--bg-hover);
+  border-color: var(--border);
 }
 
 .tab-active {
   color: var(--text-primary);
-  background: var(--bg-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .tab-exited {
@@ -1153,7 +1156,7 @@ body,
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  background: rgba(240, 160, 48, 0.08);
+  background: var(--bg-secondary);
   border-bottom: 1px solid rgba(240, 160, 48, 0.2);
   flex-shrink: 0;
 }
@@ -1223,6 +1226,10 @@ body,
 .terminal-panel {
   position: absolute;
   inset: 0;
+}
+
+.terminal-panel.transparent .xterm {
+  opacity: var(--terminal-opacity, 1);
 }
 
 /* ── Terminal Search Bar ── */

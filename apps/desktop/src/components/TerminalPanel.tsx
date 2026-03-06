@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Terminal } from '@termpod/ui';
 import type { TerminalThemeColors } from '@termpod/ui';
 import type { PtySize } from '@termpod/protocol';
@@ -24,13 +24,14 @@ interface TerminalPanelProps {
   lineHeight?: number;
   theme?: TerminalThemeColors;
   bellEnabled?: boolean;
+  backgroundOpacity?: number;
   onRelayChange?: (info: RelayInfo) => void;
   onSessionRegistered?: (relaySessionId: string) => void;
   onCreateSessionRequest?: (requestId: string, source: 'relay' | 'local', localClientId?: string) => void;
   onSessionClosed?: () => void;
 }
 
-export function TerminalPanel({ session, visible, fontSize, fontFamily, cursorStyle, cursorBlink, lineHeight, theme, bellEnabled, onRelayChange, onSessionRegistered, onCreateSessionRequest, onSessionClosed }: TerminalPanelProps) {
+export function TerminalPanel({ session, visible, fontSize, fontFamily, cursorStyle, cursorBlink, lineHeight, theme, bellEnabled, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onSessionClosed }: TerminalPanelProps) {
   const onCreateSessionRequestRef = useRef(onCreateSessionRequest);
   onCreateSessionRequestRef.current = onCreateSessionRequest;
   const onSessionClosedRef = useRef(onSessionClosed);
@@ -89,6 +90,46 @@ export function TerminalPanel({ session, visible, fontSize, fontFamily, cursorSt
     [session.pty, session.exited, relay.sendResize],
   );
 
+  // Pre-brighten text colors to compensate for CSS opacity on the terminal.
+  // Background stays as-is (dimmed by opacity → vibrancy shows through).
+  // Text colors are boosted so after opacity they appear at original brightness.
+  const adjustedTheme = useMemo(() => {
+    if (!theme || !backgroundOpacity || backgroundOpacity >= 1) return theme;
+
+    const terminalOpacity = 1 - (1 - backgroundOpacity) * 0.35;
+    const factor = 1 / terminalOpacity;
+    const boost = (hex: string) => {
+      const n = parseInt(hex.slice(1), 16);
+      const r = Math.min(255, Math.round(((n >> 16) & 255) * factor));
+      const g = Math.min(255, Math.round(((n >> 8) & 255) * factor));
+      const b = Math.min(255, Math.round((n & 255) * factor));
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    };
+
+    return {
+      ...theme,
+      foreground: boost(theme.foreground),
+      cursor: boost(theme.cursor),
+      selectionBackground: theme.selectionBackground,
+      black: theme.black ? boost(theme.black) : undefined,
+      red: theme.red ? boost(theme.red) : undefined,
+      green: theme.green ? boost(theme.green) : undefined,
+      yellow: theme.yellow ? boost(theme.yellow) : undefined,
+      blue: theme.blue ? boost(theme.blue) : undefined,
+      magenta: theme.magenta ? boost(theme.magenta) : undefined,
+      cyan: theme.cyan ? boost(theme.cyan) : undefined,
+      white: theme.white ? boost(theme.white) : undefined,
+      brightBlack: theme.brightBlack ? boost(theme.brightBlack) : undefined,
+      brightRed: theme.brightRed ? boost(theme.brightRed) : undefined,
+      brightGreen: theme.brightGreen ? boost(theme.brightGreen) : undefined,
+      brightYellow: theme.brightYellow ? boost(theme.brightYellow) : undefined,
+      brightBlue: theme.brightBlue ? boost(theme.brightBlue) : undefined,
+      brightMagenta: theme.brightMagenta ? boost(theme.brightMagenta) : undefined,
+      brightCyan: theme.brightCyan ? boost(theme.brightCyan) : undefined,
+      brightWhite: theme.brightWhite ? boost(theme.brightWhite) : undefined,
+    };
+  }, [theme, backgroundOpacity]);
+
   const active = visible && !session.closing;
 
   useEffect(() => {
@@ -105,7 +146,7 @@ export function TerminalPanel({ session, visible, fontSize, fontFamily, cursorSt
 
   return (
     <div
-      className="terminal-panel"
+      className={`terminal-panel${backgroundOpacity !== undefined && backgroundOpacity < 1 ? ' transparent' : ''}`}
       style={{
         visibility: active ? 'visible' : 'hidden',
         pointerEvents: active ? 'auto' : 'none',
@@ -121,7 +162,7 @@ export function TerminalPanel({ session, visible, fontSize, fontFamily, cursorSt
         cursorStyle={cursorStyle}
         cursorBlink={cursorBlink}
         lineHeight={lineHeight}
-        theme={theme}
+        theme={adjustedTheme}
       />
     </div>
   );
