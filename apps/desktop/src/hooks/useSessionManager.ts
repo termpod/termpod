@@ -13,6 +13,7 @@ export interface TerminalSession {
   name: string;
   cwd: string;
   pty: IPty;
+  shellPid: number | null;
   termRef: React.RefObject<TerminalHandle | null>;
   dataListeners: Set<PtyDataListener>;
   createdAt: number;
@@ -76,20 +77,47 @@ export function useSessionManager() {
 
   // Poll cwd and foreground process for all active sessions
   useEffect(() => {
+    // Discover real shell PIDs on first poll and when new sessions appear
+    let knownShellPids: number[] = [];
+
+    const discoverShellPids = async () => {
+      const pids = await invoke<number[]>('get_shell_children');
+      knownShellPids = pids;
+      // Assign shell PIDs to sessions that don't have one yet.
+      // Sessions are created in order, and shell children appear in PID order,
+      // so we match by index of unassigned sessions.
+      const sessions = storeRef.current.sessions;
+      const unassigned = sessions.filter((s) => !s.shellPid && !s.exited);
+      const usedPids = new Set(sessions.map((s) => s.shellPid).filter(Boolean));
+      const availablePids = pids.filter((p) => !usedPids.has(p));
+
+      let changed = false;
+
+      for (let i = 0; i < unassigned.length && i < availablePids.length; i++) {
+        unassigned[i].shellPid = availablePids[i];
+        changed = true;
+      }
+
+      return changed;
+    };
+
     const interval = setInterval(async () => {
       const sessions = storeRef.current.sessions;
       let changed = false;
 
+      // Discover shell PIDs for any new sessions
+      const hasUnassigned = sessions.some((s) => !s.shellPid && !s.exited);
+
+      if (hasUnassigned) {
+        changed = await discoverShellPids();
+      }
+
       for (const session of sessions) {
-        if (session.exited) {
+        if (session.exited || !session.shellPid) {
           continue;
         }
 
-        const pid = session.pty.pid;
-
-        if (!pid) {
-          continue;
-        }
+        const pid = session.shellPid;
 
         const [cwd, processName] = await Promise.all([
           invoke<string | null>('get_pid_cwd', { pid }),
@@ -116,7 +144,7 @@ export function useSessionManager() {
             const live = sessions.find((ls) => ls.id === s.id);
 
             return live
-              ? { ...s, cwd: live.cwd, name: live.name, processName: live.processName, icon: live.icon }
+              ? { ...s, cwd: live.cwd, name: live.name, processName: live.processName, icon: live.icon, shellPid: live.shellPid }
               : s;
           }),
         }));
@@ -148,6 +176,7 @@ export function useSessionManager() {
         name: nameFromCwd(sessionCwd),
         cwd: sessionCwd,
         pty,
+        shellPid: null,
         termRef,
         dataListeners,
         createdAt: Date.now(),

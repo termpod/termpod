@@ -7,6 +7,7 @@ use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 unsafe extern "C" {
     unsafe fn proc_listpids(r#type: u32, typeinfo: u32, buffer: *mut libc::c_void, buffersize: i32) -> i32;
     unsafe fn proc_name(pid: i32, buffer: *mut libc::c_void, buffersize: u32) -> i32;
+    unsafe fn proc_pidpath(pid: i32, buffer: *mut libc::c_void, buffersize: u32) -> i32;
 }
 
 const PROC_PPID_ONLY: u32 = 6;
@@ -40,74 +41,90 @@ fn get_pid_cwd(pid: u32) -> Option<String> {
     path.to_str().ok().map(|s| s.to_string())
 }
 
-#[tauri::command]
-fn get_foreground_process(pid: u32) -> Option<String> {
-    // Find child processes of the given shell PID
+/// Returns PIDs of all child processes of the given parent PID.
+fn get_child_pids(parent: u32) -> Vec<i32> {
     let mut pids = vec![0i32; 256];
     let buf_size = (pids.len() * std::mem::size_of::<i32>()) as i32;
 
-    let bytes = unsafe { proc_listpids(PROC_PPID_ONLY, pid, pids.as_mut_ptr().cast(), buf_size) };
+    let bytes = unsafe { proc_listpids(PROC_PPID_ONLY, parent, pids.as_mut_ptr().cast(), buf_size) };
 
     if bytes <= 0 {
-        return None;
+        return vec![];
     }
 
     let count = bytes as usize / std::mem::size_of::<i32>();
+    pids[..count].iter().copied().filter(|&p| p > 0).collect()
+}
 
-    // Walk children recursively to find the deepest foreground process
-    // (e.g. shell → npm → node → ...)
-    let mut current_pid = None;
+/// Segments to skip when extracting a process name from its executable path.
+const SKIP_PATH_SEGMENTS: &[&str] = &[
+    "versions", "bin", "lib", "libexec", "sbin", "share", "node_modules",
+    ".bin", "dist", "build", "out", "target", "release", "debug",
+    "externals", "current", "default", "stable", "latest",
+];
 
-    for i in 0..count {
-        let child = pids[i];
+fn is_meaningful_segment(s: &str) -> bool {
+    !s.is_empty()
+        && !s.starts_with('.')
+        && !s.chars().next().unwrap_or('0').is_ascii_digit()
+        && !SKIP_PATH_SEGMENTS.contains(&s)
+}
 
-        if child > 0 {
-            current_pid = Some(child);
-            break;
-        }
-    }
+fn get_process_name(pid: i32) -> Option<String> {
+    // First try proc_name (fast, but can be overwritten by the process)
+    let mut name_buf = [0u8; 256];
+    let ret = unsafe { proc_name(pid, name_buf.as_mut_ptr().cast(), 256) };
 
-    let mut target_pid = current_pid?;
-
-    // Walk up to 5 levels deep to find the leaf process
-    for _ in 0..5 {
-        let mut child_pids = vec![0i32; 64];
-        let child_buf_size = (child_pids.len() * std::mem::size_of::<i32>()) as i32;
-
-        let child_bytes = unsafe {
-            proc_listpids(PROC_PPID_ONLY, target_pid as u32, child_pids.as_mut_ptr().cast(), child_buf_size)
-        };
-
-        if child_bytes <= 0 {
-            break;
-        }
-
-        let child_count = child_bytes as usize / std::mem::size_of::<i32>();
-        let mut found = false;
-
-        for j in 0..child_count {
-            if child_pids[j] > 0 {
-                target_pid = child_pids[j];
-                found = true;
-                break;
+    if ret > 0 {
+        if let Ok(name) = std::str::from_utf8(&name_buf[..ret as usize]) {
+            if !name.is_empty() && !name.chars().next().unwrap_or('0').is_ascii_digit() {
+                return Some(name.to_string());
             }
         }
+    }
 
-        if !found {
-            break;
+    // Fallback: use proc_pidpath to get the executable path and extract the name.
+    // This handles cases where proc_name was overwritten (e.g. claude → "2.1.70").
+    // Path example: "/Users/x/.local/share/claude/versions/2.1.70" → "claude"
+    let mut path_buf = [0u8; 4096];
+    let path_ret = unsafe { proc_pidpath(pid, path_buf.as_mut_ptr().cast(), 4096) };
+
+    if path_ret > 0 {
+        if let Ok(path) = std::str::from_utf8(&path_buf[..path_ret as usize]) {
+            for segment in path.rsplit('/') {
+                if is_meaningful_segment(segment) {
+                    return Some(segment.to_string());
+                }
+            }
         }
     }
 
-    let mut name_buf = [0u8; 256];
-    let ret = unsafe { proc_name(target_pid, name_buf.as_mut_ptr().cast(), 256) };
+    None
+}
 
-    if ret <= 0 {
-        return None;
-    }
+/// Returns all shell PIDs that are direct children of this app process.
+/// Used to discover the real OS PIDs of PTY-spawned shells.
+#[tauri::command]
+fn get_shell_children() -> Vec<u32> {
+    let my_pid = std::process::id();
+    get_child_pids(my_pid)
+        .into_iter()
+        .filter(|&pid| {
+            get_process_name(pid)
+                .map(|n| matches!(n.as_str(), "zsh" | "bash" | "fish" | "sh" | "nu" | "pwsh"))
+                .unwrap_or(false)
+        })
+        .map(|p| p as u32)
+        .collect()
+}
 
-    std::str::from_utf8(&name_buf[..ret as usize])
-        .ok()
-        .map(|s| s.to_string())
+#[tauri::command]
+fn get_foreground_process(pid: u32) -> Option<String> {
+    // Find the direct child of the shell PID — that's the user-launched command
+    let children = get_child_pids(pid);
+    let target_pid = *children.first()?;
+
+    get_process_name(target_pid)
 }
 
 #[tauri::command]
@@ -123,6 +140,7 @@ pub fn run() {
             get_home_dir,
             get_pid_cwd,
             get_foreground_process,
+            get_shell_children,
             open_url,
             local_server::start_local_server,
             local_server::stop_local_server,
