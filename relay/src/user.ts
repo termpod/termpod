@@ -244,6 +244,13 @@ export class User extends DurableObject {
     // Clean up stale sessions from previous launches — desktop starts fresh each time
     this.ctx.storage.sql.exec('DELETE FROM sessions WHERE device_id = ?', body.id);
 
+    // Clean up old offline devices of the same platform (e.g. stale entries from cleared localStorage)
+    this.ctx.storage.sql.exec(
+      'DELETE FROM devices WHERE id != ? AND platform = ? AND is_online = 0',
+      body.id,
+      body.platform,
+    );
+
     this.ctx.storage.sql.exec(
       `INSERT OR REPLACE INTO devices (id, name, device_type, platform, is_online, last_seen_at, created_at)
        VALUES (?, ?, ?, ?, 1, ?, COALESCE((SELECT created_at FROM devices WHERE id = ?), ?))`,
