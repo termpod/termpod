@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { RELAY_URL } from '@termpod/shared';
 
@@ -27,15 +27,34 @@ export function QRPairing({ sessionId, onClose }: QRPairingProps) {
     });
   }, [pairingUrl]);
 
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      onClose();
+      return;
+    }
+    if (e.key === 'Tab' && modalRef.current) {
+      const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
       }
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
+    }
   }, [onClose]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   const handleCopy = () => {
     if (sessionId) {
@@ -51,7 +70,7 @@ export function QRPairing({ sessionId, onClose }: QRPairingProps) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-panel qr-modal" onClick={(e) => e.stopPropagation()}>
+      <div ref={modalRef} className="modal-panel qr-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Share Session">
         <div className="modal-header">
           <span>Share Session</span>
           <button className="modal-close" onClick={onClose} aria-label="Close">&times;</button>

@@ -75,6 +75,7 @@ struct DeviceListView: View {
                     } label: {
                         Image(systemName: "person.circle")
                     }
+                    .accessibilityLabel("Account menu")
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
@@ -83,6 +84,8 @@ struct DeviceListView: View {
                     } label: {
                         Image(systemName: "qrcode.viewfinder")
                     }
+                    .accessibilityLabel("Scan QR code")
+                    .accessibilityHint("Scan a QR code from your Mac to connect")
                 }
             }
             .refreshable {
@@ -131,5 +134,7 @@ struct DeviceRow: View {
             Spacer()
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(device.displayName), \(device.isOnline ? "online" : "offline")")
     }
 }

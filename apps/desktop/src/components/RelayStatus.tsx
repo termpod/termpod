@@ -16,19 +16,20 @@ const STATUS_COLORS: Record<RelayStatusType, string> = {
 };
 
 export function RelayStatus({ status, viewers, sessionId, onShare }: RelayStatusProps) {
+  const label = status === 'connected' && sessionId
+    ? `Sharing (${viewers} viewer${viewers !== 1 ? 's' : ''})`
+    : status;
+
   return (
-    <div className="relay-status">
+    <div className="relay-status" role="status" aria-live="polite" aria-label={`Connection: ${label}`}>
       <span
         className="relay-dot"
         style={{ backgroundColor: STATUS_COLORS[status] }}
+        aria-hidden="true"
       />
-      <span className="relay-label">
-        {status === 'connected' && sessionId
-          ? `Sharing (${viewers} viewer${viewers !== 1 ? 's' : ''})`
-          : status}
-      </span>
+      <span className="relay-label">{label}</span>
       {status === 'connected' && (
-        <button className="relay-share" onClick={onShare}>
+        <button className="relay-share" onClick={onShare} aria-label="Share session via QR code">
           QR Code
         </button>
       )}

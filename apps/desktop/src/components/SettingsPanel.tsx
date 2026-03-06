@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Settings } from '../hooks/useSettings';
 
 interface SettingsPanelProps {
@@ -25,16 +25,34 @@ const FONT_OPTIONS = [
 export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, email, onLogout }: SettingsPanelProps) {
   const [shellInput, setShellInput] = useState(settings.shellPath);
   const [shellValid, setShellValid] = useState<boolean | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      onClose();
+      return;
+    }
+    if (e.key === 'Tab' && modalRef.current) {
+      const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }, [onClose]);
 
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose]);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   const validateShell = (path: string) => {
     const trimmed = path.trim();
@@ -56,7 +74,7 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-panel settings-modal" onClick={(e) => e.stopPropagation()}>
+      <div ref={modalRef} className="modal-panel settings-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Settings">
         <div className="modal-header">
           <span>Settings</span>
           <button className="modal-close" onClick={onClose} aria-label="Close">&times;</button>

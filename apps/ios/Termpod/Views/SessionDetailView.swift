@@ -126,6 +126,24 @@ struct SessionDetailView: View {
                 )
         }
         .padding(.horizontal, 2)
+        .accessibilityLabel(accessibilityName(for: label))
+    }
+
+    private func accessibilityName(for key: String) -> String {
+        switch key {
+        case "Esc": return "Escape"
+        case "^C": return "Control C"
+        case "^D": return "Control D"
+        case "^Z": return "Control Z"
+        case "^L": return "Control L"
+        case "↑": return "Arrow up"
+        case "↓": return "Arrow down"
+        case "←": return "Arrow left"
+        case "→": return "Arrow right"
+        case "|": return "Pipe"
+        case "~": return "Tilde"
+        default: return key
+        }
     }
 
     @ViewBuilder
