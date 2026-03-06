@@ -24,6 +24,7 @@ final class LocalTransport: Transport {
     private let sessionId: String
     private var connected = false
     private var intentionalClose = false
+    private var reconnectionManager = ReconnectionManager()
 
     init(sessionId: String) {
         self.sessionId = sessionId
@@ -174,6 +175,7 @@ final class LocalTransport: Transport {
 
             if type == "ready" {
                 connected = true
+                reconnectionManager.reset()
                 onConnected?()
             } else if type == "pty_resize" {
                 if let cols = json["cols"] as? Int, let rows = json["rows"] as? Int {
@@ -201,6 +203,21 @@ final class LocalTransport: Transport {
 
         if !intentionalClose {
             onDisconnected?()
+            scheduleReconnect()
+        }
+    }
+
+    private func scheduleReconnect() {
+        let attempt = reconnectionManager.nextAttempt()
+        print("[LocalTransport] Reconnecting in \(String(format: "%.1f", attempt.delay))s (attempt \(attempt.number))")
+
+        Task {
+            try? await Task.sleep(for: .seconds(attempt.delay))
+            guard !intentionalClose else { return }
+            // Restart discovery — the browser won't re-emit for known services,
+            // so we cancel and recreate it to get a fresh browse.
+            stopDiscovery()
+            startDiscovery()
         }
     }
 
