@@ -20,7 +20,7 @@ final class AuthService: ObservableObject {
     }
 
     init() {
-        let base = "https://termpod.swapnil.dev"
+        let base = "https://relay.termpod.dev"
         self.relayHTTP = base
 
         // Restore session from keychain
@@ -160,7 +160,7 @@ final class AuthService: ObservableObject {
 
     /// Build a WebSocket URL with auth token.
     func authenticatedWSURL(sessionId: String) -> URL? {
-        let wsBase = "wss://termpod.swapnil.dev"
+        let wsBase = "wss://relay.termpod.dev"
 
         guard let token = accessToken else {
             return URL(string: "\(wsBase)/sessions/\(sessionId)/ws")
