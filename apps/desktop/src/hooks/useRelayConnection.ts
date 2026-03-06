@@ -20,6 +20,7 @@ interface UseRelayConnectionOptions {
   onViewerInput?: (data: string) => void;
   onStatusChange?: (status: RelayStatus) => void;
   onViewerJoined?: (clientId: string) => void;
+  onViewerLeft?: () => void;
   onViewerResize?: (cols: number, rows: number) => void;
   onSignaling?: (msg: Record<string, unknown>) => void;
 }
@@ -122,6 +123,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
 
         case 'client_left':
           setViewers((v) => Math.max(0, v - 1));
+          optionsRef.current.onViewerLeft?.();
           break;
 
         case 'session_info':

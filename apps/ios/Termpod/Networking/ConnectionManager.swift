@@ -167,10 +167,23 @@ final class ConnectionManager: ObservableObject {
             guard let self else { return }
 
             Task { @MainActor in
+                let previousState = self.state
                 self.state = self.relay.state
                 self.connectedViewers = self.relay.connectedViewers
                 self.ptySize = self.relay.ptySize
                 self.objectWillChange.send()
+
+                // When session becomes live, re-send mobile dimensions so the
+                // PTY redraws at the correct size (scrollback arrived at desktop dims).
+                // When session becomes live, re-send mobile dimensions so the
+                // PTY redraws at the correct size after the desktop's nudge-resize.
+                if previousState != .live && self.relay.state == .live,
+                   let size = self.lastRequestedSize {
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(100))
+                        self.bestTransport.sendResize(cols: size.cols, rows: size.rows)
+                    }
+                }
             }
         }.store(in: &cancellables)
     }

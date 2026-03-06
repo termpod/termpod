@@ -8,6 +8,9 @@ export function useRelayBridge(session: TerminalSession | null) {
   const sessionRef = useRef(session);
   sessionRef.current = session;
 
+  // Track actual PTY size (may differ from desktop xterm when a mobile viewer is connected)
+  const ptySizeRef = useRef<{ cols: number; rows: number } | null>(null);
+
   const relay = useRelayConnection({
     onViewerInput: (data) => {
       const s = sessionRef.current;
@@ -19,17 +22,17 @@ export function useRelayBridge(session: TerminalSession | null) {
     onViewerJoined: (clientId) => {
       // Nudge-resize: briefly change PTY size to trigger SIGWINCH,
       // causing TUI apps (Claude Code, vim, etc.) to fully redraw.
+      // Use current PTY size (which may be mobile-sized), not desktop xterm size.
       const s = sessionRef.current;
 
       if (s && !s.exited) {
         const term = s.termRef.current;
-        const cols = term?.cols ?? 120;
-        const rows = term?.rows ?? 40;
+        const current = ptySizeRef.current ?? { cols: term?.cols ?? 120, rows: term?.rows ?? 40 };
 
-        s.pty.resize(cols - 1, rows);
+        s.pty.resize(current.cols - 1, current.rows);
 
         setTimeout(() => {
-          s.pty.resize(cols, rows);
+          s.pty.resize(current.cols, current.rows);
         }, 50);
       }
 
@@ -38,10 +41,25 @@ export function useRelayBridge(session: TerminalSession | null) {
         webrtc.initiateOffer(clientId).catch(() => {});
       }
     },
+    onViewerLeft: () => {
+      // If no more viewers, revert PTY to desktop xterm dimensions
+      if (relay.viewers <= 1 && localServer.localViewers === 0) {
+        const s = sessionRef.current;
+
+        if (s && !s.exited) {
+          const term = s.termRef.current;
+          const cols = term?.cols ?? 120;
+          const rows = term?.rows ?? 40;
+          ptySizeRef.current = null;
+          s.pty.resize(cols, rows);
+        }
+      }
+    },
     onViewerResize: (cols, rows) => {
       const s = sessionRef.current;
 
       if (s && !s.exited) {
+        ptySizeRef.current = { cols, rows };
         s.pty.resize(cols, rows);
       }
     },
@@ -71,10 +89,25 @@ export function useRelayBridge(session: TerminalSession | null) {
       // No nudge-resize for local viewers — the mobile client sends its
       // own dimensions which triggers SIGWINCH for TUI redraw.
     },
+    onViewerLeft: () => {
+      // If no more viewers, revert PTY to desktop xterm dimensions
+      if (relay.viewers === 0 && localServer.localViewers <= 1) {
+        const s = sessionRef.current;
+
+        if (s && !s.exited) {
+          const term = s.termRef.current;
+          const cols = term?.cols ?? 120;
+          const rows = term?.rows ?? 40;
+          ptySizeRef.current = null;
+          s.pty.resize(cols, rows);
+        }
+      }
+    },
     onViewerResize: (cols, rows) => {
       const s = sessionRef.current;
 
       if (s && !s.exited) {
+        ptySizeRef.current = { cols, rows };
         s.pty.resize(cols, rows);
       }
     },
