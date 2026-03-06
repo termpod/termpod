@@ -109,6 +109,16 @@ body,
   opacity: 0.5;
 }
 
+.tab-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
+}
+
+.tab-active .tab-icon {
+  opacity: 1;
+}
+
 .tab-name {
   max-width: 140px;
   overflow: hidden;

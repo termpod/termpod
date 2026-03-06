@@ -137,6 +137,24 @@ export function App() {
   // Auto-close tab when shell exits (e.g. ctrl+d)
   onSessionExitRef.current = handleCloseSession;
 
+  // Sync processName changes (from polling) to the relay
+  const prevProcessRef = useRef<Map<string, string | null>>(new Map());
+
+  useEffect(() => {
+    for (const session of sessions) {
+      const prev = prevProcessRef.current.get(session.id);
+
+      if (session.processName !== prev) {
+        prevProcessRef.current.set(session.id, session.processName ?? null);
+        const relayInfo = relayMapRef.current.get(session.id);
+
+        if (relayInfo?.sessionId) {
+          device.updateSession(relayInfo.sessionId, { processName: session.processName });
+        }
+      }
+    }
+  }, [sessions, device]);
+
   const activeRelay = activeId ? relayMap.get(activeId) : null;
 
   const handleRelayChange = useCallback((sessionId: string, info: RelayInfo) => {

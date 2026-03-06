@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { TerminalSession } from '../hooks/useSessionManager';
+import { folderIcon } from '@termpod/shared';
+import type { TabIcon } from '@termpod/shared';
 
 interface TabBarProps {
   sessions: TerminalSession[];
@@ -61,6 +63,7 @@ function Tab({ session, isActive, onSelect, onClose }: TabProps) {
       onClick={() => onSelect(session.id)}
       type="button"
     >
+      <TabIconView icon={session.icon ?? folderIcon} />
       <span className="tab-name">{session.name}</span>
       <span
         className="tab-close"
@@ -72,5 +75,20 @@ function Tab({ session, isActive, onSelect, onClose }: TabProps) {
         &times;
       </span>
     </button>
+  );
+}
+
+function TabIconView({ icon }: { icon: TabIcon }) {
+  return (
+    <svg
+      className="tab-icon"
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill={icon.color}
+      aria-label={icon.title}
+    >
+      <path d={icon.svgPath} />
+    </svg>
   );
 }

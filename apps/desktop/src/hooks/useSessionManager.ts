@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { spawn } from 'tauri-pty';
 import type { IPty } from 'tauri-pty';
 import { invoke } from '@tauri-apps/api/core';
-import { DEFAULT_SHELL, DEFAULT_PTY_SIZE } from '@termpod/shared';
+import { DEFAULT_SHELL, DEFAULT_PTY_SIZE, getIconForProcess } from '@termpod/shared';
+import type { TabIcon } from '@termpod/shared';
 import type { TerminalHandle } from '@termpod/ui';
 
 export type PtyDataListener = (data: Uint8Array | number[]) => void;
@@ -18,6 +19,8 @@ export interface TerminalSession {
   exited: boolean;
   closing: boolean;
   exitCode?: number;
+  processName: string | null;
+  icon: TabIcon | null;
 }
 
 interface SessionStore {
@@ -71,7 +74,7 @@ export function useSessionManager() {
     [emit],
   );
 
-  // Poll cwd for all active sessions via macOS proc_pidinfo
+  // Poll cwd and foreground process for all active sessions
   useEffect(() => {
     const interval = setInterval(async () => {
       const sessions = storeRef.current.sessions;
@@ -88,11 +91,20 @@ export function useSessionManager() {
           continue;
         }
 
-        const cwd = await invoke<string | null>('get_pid_cwd', { pid });
+        const [cwd, processName] = await Promise.all([
+          invoke<string | null>('get_pid_cwd', { pid }),
+          invoke<string | null>('get_foreground_process', { pid }),
+        ]);
 
         if (cwd && cwd !== session.cwd) {
           session.cwd = cwd;
           session.name = nameFromCwd(cwd);
+          changed = true;
+        }
+
+        if (processName !== session.processName) {
+          session.processName = processName;
+          session.icon = processName ? getIconForProcess(processName) : null;
           changed = true;
         }
       }
@@ -103,7 +115,9 @@ export function useSessionManager() {
           sessions: prev.sessions.map((s) => {
             const live = sessions.find((ls) => ls.id === s.id);
 
-            return live ? { ...s, cwd: live.cwd, name: live.name } : s;
+            return live
+              ? { ...s, cwd: live.cwd, name: live.name, processName: live.processName, icon: live.icon }
+              : s;
           }),
         }));
       }
@@ -139,6 +153,8 @@ export function useSessionManager() {
         createdAt: Date.now(),
         exited: false,
         closing: false,
+        processName: null,
+        icon: null,
       };
 
       // Guard against duplicate PTY data fires (tauri-pty IPC bug in

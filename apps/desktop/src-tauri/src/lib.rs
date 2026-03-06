@@ -4,6 +4,13 @@ use std::ffi::CStr;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
+unsafe extern "C" {
+    unsafe fn proc_listpids(r#type: u32, typeinfo: u32, buffer: *mut libc::c_void, buffersize: i32) -> i32;
+    unsafe fn proc_name(pid: i32, buffer: *mut libc::c_void, buffersize: u32) -> i32;
+}
+
+const PROC_PPID_ONLY: u32 = 6;
+
 #[tauri::command]
 fn get_home_dir() -> String {
     std::env::var("HOME").unwrap_or_else(|_| "/".to_string())
@@ -34,6 +41,76 @@ fn get_pid_cwd(pid: u32) -> Option<String> {
 }
 
 #[tauri::command]
+fn get_foreground_process(pid: u32) -> Option<String> {
+    // Find child processes of the given shell PID
+    let mut pids = vec![0i32; 256];
+    let buf_size = (pids.len() * std::mem::size_of::<i32>()) as i32;
+
+    let bytes = unsafe { proc_listpids(PROC_PPID_ONLY, pid, pids.as_mut_ptr().cast(), buf_size) };
+
+    if bytes <= 0 {
+        return None;
+    }
+
+    let count = bytes as usize / std::mem::size_of::<i32>();
+
+    // Walk children recursively to find the deepest foreground process
+    // (e.g. shell → npm → node → ...)
+    let mut current_pid = None;
+
+    for i in 0..count {
+        let child = pids[i];
+
+        if child > 0 {
+            current_pid = Some(child);
+            break;
+        }
+    }
+
+    let mut target_pid = current_pid?;
+
+    // Walk up to 5 levels deep to find the leaf process
+    for _ in 0..5 {
+        let mut child_pids = vec![0i32; 64];
+        let child_buf_size = (child_pids.len() * std::mem::size_of::<i32>()) as i32;
+
+        let child_bytes = unsafe {
+            proc_listpids(PROC_PPID_ONLY, target_pid as u32, child_pids.as_mut_ptr().cast(), child_buf_size)
+        };
+
+        if child_bytes <= 0 {
+            break;
+        }
+
+        let child_count = child_bytes as usize / std::mem::size_of::<i32>();
+        let mut found = false;
+
+        for j in 0..child_count {
+            if child_pids[j] > 0 {
+                target_pid = child_pids[j];
+                found = true;
+                break;
+            }
+        }
+
+        if !found {
+            break;
+        }
+    }
+
+    let mut name_buf = [0u8; 256];
+    let ret = unsafe { proc_name(target_pid, name_buf.as_mut_ptr().cast(), 256) };
+
+    if ret <= 0 {
+        return None;
+    }
+
+    std::str::from_utf8(&name_buf[..ret as usize])
+        .ok()
+        .map(|s| s.to_string())
+}
+
+#[tauri::command]
 fn open_url(url: String) {
     let _ = std::process::Command::new("open").arg(&url).spawn();
 }
@@ -45,6 +122,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_home_dir,
             get_pid_cwd,
+            get_foreground_process,
             open_url,
             local_server::start_local_server,
             local_server::stop_local_server,

@@ -21,6 +21,7 @@ export interface SessionInfo {
   deviceId: string;
   name: string;
   cwd: string;
+  processName: string | null;
   ptyCols: number;
   ptyRows: number;
   createdAt: string;
@@ -64,6 +65,7 @@ export class User extends DurableObject {
         device_id TEXT NOT NULL,
         name TEXT NOT NULL DEFAULT 'shell',
         cwd TEXT DEFAULT '',
+        process_name TEXT DEFAULT NULL,
         pty_cols INTEGER DEFAULT 120,
         pty_rows INTEGER DEFAULT 40,
         created_at TEXT NOT NULL,
@@ -316,7 +318,7 @@ export class User extends DurableObject {
   private handleListSessions(deviceId: string): Response {
     const rows = this.ctx.storage.sql
       .exec(
-        'SELECT id, device_id, name, cwd, pty_cols, pty_rows, created_at FROM sessions WHERE device_id = ? ORDER BY created_at',
+        'SELECT id, device_id, name, cwd, process_name, pty_cols, pty_rows, created_at FROM sessions WHERE device_id = ? ORDER BY created_at',
         deviceId,
       )
       .toArray();
@@ -326,6 +328,7 @@ export class User extends DurableObject {
       deviceId: r.device_id as string,
       name: r.name as string,
       cwd: r.cwd as string,
+      processName: (r.process_name as string) ?? null,
       ptyCols: r.pty_cols as number,
       ptyRows: r.pty_rows as number,
       createdAt: r.created_at as string,
@@ -371,6 +374,7 @@ export class User extends DurableObject {
     const body = (await request.json()) as {
       name?: string;
       cwd?: string;
+      processName?: string | null;
     };
 
     const existing = this.ctx.storage.sql
@@ -387,6 +391,10 @@ export class User extends DurableObject {
 
     if (body.cwd !== undefined) {
       this.ctx.storage.sql.exec('UPDATE sessions SET cwd = ? WHERE id = ?', body.cwd, sessionId);
+    }
+
+    if (body.processName !== undefined) {
+      this.ctx.storage.sql.exec('UPDATE sessions SET process_name = ? WHERE id = ?', body.processName, sessionId);
     }
 
     return Response.json({ ok: true });

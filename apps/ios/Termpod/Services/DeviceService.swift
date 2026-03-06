@@ -30,6 +30,7 @@ final class DeviceService: ObservableObject {
         let id: String
         let name: String
         let cwd: String
+        let processName: String?
         let ptyCols: Int
         let ptyRows: Int
     }

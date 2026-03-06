@@ -38,8 +38,7 @@ struct DeviceSessionsView: View {
                             joinSession(session)
                         } label: {
                             HStack(spacing: 12) {
-                                Image(systemName: "terminal")
-                                    .foregroundStyle(.blue)
+                                ProcessIconView(processName: session.processName, size: 22)
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(session.name)

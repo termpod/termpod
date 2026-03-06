@@ -144,7 +144,7 @@ export function useDevice(isAuthenticated: boolean, onCreateSessionRequest?: () 
   );
 
   const updateSession = useCallback(
-    async (sessionId: string, updates: { name?: string; cwd?: string }) => {
+    async (sessionId: string, updates: { name?: string; cwd?: string; processName?: string | null }) => {
       if (!registeredRef.current) {
         return;
       }
