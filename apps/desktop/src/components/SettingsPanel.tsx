@@ -24,6 +24,8 @@ const FONT_OPTIONS = [
   'Source Code Pro, monospace',
   'Cascadia Code, monospace',
   'IBM Plex Mono, monospace',
+  'Hack, monospace',
+  'Inconsolata, monospace',
 ];
 
 const CURSOR_OPTIONS: { value: CursorStyle; label: string; icon: string }[] = [
@@ -175,25 +177,24 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
 
             {activeTab === 'terminal' && (
               <>
-                {/* Font */}
-                <div className="sp-section">
-                  <label className="sp-label">Font Family</label>
-                  <select
-                    className="settings-select sp-full-width"
-                    value={settings.fontFamily}
-                    onChange={(e) => onUpdate({ fontFamily: e.target.value })}
-                  >
-                    {FONT_OPTIONS.map((font) => (
-                      <option key={font} value={font}>
-                        {font.split(',')[0]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {/* Font section card */}
+                <div className="sp-card">
+                  <div className="sp-card-header">
+                    <span className="sp-card-icon">Aa</span>
+                    <span className="sp-card-title">Font</span>
+                  </div>
 
-                <div className="sp-section">
-                  <label className="sp-label">Font Size</label>
-                  <div className="sp-slider-row">
+                  <FontPicker
+                    value={settings.fontFamily}
+                    options={FONT_OPTIONS}
+                    onChange={(v) => onUpdate({ fontFamily: v })}
+                  />
+
+                  <div className="sp-section">
+                    <div className="sp-label-row">
+                      <label className="sp-label">Size</label>
+                      <span className="sp-badge">{settings.fontSize}px</span>
+                    </div>
                     <input
                       className="settings-range"
                       type="range"
@@ -202,52 +203,61 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                       value={settings.fontSize}
                       onChange={(e) => onUpdate({ fontSize: Number(e.target.value) })}
                     />
-                    <span className="sp-value">{settings.fontSize}px</span>
+                  </div>
+
+                  {/* Live font preview */}
+                  <div
+                    className="sp-font-preview"
+                    style={{
+                      fontFamily: settings.fontFamily,
+                      fontSize: `${settings.fontSize}px`,
+                      lineHeight: settings.lineHeight,
+                      background: THEMES[settings.theme]?.background ?? '#1a1b26',
+                      color: THEMES[settings.theme]?.foreground ?? '#c0caf5',
+                    }}
+                  >
+                    <div>
+                      <span style={{ color: THEMES[settings.theme]?.green }}>~/termpod</span>
+                      <span style={{ color: THEMES[settings.theme]?.foreground }}> $ echo &quot;Hello, world!&quot;</span>
+                    </div>
+                    <div style={{ color: THEMES[settings.theme]?.foreground }}>Hello, world!</div>
                   </div>
                 </div>
 
-                {/* Font preview */}
-                <div
-                  className="sp-font-preview"
-                  style={{
-                    fontFamily: settings.fontFamily,
-                    fontSize: `${settings.fontSize}px`,
-                    lineHeight: settings.lineHeight,
-                    background: THEMES[settings.theme]?.background ?? '#1a1b26',
-                    color: THEMES[settings.theme]?.foreground ?? '#c0caf5',
-                  }}
-                >
-                  <span style={{ color: THEMES[settings.theme]?.green }}>~/termpod</span>
-                  <span style={{ color: THEMES[settings.theme]?.foreground }}> $ echo &quot;Hello, world!&quot;</span>
-                </div>
+                {/* Shell section card */}
+                <div className="sp-card">
+                  <div className="sp-card-header">
+                    <span className="sp-card-icon">&gt;_</span>
+                    <span className="sp-card-title">Shell</span>
+                  </div>
 
-                {/* Shell */}
-                <div className="sp-section">
-                  <label className="sp-label">Shell Path</label>
-                  <input
-                    className={`settings-input sp-full-width ${shellValid === false ? 'settings-input-error' : ''}`}
-                    type="text"
-                    value={shellInput}
-                    onChange={(e) => {
-                      setShellInput(e.target.value);
-                      setShellValid(null);
-                    }}
-                    onBlur={() => validateShell(shellInput)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                    }}
-                    spellCheck={false}
-                    placeholder="/bin/zsh"
-                  />
-                  {shellValid === false && (
-                    <span className="settings-hint-error">Path must start with /</span>
-                  )}
-                </div>
+                  <div className="sp-section">
+                    <label className="sp-label">Path</label>
+                    <input
+                      className={`settings-input sp-full-width ${shellValid === false ? 'settings-input-error' : ''}`}
+                      type="text"
+                      value={shellInput}
+                      onChange={(e) => {
+                        setShellInput(e.target.value);
+                        setShellValid(null);
+                      }}
+                      onBlur={() => validateShell(shellInput)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                      }}
+                      spellCheck={false}
+                      placeholder="/bin/zsh"
+                    />
+                    {shellValid === false && (
+                      <span className="settings-hint-error">Path must start with /</span>
+                    )}
+                  </div>
 
-                {/* Scrollback */}
-                <div className="sp-section">
-                  <label className="sp-label">Scrollback Lines</label>
-                  <div className="sp-slider-row">
+                  <div className="sp-section">
+                    <div className="sp-label-row">
+                      <label className="sp-label">Scrollback Lines</label>
+                      <span className="sp-badge">{settings.scrollbackLines.toLocaleString()}</span>
+                    </div>
                     <input
                       className="settings-range"
                       type="range"
@@ -257,15 +267,14 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                       value={settings.scrollbackLines}
                       onChange={(e) => onUpdate({ scrollbackLines: Number(e.target.value) })}
                     />
-                    <span className="sp-value">{settings.scrollbackLines.toLocaleString()}</span>
                   </div>
-                </div>
 
-                <ToggleRow
-                  label="Bell Sound"
-                  value={settings.bellEnabled}
-                  onChange={(v) => onUpdate({ bellEnabled: v })}
-                />
+                  <ToggleRow
+                    label="Bell Sound"
+                    value={settings.bellEnabled}
+                    onChange={(v) => onUpdate({ bellEnabled: v })}
+                  />
+                </div>
               </>
             )}
 
@@ -392,5 +401,140 @@ function RadioOption({ name, value, label, description, checked, onChange }: {
         <span className="sp-radio-desc">{description}</span>
       </div>
     </label>
+  );
+}
+
+function FontPicker({ value, options, onChange }: {
+  value: string;
+  options: string[];
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [highlightIdx, setHighlightIdx] = useState(-1);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const displayName = (font: string) => font.split(',')[0].trim();
+
+  const filtered = options.filter((f) =>
+    displayName(f).toLowerCase().includes(query.toLowerCase()),
+  );
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery('');
+      }
+    };
+
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  // Focus input when opened
+  useEffect(() => {
+    if (open) {
+      inputRef.current?.focus();
+      setHighlightIdx(-1);
+    }
+  }, [open]);
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (highlightIdx < 0 || !listRef.current) return;
+    const items = listRef.current.children;
+    items[highlightIdx]?.scrollIntoView({ block: 'nearest' });
+  }, [highlightIdx]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightIdx((i) => Math.min(i + 1, filtered.length - 1));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightIdx((i) => Math.max(i - 1, 0));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (highlightIdx >= 0 && filtered[highlightIdx]) {
+          onChange(filtered[highlightIdx]);
+          setOpen(false);
+          setQuery('');
+        }
+        break;
+      case 'Escape':
+        setOpen(false);
+        setQuery('');
+        break;
+    }
+  };
+
+  return (
+    <div className="sp-font-picker" ref={containerRef}>
+      <button
+        className="sp-font-picker-trigger"
+        onClick={() => setOpen(!open)}
+        style={{ fontFamily: value }}
+        type="button"
+      >
+        <span className="sp-font-picker-value">{displayName(value)}</span>
+        <span className="sp-font-picker-chevron">{open ? '\u25B4' : '\u25BE'}</span>
+      </button>
+
+      {open && (
+        <div className="sp-font-picker-dropdown">
+          <div className="sp-font-picker-search">
+            <span className="sp-font-picker-search-icon">&#x1F50D;</span>
+            <input
+              ref={inputRef}
+              className="sp-font-picker-input"
+              type="text"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setHighlightIdx(0);
+              }}
+              onKeyDown={handleKeyDown}
+              placeholder="Search fonts..."
+              spellCheck={false}
+            />
+          </div>
+
+          <div className="sp-font-picker-list" ref={listRef}>
+            {filtered.length === 0 ? (
+              <div className="sp-font-picker-empty">No matching fonts</div>
+            ) : (
+              filtered.map((font, i) => (
+                <button
+                  key={font}
+                  className={`sp-font-picker-item ${font === value ? 'sp-font-picker-selected' : ''} ${i === highlightIdx ? 'sp-font-picker-highlighted' : ''}`}
+                  onClick={() => {
+                    onChange(font);
+                    setOpen(false);
+                    setQuery('');
+                  }}
+                  style={{ fontFamily: font }}
+                  type="button"
+                >
+                  <span className="sp-font-picker-item-name">{displayName(font)}</span>
+                  <span className="sp-font-picker-item-sample" style={{ fontFamily: font }}>
+                    AaBb 0Oo {'{}'}
+                  </span>
+                  {font === value && <span className="sp-font-picker-check">&#x2713;</span>}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

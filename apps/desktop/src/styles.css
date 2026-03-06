@@ -653,6 +653,20 @@ body,
   justify-content: space-between;
 }
 
+.sp-card .sp-toggle-row {
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.sp-card .sp-font-preview {
+  border-color: var(--bg-primary);
+  background: var(--bg-primary);
+}
+
+.sp-card .settings-input {
+  background: var(--bg-primary);
+}
+
 .sp-toggle-info {
   display: flex;
   flex-direction: column;
@@ -754,14 +768,205 @@ body,
   color: var(--text-muted);
 }
 
+/* Section cards */
+.sp-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+}
+
+.sp-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+
+.sp-card-icon {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--accent);
+  background: rgba(122, 162, 247, 0.1);
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+  font-weight: 600;
+}
+
+.sp-card-title {
+  font-size: 13px;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.sp-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sp-badge {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+/* Font picker */
+.sp-font-picker {
+  position: relative;
+}
+
+.sp-font-picker-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.sp-font-picker-trigger:hover {
+  border-color: var(--text-muted);
+}
+
+.sp-font-picker-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sp-font-picker-chevron {
+  color: var(--text-muted);
+  font-size: 10px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.sp-font-picker-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  animation: modal-in 0.12s ease;
+  overflow: hidden;
+}
+
+.sp-font-picker-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sp-font-picker-search-icon {
+  font-size: 12px;
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
+.sp-font-picker-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  outline: none;
+}
+
+.sp-font-picker-input::placeholder {
+  color: var(--text-muted);
+}
+
+.sp-font-picker-list {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.sp-font-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-fast);
+}
+
+.sp-font-picker-item:hover,
+.sp-font-picker-highlighted {
+  background: var(--bg-hover);
+}
+
+.sp-font-picker-selected {
+  background: rgba(122, 162, 247, 0.08);
+}
+
+.sp-font-picker-item-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sp-font-picker-item-sample {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sp-font-picker-check {
+  color: var(--accent);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.sp-font-picker-empty {
+  padding: 16px;
+  text-align: center;
+  font-size: 12px;
+  font-family: var(--font-sans);
+  color: var(--text-muted);
+}
+
 /* Font preview */
 .sp-font-preview {
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 /* Link button */
