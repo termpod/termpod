@@ -282,13 +282,21 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         // WebGL not available, fall back to canvas renderer
       }
 
-      // After fonts finish loading, rebuild the WebGL texture atlas so that
+      // Rebuild the WebGL texture atlas after fonts finish loading so that
       // both normal and bold weights use the correct font face.
       document.fonts.ready.then(() => {
         if (terminalRef.current === term) {
           term.clearTextureAtlas();
         }
       });
+
+      // Second clear after initial content has rendered — covers cases where
+      // bold glyphs were cached before the first clear ran.
+      const fontFixTimer = setTimeout(() => {
+        if (terminalRef.current === term) {
+          term.clearTextureAtlas();
+        }
+      }, 500);
 
       fitAddon.fit();
       terminalRef.current = term;
@@ -361,6 +369,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       resizeObserver.observe(containerRef.current);
 
       return () => {
+        clearTimeout(fontFixTimer);
         resizeObserver.disconnect();
         term.dispose();
         terminalRef.current = null;
