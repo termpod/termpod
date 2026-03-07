@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Settings, CursorStyle, NewTabCwd, TerminalTheme, BlurStyle, FontSmoothing, FontWeight } from '../hooks/useSettings';
+import type { Settings, CursorStyle, NewTabCwd, TerminalTheme, FontSmoothing, FontWeight } from '../hooks/useSettings';
 import { THEMES } from '../hooks/useSettings';
 
 type SettingsTab = 'appearance' | 'terminal' | 'behavior' | 'account';
@@ -26,13 +26,6 @@ const FONT_OPTIONS = [
   'IBM Plex Mono, monospace',
   'Hack, monospace',
   'Inconsolata, monospace',
-];
-
-const BLUR_OPTIONS: { value: BlurStyle; label: string }[] = [
-  { value: 'none', label: 'Off' },
-  { value: 'subtle', label: 'Subtle' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'full', label: 'Full' },
 ];
 
 const CURSOR_OPTIONS: { value: CursorStyle; label: string }[] = [
@@ -216,23 +209,27 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                     />
                   </SettingRow>
                   <div className="sp-separator" />
-                  <SettingRow label="Background Blur">
-                    <SegmentedControl
-                      options={BLUR_OPTIONS}
-                      value={settings.backgroundBlur}
-                      onChange={(v) => onUpdate({ backgroundBlur: v })}
-                    />
-                  </SettingRow>
-                  <div className="sp-separator" />
-                  <SettingRow label="Opacity" badge={`${Math.round(settings.backgroundOpacity * 100)}%`}>
+                  <SettingRow label="Window Opacity" badge={`${Math.round(settings.backgroundOpacity * 100)}`}>
                     <input
                       className="sp-range"
                       type="range"
-                      min={0.3}
-                      max={1.0}
-                      step={0.05}
-                      value={settings.backgroundOpacity}
-                      onChange={(e) => onUpdate({ backgroundOpacity: Number(e.target.value) })}
+                      min={30}
+                      max={100}
+                      step={1}
+                      value={Math.round(settings.backgroundOpacity * 100)}
+                      onChange={(e) => onUpdate({ backgroundOpacity: Number(e.target.value) / 100 })}
+                    />
+                  </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Window Blur Radius" badge={`${settings.blurRadius}`}>
+                    <input
+                      className="sp-range"
+                      type="range"
+                      min={0}
+                      max={20}
+                      step={1}
+                      value={settings.blurRadius}
+                      onChange={(e) => onUpdate({ blurRadius: Number(e.target.value) })}
                     />
                   </SettingRow>
                 </div>

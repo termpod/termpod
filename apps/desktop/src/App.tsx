@@ -4,7 +4,6 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow, Effect, EffectState } from '@tauri-apps/api/window';
 import { useSessionManager, nameFromCwd } from './hooks/useSessionManager';
 import { useSettings, THEMES, themeToAppStyles, isLightColor } from './hooks/useSettings';
-import type { BlurStyle } from './hooks/useSettings';
 import { useAuth } from './hooks/useAuth';
 import { useDevice } from './hooks/useDevice';
 import { TabBar } from './components/TabBar';
@@ -484,20 +483,17 @@ export function App() {
   // Apply/remove macOS vibrancy effect
   useEffect(() => {
     const win = getCurrentWindow();
-    const blurEffects: Record<BlurStyle, Effect> = {
-      none: Effect.HudWindow,
-      subtle: Effect.HudWindow,
-      medium: Effect.UnderWindowBackground,
-      full: Effect.Sidebar,
-    };
-
-    if (settings.backgroundOpacity < 1 || settings.backgroundBlur !== 'none') {
-      const effect = blurEffects[settings.backgroundBlur];
+    if (settings.blurRadius > 0) {
+      const effect = settings.blurRadius >= 10
+        ? Effect.Sidebar
+        : settings.blurRadius >= 4
+          ? Effect.UnderWindowBackground
+          : Effect.HudWindow;
       win.setEffects({ effects: [effect], state: EffectState.FollowsWindowActiveState });
     } else {
       win.clearEffects();
     }
-  }, [settings.backgroundBlur, settings.backgroundOpacity]);
+  }, [settings.blurRadius, settings.backgroundOpacity]);
 
   if (!auth.isAuthenticated) {
     return (

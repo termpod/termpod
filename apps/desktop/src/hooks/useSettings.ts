@@ -2,7 +2,6 @@ import { useCallback, useSyncExternalStore } from 'react';
 
 export type CursorStyle = 'block' | 'underline' | 'bar';
 export type NewTabCwd = 'home' | 'current' | 'custom';
-export type BlurStyle = 'none' | 'subtle' | 'medium' | 'full';
 export type FontSmoothing = 'auto' | 'antialiased' | 'none';
 export type FontWeight = 'normal' | '100' | '200' | '300' | '400' | '500' | '600' | '700' | '800' | '900';
 
@@ -429,7 +428,7 @@ export interface Settings {
   cursorBlink: boolean;
   lineHeight: number;
   windowPadding: number;
-  backgroundBlur: BlurStyle;
+  blurRadius: number;
   backgroundOpacity: number;
 
   // Terminal
@@ -458,7 +457,7 @@ const DEFAULTS: Settings = {
   cursorBlink: true,
   lineHeight: 1.0,
   windowPadding: 0,
-  backgroundBlur: 'none',
+  blurRadius: 0,
   backgroundOpacity: 1.0,
 
   fontSize: 14,
