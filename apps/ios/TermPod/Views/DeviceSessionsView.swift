@@ -32,14 +32,18 @@ struct DeviceSessionsView: View {
         .navigationTitle(device.displayName)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    Task { await requestNewSession() }
-                } label: {
-                    Image(systemName: "plus")
+                HStack(spacing: 12) {
+                    transportBadge
+
+                    Button {
+                        Task { await requestNewSession() }
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .disabled(requestingSession || !device.isOnline)
+                    .accessibilityLabel("New session")
+                    .accessibilityHint("Create a new terminal session on this device")
                 }
-                .disabled(requestingSession || !device.isOnline)
-                .accessibilityLabel("New session")
-                .accessibilityHint("Create a new terminal session on this device")
             }
         }
         .navigationDestination(item: $joinedSession) { session in
@@ -225,7 +229,43 @@ struct DeviceSessionsView: View {
         sessions = merged
     }
 
+    // MARK: - Transport Badge
+
+    private var currentTransport: TransportType {
+        if localDiscovery.isDiscovered { return .local }
+        if activeP2PConnection != nil { return .webrtc }
+        return .relay
+    }
+
+    private var transportBadge: some View {
+        let transport = currentTransport
+        let color: Color = switch transport {
+        case .local: .green
+        case .webrtc: .blue
+        case .relay: .orange
+        }
+
+        return HStack(spacing: 4) {
+            Circle()
+                .fill(color)
+                .frame(width: 6, height: 6)
+
+            Text(transport.label)
+                .font(.system(size: 10, weight: .semibold))
+        }
+        .foregroundStyle(color)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(color.opacity(0.15))
+        .clipShape(Capsule())
+    }
+
     // MARK: - Actions
+
+    /// Find an active P2P connection (local or WebRTC) to route control messages through.
+    private var activeP2PConnection: ConnectionManager? {
+        appState.sessions.first(where: { $0.connection.hasP2PTransport })?.connection
+    }
 
     private func deleteSession(_ session: DeviceService.DeviceSession) {
         sessions.removeAll { $0.id == session.id }
@@ -236,6 +276,8 @@ struct DeviceSessionsView: View {
 
         if localDiscovery.isDiscovered {
             localDiscovery.sendDeleteSession(sessionId: session.id)
+        } else if let webrtc = activeP2PConnection {
+            webrtc.sendDeleteSession(sessionId: session.id)
         } else {
             Task {
                 await deviceService.deleteSession(auth: auth, sessionId: session.id)
@@ -266,7 +308,45 @@ struct DeviceSessionsView: View {
             }
         }
 
-        // Fall back to relay if local didn't return anything
+        // Try P2P (WebRTC/local via existing session) if local discovery didn't return anything
+        if fetched.isEmpty, let p2p = activeP2PConnection {
+            fetched = await withCheckedContinuation { (continuation: CheckedContinuation<[DeviceService.DeviceSession], Never>) in
+                var resumed = false
+
+                p2p.onSessionsList = { sessionsJson in
+                    guard !resumed else { return }
+                    resumed = true
+                    p2p.onSessionsList = nil
+
+                    let parsed = sessionsJson.compactMap { json -> DeviceService.DeviceSession? in
+                        guard let id = json["id"] as? String,
+                              let name = json["name"] as? String
+                        else { return nil }
+                        return DeviceService.DeviceSession(
+                            id: id,
+                            name: name,
+                            cwd: json["cwd"] as? String ?? "~",
+                            processName: json["processName"] as? String,
+                            ptyCols: json["ptyCols"] as? Int ?? 80,
+                            ptyRows: json["ptyRows"] as? Int ?? 24
+                        )
+                    }
+                    continuation.resume(returning: parsed)
+                }
+
+                p2p.sendListSessions()
+
+                Task {
+                    try? await Task.sleep(for: .seconds(3))
+                    guard !resumed else { return }
+                    resumed = true
+                    p2p.onSessionsList = nil
+                    continuation.resume(returning: [])
+                }
+            }
+        }
+
+        // Fall back to relay if local and WebRTC didn't return anything
         if fetched.isEmpty {
             fetched = await deviceService.fetchSessions(auth: auth, deviceId: device.id)
         }

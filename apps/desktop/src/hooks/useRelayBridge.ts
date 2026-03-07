@@ -5,9 +5,10 @@ import { useWebRTC } from './useWebRTC';
 import type { TerminalSession } from './useSessionManager';
 
 interface UseRelayBridgeOptions {
-  onCreateSessionRequest?: (requestId: string, source: 'relay' | 'local', localClientId?: string) => void;
+  onCreateSessionRequest?: (requestId: string, source: 'relay' | 'local' | 'webrtc', localClientId?: string) => void;
   onSessionClosed?: () => void;
   onDeleteSession?: (relaySessionId: string) => void;
+  getSessionsList?: () => Record<string, unknown>[];
 }
 
 export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: UseRelayBridgeOptions) {
@@ -168,6 +169,25 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
         term?.resize(cols, currentRows);
       }
     },
+    onControlMessage: (msg) => {
+      const type = msg.type as string;
+
+      if (type === 'list_sessions') {
+        const sessions = bridgeOptionsRef.current?.getSessionsList?.() ?? [];
+        return { type: 'sessions_list', sessions };
+      }
+
+      if (type === 'create_session_request' && msg.requestId) {
+        bridgeOptionsRef.current?.onCreateSessionRequest?.(
+          msg.requestId as string,
+          'webrtc',
+        );
+      }
+
+      if (type === 'delete_session' && msg.sessionId) {
+        bridgeOptionsRef.current?.onDeleteSession?.(msg.sessionId as string);
+      }
+    },
     onStatusChange: (status) => {
       if (status === 'failed' || status === 'idle') {
         // WebRTC disconnected — restore desktop size if no other viewers
@@ -242,5 +262,6 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
     localViewers: localServer.localViewers,
     webrtcStatus: webrtc.status,
     sendToLocalClient: localServer.sendToClient,
+    sendWebRTCControl: webrtc.sendControlMessage,
   };
 }

@@ -16,6 +16,7 @@ final class LocalTransport: Transport {
     var onConnected: (() -> Void)?
     var onDisconnected: (() -> Void)?
     var onSessionCreated: ((_ requestId: String, _ sessionId: String, _ name: String, _ cwd: String, _ ptyCols: Int, _ ptyRows: Int) -> Void)?
+    var onSessionsList: (([[String: Any]]) -> Void)?
 
     private var browser: NWBrowser?
     private var webSocket: URLSessionWebSocketTask?
@@ -219,6 +220,10 @@ final class LocalTransport: Transport {
                    let ptyCols = json["ptyCols"] as? Int,
                    let ptyRows = json["ptyRows"] as? Int {
                     onSessionCreated?(requestId, sessionId, name, cwd, ptyCols, ptyRows)
+                }
+            } else if type == "sessions_list" {
+                if let sessions = json["sessions"] as? [[String: Any]] {
+                    onSessionsList?(sessions)
                 }
             }
 

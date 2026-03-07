@@ -31,7 +31,10 @@ struct DeviceListView: View {
                     } else {
                         ForEach(devicesWithLocalStatus) { device in
                             NavigationLink(value: device.id) {
-                                DeviceRow(device: device)
+                                DeviceRow(
+                                    device: device,
+                                    transport: transportForDevice(device)
+                                )
                             }
                         }
                     }
@@ -126,6 +129,18 @@ struct DeviceListView: View {
         }
     }
 
+    private func transportForDevice(_ device: DeviceService.Device) -> TransportType? {
+        guard device.isOnline else { return nil }
+
+        if device.platform == "macos" && localDesktopFound { return .local }
+
+        // Check if any active session has a P2P transport
+        let hasP2P = appState.sessions.contains { $0.connection.hasP2PTransport }
+        if hasP2P { return .webrtc }
+
+        return .relay
+    }
+
     private func startBonjourBrowse() {
         let params = NWParameters()
         params.includePeerToPeer = true
@@ -149,12 +164,22 @@ struct DeviceListView: View {
 struct DeviceRow: View {
 
     let device: DeviceService.Device
+    var transport: TransportType?
+
+    private var transportColor: Color {
+        guard let transport else { return .secondary }
+        return switch transport {
+        case .local: .green
+        case .webrtc: .blue
+        case .relay: .orange
+        }
+    }
 
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: device.systemImage)
                 .font(.title2)
-                .foregroundStyle(device.isOnline ? .green : .secondary)
+                .foregroundStyle(device.isOnline ? transportColor : .secondary)
                 .frame(width: 32)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -162,18 +187,29 @@ struct DeviceRow: View {
                     .font(.headline)
 
                 HStack(spacing: 4) {
-                    Image(systemName: device.isOnline ? "checkmark.circle.fill" : "xmark.circle")
-                        .font(.caption2)
-                    Text(device.isOnline ? "Online" : "Offline")
-                        .font(.caption)
+                    if device.isOnline {
+                        Circle()
+                            .fill(transportColor)
+                            .frame(width: 6, height: 6)
+
+                        if let transport {
+                            Text(transport.label)
+                                .font(.caption)
+                        }
+                    } else {
+                        Image(systemName: "xmark.circle")
+                            .font(.caption2)
+                        Text("Offline")
+                            .font(.caption)
+                    }
                 }
-                .foregroundStyle(device.isOnline ? .green : .secondary)
+                .foregroundStyle(device.isOnline ? transportColor : .secondary)
             }
 
             Spacer()
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(device.displayName), \(device.isOnline ? "online" : "offline")")
+        .accessibilityLabel("\(device.displayName), \(device.isOnline ? (transport?.label ?? "online") : "offline")")
     }
 }

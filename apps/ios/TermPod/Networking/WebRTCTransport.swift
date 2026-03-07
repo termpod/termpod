@@ -16,6 +16,7 @@ final class WebRTCTransport: NSObject, Transport {
     var onResize: ((Int, Int) -> Void)?
     var onConnected: (() -> Void)?
     var onDisconnected: (() -> Void)?
+    var onControlMessage: (([String: Any]) -> Void)?
 
     /// Called when we need to send signaling messages through the relay.
     var sendSignaling: (([String: Any]) -> Void)?
@@ -126,6 +127,17 @@ final class WebRTCTransport: NSObject, Transport {
         LKRTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
     }
 
+    // MARK: - Control Messages
+
+    func sendControlMessage(_ msg: [String: Any]) {
+        guard let dc = dataChannel, dc.readyState == .open,
+              let data = try? JSONSerialization.data(withJSONObject: msg),
+              let str = String(data: data, encoding: .utf8)
+        else { return }
+
+        dc.sendData(LKRTCDataBuffer(data: Data(str.utf8), isBinary: false))
+    }
+
     // MARK: - Transport
 
     func sendInput(_ data: Data) {
@@ -211,6 +223,16 @@ extension WebRTCTransport: LKRTCDataChannelDelegate {
 
     nonisolated func dataChannel(_ dataChannel: LKRTCDataChannel, didReceiveMessageWith buffer: LKRTCDataBuffer) {
         let data = buffer.data
+
+        if !buffer.isBinary {
+            // JSON control message
+            Task { @MainActor in
+                guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+                self.onControlMessage?(json)
+            }
+            return
+        }
+
         Task { @MainActor in
             guard let channel = data.first else { return }
             switch channel {
@@ -240,6 +262,7 @@ final class WebRTCTransport: Transport {
     var onResize: ((Int, Int) -> Void)?
     var onConnected: (() -> Void)?
     var onDisconnected: (() -> Void)?
+    var onControlMessage: (([String: Any]) -> Void)?
     var sendSignaling: (([String: Any]) -> Void)?
 
     private let clientId: String
@@ -248,10 +271,8 @@ final class WebRTCTransport: Transport {
         self.clientId = clientId
     }
 
-    func handleSignaling(_ json: [String: Any]) {
-        // WebRTC not available — signaling messages are ignored
-    }
-
+    func handleSignaling(_ json: [String: Any]) {}
+    func sendControlMessage(_ msg: [String: Any]) {}
     func sendInput(_ data: Data) {}
     func sendResize(cols: Int, rows: Int) {}
     func disconnect() {}

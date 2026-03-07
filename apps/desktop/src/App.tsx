@@ -48,7 +48,7 @@ export function App() {
 
   // Handle push-based session creation requests from mobile
   const handleCreateSessionRequest = useCallback(
-    async (requestId: string, source: 'relay' | 'local', localClientId?: string) => {
+    async (requestId: string, source: 'relay' | 'local' | 'webrtc', localClientId?: string) => {
       const win = getCurrentWindow();
       win.show();
       win.setFocus();
@@ -103,6 +103,9 @@ export function App() {
       if (source === 'local' && localClientId) {
         // Respond directly to the requesting local client
         relayInfo.sendToLocalClient?.(localClientId, response);
+      } else if (source === 'webrtc') {
+        // Respond via WebRTC DataChannel
+        relayInfo.sendWebRTCControl?.(JSON.parse(response));
       } else {
         // Respond via relay (broadcast to all viewers)
         relayInfo.sendSessionCreated?.(
@@ -587,6 +590,23 @@ export function App() {
                 term?.cols ?? 120,
                 term?.rows ?? 40,
               );
+            }}
+            getSessionsList={() => {
+              const list: Record<string, unknown>[] = [];
+              for (const s of sessions) {
+                if (s.exited || s.closing) continue;
+                const info = relayMapRef.current.get(s.id);
+                if (!info?.sessionId) continue;
+                list.push({
+                  id: info.sessionId,
+                  name: s.name,
+                  cwd: s.cwd,
+                  processName: s.processName ?? null,
+                  ptyCols: s.pty.cols ?? 120,
+                  ptyRows: s.pty.rows ?? 40,
+                });
+              }
+              return list;
             }}
             onCreateSessionRequest={handleCreateSessionRequest}
             onDeleteSession={(relaySessionId) => {

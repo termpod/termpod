@@ -13,6 +13,7 @@ export interface RelayInfo {
   sessionId: string | null;
   sendSessionCreated?: (requestId: string, sessionId: string, name: string, cwd: string, ptyCols: number, ptyRows: number) => void;
   sendToLocalClient?: (clientId: string, json: string) => void;
+  sendWebRTCControl?: (msg: Record<string, unknown>) => void;
 }
 
 interface TerminalPanelProps {
@@ -44,9 +45,10 @@ interface TerminalPanelProps {
   onDeleteSession?: (relaySessionId: string) => void;
   onSessionClosed?: () => void;
   onCwdChange?: (cwd: string) => void;
+  getSessionsList?: () => Record<string, unknown>[];
 }
 
-export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFamily, fontWeight, fontSmoothing, fontLigatures, drawBoldInBold, windowPadding, cursorStyle, cursorBlink, lineHeight, promptAtBottom, copyOnSelect, macOptionIsMeta, altClickMoveCursor, wordSeparators, theme, bellEnabled, notifyOnBell, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onDeleteSession, onSessionClosed, onCwdChange }: TerminalPanelProps) {
+export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFamily, fontWeight, fontSmoothing, fontLigatures, drawBoldInBold, windowPadding, cursorStyle, cursorBlink, lineHeight, promptAtBottom, copyOnSelect, macOptionIsMeta, altClickMoveCursor, wordSeparators, theme, bellEnabled, notifyOnBell, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onDeleteSession, onSessionClosed, onCwdChange, getSessionsList }: TerminalPanelProps) {
   const onTermReadyRef = useRef(onTermReady);
   onTermReadyRef.current = onTermReady;
   const onCreateSessionRequestRef = useRef(onCreateSessionRequest);
@@ -58,6 +60,9 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
   const onCwdChangeRef = useRef(onCwdChange);
   onCwdChangeRef.current = onCwdChange;
 
+  const getSessionsListRef = useRef(getSessionsList);
+  getSessionsListRef.current = getSessionsList;
+
   const relay = useRelayBridge(session.exited ? null : session, {
     onCreateSessionRequest: (requestId, source, localClientId) => {
       onCreateSessionRequestRef.current?.(requestId, source, localClientId);
@@ -68,6 +73,7 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
     onSessionClosed: () => {
       onSessionClosedRef.current?.();
     },
+    getSessionsList: () => getSessionsListRef.current?.() ?? [],
   });
   const onRelayChangeRef = useRef(onRelayChange);
   onRelayChangeRef.current = onRelayChange;
@@ -81,8 +87,9 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
       sessionId: relay.sessionId,
       sendSessionCreated: relay.sendSessionCreated,
       sendToLocalClient: relay.sendToLocalClient,
+      sendWebRTCControl: relay.sendWebRTCControl,
     });
-  }, [relay.status, relay.viewers, relay.sessionId, relay.sendSessionCreated, relay.sendToLocalClient]);
+  }, [relay.status, relay.viewers, relay.sessionId, relay.sendSessionCreated, relay.sendToLocalClient, relay.sendWebRTCControl]);
 
   // Notify parent when relay session is created (for device registration)
   const registeredRef = useRef<string | null>(null);

@@ -23,6 +23,7 @@ final class ConnectionManager: ObservableObject {
     var onTerminalData: ((Data) -> Void)?
     var onResize: ((Int, Int) -> Void)?
     var onSessionCreated: ((_ requestId: String, _ sessionId: String, _ name: String, _ cwd: String, _ ptyCols: Int, _ ptyRows: Int) -> Void)?
+    var onSessionsList: (([[String: Any]]) -> Void)?
     var onSessionClosed: (() -> Void)?
 
     let relay: RelayClient
@@ -90,6 +91,43 @@ final class ConnectionManager: ObservableObject {
         }
     }
 
+    /// Returns true if a P2P transport (local or WebRTC) is available for control messages.
+    var hasP2PTransport: Bool {
+        localTransport.isConnected || webrtcTransport.isConnected
+    }
+
+    func sendListSessions() {
+        let msg: [String: Any] = ["type": "list_sessions"]
+
+        if localTransport.isConnected {
+            if let data = try? JSONSerialization.data(withJSONObject: msg),
+               let str = String(data: data, encoding: .utf8) {
+                localTransport.sendControlMessage(str)
+            }
+        } else if webrtcTransport.isConnected {
+            webrtcTransport.sendControlMessage(msg)
+        }
+    }
+
+    func sendDeleteSession(sessionId: String) {
+        let msg: [String: Any] = [
+            "type": "delete_session",
+            "sessionId": sessionId,
+        ]
+
+        guard let data = try? JSONSerialization.data(withJSONObject: msg),
+              let str = String(data: data, encoding: .utf8)
+        else { return }
+
+        if localTransport.isConnected {
+            localTransport.sendControlMessage(str)
+        } else if webrtcTransport.isConnected {
+            webrtcTransport.sendControlMessage(msg)
+        } else {
+            relay.sendSignaling(msg)
+        }
+    }
+
     func sendCreateSessionRequest(requestId: String) {
         let msg: [String: Any] = [
             "type": "create_session_request",
@@ -102,6 +140,8 @@ final class ConnectionManager: ObservableObject {
 
         if localTransport.isConnected {
             localTransport.sendControlMessage(str)
+        } else if webrtcTransport.isConnected {
+            webrtcTransport.sendControlMessage(msg)
         } else {
             relay.sendSignaling(msg)
         }
@@ -195,6 +235,10 @@ final class ConnectionManager: ObservableObject {
             self?.onSessionCreated?(requestId, sessionId, name, cwd, ptyCols, ptyRows)
         }
 
+        localTransport.onSessionsList = { [weak self] sessions in
+            self?.onSessionsList?(sessions)
+        }
+
         localTransport.onConnected = { [weak self] in
             guard let self else { return }
             self.updateActiveTransport()
@@ -229,6 +273,25 @@ final class ConnectionManager: ObservableObject {
 
         webrtcTransport.onDisconnected = { [weak self] in
             self?.updateActiveTransport()
+        }
+
+        webrtcTransport.onControlMessage = { [weak self] json in
+            guard let type = json["type"] as? String else { return }
+
+            if type == "session_created" {
+                if let requestId = json["requestId"] as? String,
+                   let sessionId = json["sessionId"] as? String,
+                   let name = json["name"] as? String,
+                   let cwd = json["cwd"] as? String,
+                   let ptyCols = json["ptyCols"] as? Int,
+                   let ptyRows = json["ptyRows"] as? Int {
+                    self?.onSessionCreated?(requestId, sessionId, name, cwd, ptyCols, ptyRows)
+                }
+            } else if type == "sessions_list" {
+                if let sessions = json["sessions"] as? [[String: Any]] {
+                    self?.onSessionsList?(sessions)
+                }
+            }
         }
 
         webrtcTransport.sendSignaling = { [weak self] msg in

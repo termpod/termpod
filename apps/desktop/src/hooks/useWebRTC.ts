@@ -12,6 +12,7 @@ export type WebRTCStatus = 'idle' | 'connecting' | 'connected' | 'failed';
 interface UseWebRTCOptions {
   onViewerInput?: (data: string) => void;
   onViewerResize?: (cols: number, rows: number) => void;
+  onControlMessage?: (msg: Record<string, unknown>) => Record<string, unknown> | void;
   onStatusChange?: (status: WebRTCStatus) => void;
   sendSignaling: (msg: Record<string, unknown>) => void;
   localClientId: string;
@@ -89,6 +90,15 @@ export function useWebRTC(options: UseWebRTCOptions) {
             const rows = (data[3] << 8) | data[4];
             optionsRef.current.onViewerResize?.(cols, rows);
           }
+        } else if (typeof event.data === 'string') {
+          try {
+            const msg = JSON.parse(event.data) as Record<string, unknown>;
+            const response = optionsRef.current.onControlMessage?.(msg);
+
+            if (response && channel.readyState === 'open') {
+              channel.send(JSON.stringify(response));
+            }
+          } catch {}
         }
       };
 
@@ -177,6 +187,14 @@ export function useWebRTC(options: UseWebRTCOptions) {
     }
   }, []);
 
+  const sendControlMessage = useCallback((msg: Record<string, unknown>) => {
+    const channel = channelRef.current;
+
+    if (channel?.readyState === 'open') {
+      channel.send(JSON.stringify(msg));
+    }
+  }, []);
+
   const close = useCallback(() => {
     channelRef.current?.close();
     pcRef.current?.close();
@@ -190,6 +208,7 @@ export function useWebRTC(options: UseWebRTCOptions) {
     initiateOffer,
     handleSignaling,
     sendTerminalData,
+    sendControlMessage,
     close,
     isConnected: status === 'connected',
   };
