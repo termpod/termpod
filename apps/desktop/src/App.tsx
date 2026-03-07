@@ -9,7 +9,6 @@ import { useDevice } from './hooks/useDevice';
 import { TabBar } from './components/TabBar';
 import { TerminalPanel } from './components/TerminalPanel';
 import type { RelayInfo } from './components/TerminalPanel';
-import { RelayStatus } from './components/RelayStatus';
 import { SettingsPanel } from './components/SettingsPanel';
 import { LoginScreen } from './components/LoginScreen';
 import { FullDiskAccessBanner } from './components/FullDiskAccessBanner';
@@ -30,6 +29,7 @@ export function App() {
     closeSession,
     switchSession,
     focusActive,
+    reorderSessions,
     updateSessionCwd,
     onSessionExitRef,
   } = useSessionManager();
@@ -517,9 +517,10 @@ export function App() {
           shell: settings.shellPath,
           cwd: resolveNewTabCwd(),
         })}
+        onReorder={reorderSessions}
+        relayStatus={activeRelay?.status ?? 'disconnected'}
       />
       <FullDiskAccessBanner />
-      <RelayStatus status={activeRelay?.status ?? 'disconnected'} />
       <div className="terminal-area">
         {sessions.map((session) => (
           <TerminalPanel

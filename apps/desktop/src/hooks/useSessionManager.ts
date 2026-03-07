@@ -315,6 +315,19 @@ export function useSessionManager() {
     [updateStore],
   );
 
+  const reorderSessions = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      updateStore((prev) => {
+        if (fromIndex === toIndex) return prev;
+        const next = [...prev.sessions];
+        const [moved] = next.splice(fromIndex, 1);
+        next.splice(toIndex, 0, moved);
+        return { ...prev, sessions: next };
+      });
+    },
+    [updateStore],
+  );
+
   const focusActive = useCallback(() => {
     const { sessions: s, activeId: id } = storeRef.current;
     const active = s.find((sess) => sess.id === id);
@@ -332,6 +345,7 @@ export function useSessionManager() {
     switchSession,
     focusActive,
     renameSession,
+    reorderSessions,
     updateSessionCwd,
     onSessionExitRef,
   };

@@ -70,6 +70,10 @@ body,
   app-region: no-drag;
 }
 
+.tabs-dragging {
+  user-select: none;
+}
+
 .tabs::-webkit-scrollbar {
   display: none;
 }
@@ -88,7 +92,7 @@ body,
   cursor: pointer;
   white-space: nowrap;
   -webkit-app-region: no-drag;
-  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast);
   position: relative;
   border-radius: var(--radius-sm);
 }
@@ -108,6 +112,64 @@ body,
 
 .tab-exited {
   opacity: 0.5;
+}
+
+.tab-dragging {
+  opacity: 0.25;
+  background: var(--bg-hover);
+  border-style: dashed;
+  border-color: var(--border);
+}
+
+.tab-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px 0 12px;
+  font-size: 12px;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--accent);
+  transform: scale(1.04);
+  opacity: 0.95;
+  white-space: nowrap;
+}
+
+.tab-drop-target::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: 2px;
+  bottom: 2px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+  box-shadow: 0 0 6px var(--accent);
+  animation: drop-indicator-in 0.12s ease-out;
+}
+
+.tab-drop-target-right::after {
+  content: '';
+  position: absolute;
+  right: -3px;
+  top: 2px;
+  bottom: 2px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+  box-shadow: 0 0 6px var(--accent);
+  animation: drop-indicator-in 0.12s ease-out;
+}
+
+@keyframes drop-indicator-in {
+  from { opacity: 0; transform: scaleY(0.4); }
+  to { opacity: 1; transform: scaleY(1); }
 }
 
 .tab-icon {
