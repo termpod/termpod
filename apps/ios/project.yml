@@ -1,4 +1,4 @@
-name: Termpod
+name: TermPod
 options:
   bundleIdPrefix: dev.termpod
   deploymentTarget:
@@ -16,16 +16,16 @@ packages:
   #   from: "141.0.0"
 
 targets:
-  Termpod:
+  TermPod:
     type: application
     platform: iOS
     sources:
-      - Termpod
+      - TermPod
     resources:
-      - Termpod/Resources
+      - TermPod/Resources
     settings:
       base:
-        INFOPLIST_FILE: Termpod/App/Info.plist
+        INFOPLIST_FILE: TermPod/App/Info.plist
         PRODUCT_BUNDLE_IDENTIFIER: dev.termpod.mobile
         MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: 1
@@ -38,13 +38,13 @@ targets:
       - package: SwiftTerm
       # - package: WebRTC
 
-  TermpodTests:
+  TermPodTests:
     type: bundle.unit-test
     platform: iOS
     sources:
       - Tests
     dependencies:
-      - target: Termpod
+      - target: TermPod
     settings:
       base:
         SWIFT_VERSION: "5.9"

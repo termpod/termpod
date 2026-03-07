@@ -135,7 +135,7 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
     let hostname = gethostname::gethostname()
         .to_string_lossy()
         .to_string();
-    let service_name = format!("Termpod-{hostname}");
+    let service_name = format!("TermPod-{hostname}");
 
     // Kill any stale dns-sd processes from previous runs
     let _ = std::process::Command::new("pkill")

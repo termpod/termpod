@@ -1,4 +1,4 @@
-# Termpod iOS — Native Swift App
+# TermPod iOS — Native Swift App
 
 ## Overview
 
@@ -8,17 +8,17 @@ The iOS app is built entirely in **Swift + SwiftUI**, using **SwiftTerm** for na
 
 SwiftTerm is a VT100/Xterm terminal emulator library by Miguel de Icaza (creator of Mono/.NET, Gnome). It provides a native `UIView` that handles all terminal emulation — ANSI escape sequences, colors, cursor positioning, alternate screen buffers, Unicode/emoji, text selection, CoreText rendering. It's used in production by commercial SSH clients like Secure Shellfish, La Terminal, and CodeEdit.
 
-The key insight: SwiftTerm's `TerminalView` is designed to be wired to any data source via `TerminalViewDelegate`. The library explicitly says that on iOS (where there's no local shell), the common scenario is wiring it to a remote host. That's exactly our use case — we wire it to the Termpod relay WebSocket instead of SSH.
+The key insight: SwiftTerm's `TerminalView` is designed to be wired to any data source via `TerminalViewDelegate`. The library explicitly says that on iOS (where there's no local shell), the common scenario is wiring it to a remote host. That's exactly our use case — we wire it to the TermPod relay WebSocket instead of SSH.
 
 ## Project Structure
 
 ```
-Termpod-iOS/
-├── Termpod.xcodeproj
+TermPod-iOS/
+├── TermPod.xcodeproj
 ├── Package.swift                    # SPM dependencies
-├── Termpod/
+├── TermPod/
 │   ├── App/
-│   │   ├── TermpodApp.swift         # @main entry point
+│   │   ├── TermPodApp.swift         # @main entry point
 │   │   ├── AppState.swift           # Global app state (ObservableObject)
 │   │   └── Info.plist
 │   │
@@ -28,7 +28,7 @@ Termpod-iOS/
 │   │   └── PairingToken.swift       # QR code token model
 │   │
 │   ├── Networking/
-│   │   ├── RelayClient.swift        # WebSocket client to Termpod relay
+│   │   ├── RelayClient.swift        # WebSocket client to TermPod relay
 │   │   ├── RelayProtocol.swift      # Binary/JSON frame encoding/decoding
 │   │   └── ReconnectionManager.swift # Exponential backoff + scrollback delta
 │   │
@@ -68,7 +68,7 @@ Termpod-iOS/
 import PackageDescription
 
 let package = Package(
-    name: "Termpod",
+    name: "TermPod",
     platforms: [.iOS(.v16)],
     dependencies: [
         .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", from: "1.0.0"),
@@ -76,7 +76,7 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "Termpod",
+            name: "TermPod",
             dependencies: ["SwiftTerm", "KeychainSwift"]
         ),
     ]
@@ -169,7 +169,7 @@ extension RemoteTerminalView: TerminalViewDelegate {
 ```swift
 import Foundation
 
-/// Manages the WebSocket connection to the Termpod relay server.
+/// Manages the WebSocket connection to the TermPod relay server.
 @MainActor
 class RelayClient: ObservableObject {
 
@@ -527,7 +527,7 @@ struct SessionListView: View {
                     ContentUnavailableView(
                         "No Sessions",
                         systemImage: "terminal",
-                        description: Text("Open Termpod on your Mac and scan the QR code to connect.")
+                        description: Text("Open TermPod on your Mac and scan the QR code to connect.")
                     )
                 }
 
@@ -537,7 +537,7 @@ struct SessionListView: View {
                     }
                 }
             }
-            .navigationTitle("Termpod")
+            .navigationTitle("TermPod")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {

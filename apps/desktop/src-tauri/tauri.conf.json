@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-cli/schema.json",
-  "productName": "Termpod",
+  "productName": "TermPod",
   "version": "0.1.0",
   "identifier": "dev.termpod.desktop",
   "build": {
@@ -13,7 +13,7 @@
     "macOSPrivateApi": true,
     "windows": [
       {
-        "title": "Termpod",
+        "title": "TermPod",
         "width": 1200,
         "height": 800,
         "resizable": true,

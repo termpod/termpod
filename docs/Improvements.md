@@ -1,4 +1,4 @@
-Implement the core user flow for Termpod. Here's the full architecture:
+Implement the core user flow for TermPod. Here's the full architecture:
 
 ## User Flow
 

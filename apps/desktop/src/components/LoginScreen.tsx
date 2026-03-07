@@ -30,7 +30,7 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
     <div className="login-screen">
       <div className="login-card">
         <div className="login-icon">&#9654;</div>
-        <h1 className="login-title">Termpod</h1>
+        <h1 className="login-title">TermPod</h1>
         <p className="login-subtitle">
           {isSignup ? 'Create your account' : 'Sign in to your account'}
         </p>

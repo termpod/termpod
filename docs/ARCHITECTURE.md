@@ -2,7 +2,7 @@
 
 ## System Design
 
-Termpod follows a hub-and-spoke architecture with three components:
+TermPod follows a hub-and-spoke architecture with three components:
 
 ### 1. Desktop App (The "Worker")
 
@@ -10,7 +10,7 @@ The Mac app is the only component that runs an actual shell. It has two responsi
 
 **Local terminal**: Spawns PTY sessions via `tauri-plugin-pty`, renders them with xterm.js, and lets you interact normally — it's a fully functional terminal on its own.
 
-**Relay client**: Streams PTY output to the Termpod relay over WebSocket, and receives input from remote viewers (your phone) to forward to the PTY.
+**Relay client**: Streams PTY output to the TermPod relay over WebSocket, and receives input from remote viewers (your phone) to forward to the PTY.
 
 ```
 Desktop App

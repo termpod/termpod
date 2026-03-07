@@ -2,7 +2,7 @@
 
 ## Overview
 
-Termpod uses WebSocket for all communication between clients (desktop, mobile) and the relay. The protocol uses two frame types:
+TermPod uses WebSocket for all communication between clients (desktop, mobile) and the relay. The protocol uses two frame types:
 
 - **Binary frames**: Terminal I/O data (high frequency, low overhead)
 - **Text frames**: JSON control messages (low frequency, structured)

@@ -15,7 +15,7 @@ struct LoginView: View {
                 .font(.system(size: 48))
                 .foregroundStyle(.tint)
 
-            Text("Termpod")
+            Text("TermPod")
                 .font(.largeTitle)
                 .fontWeight(.bold)
 

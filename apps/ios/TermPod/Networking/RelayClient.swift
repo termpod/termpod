@@ -1,7 +1,7 @@
 import Foundation
 import UIKit
 
-/// Manages the WebSocket connection to the Termpod relay server.
+/// Manages the WebSocket connection to the TermPod relay server.
 @MainActor
 final class RelayClient: ObservableObject, Transport {
 

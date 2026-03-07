@@ -266,7 +266,7 @@ pub fn run() {
             let session_menu = session_menu.build()?;
 
             let menu = MenuBuilder::new(app)
-                .item(&SubmenuBuilder::new(app, "Termpod")
+                .item(&SubmenuBuilder::new(app, "TermPod")
                     .about(None)
                     .separator()
                     .item(&settings)

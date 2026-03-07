@@ -2,7 +2,7 @@ import Foundation
 import Network
 import UIKit
 
-/// Discovers Termpod desktops on the local network via Bonjour
+/// Discovers TermPod desktops on the local network via Bonjour
 /// and maintains a persistent WebSocket connection to receive session updates.
 @MainActor
 final class LocalDiscoveryService: ObservableObject {

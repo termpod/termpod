@@ -1,4 +1,4 @@
-# Contributing to Termpod
+# Contributing to TermPod
 
 ## Development Setup
 

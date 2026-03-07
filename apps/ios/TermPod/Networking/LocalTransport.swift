@@ -2,7 +2,7 @@ import Foundation
 import Network
 import UIKit
 
-/// Discovers a Termpod desktop on the local network via Bonjour,
+/// Discovers a TermPod desktop on the local network via Bonjour,
 /// then connects directly via WebSocket for lowest-latency communication.
 @MainActor
 final class LocalTransport: Transport {

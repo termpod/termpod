@@ -1,8 +1,8 @@
-# Termpod
+# TermPod
 
 **Your terminal, everywhere.**
 
-Termpod is a shared terminal app for developers. Start a session on your Mac — run Claude Code, Codex, or any CLI tool — and pick it up on your iPhone. Both devices see the same live terminal. Type from either one.
+TermPod is a shared terminal app for developers. Start a session on your Mac — run Claude Code, Codex, or any CLI tool — and pick it up on your iPhone. Both devices see the same live terminal. Type from either one.
 
 No SSH. No tmux hacks. No VPN. Just open the app.
 
@@ -10,7 +10,7 @@ No SSH. No tmux hacks. No VPN. Just open the app.
 
 ```
 ┌─────────┐         ┌───────────────┐         ┌─────────┐
-│   Mac   │◄──ws──►│  Termpod Relay │◄──ws──►│  iPhone  │
+│   Mac   │◄──ws──►│  TermPod Relay │◄──ws──►│  iPhone  │
 │ (PTY +  │         │  (Cloudflare   │         │ (viewer  │
 │  viewer)│         │   Durable Obj) │         │ + input) │
 └─────────┘         └───────────────┘         └─────────┘
