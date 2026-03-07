@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Settings, CursorStyle, NewTabCwd, TerminalTheme, BlurStyle, FontSmoothing, FontWeight } from '../hooks/useSettings';
+import type { Settings, CursorStyle, NewTabCwd, TerminalTheme, FontSmoothing, FontWeight } from '../hooks/useSettings';
 import { THEMES } from '../hooks/useSettings';
 
 type SettingsTab = 'appearance' | 'terminal' | 'behavior' | 'account';
@@ -28,13 +28,6 @@ const FONT_OPTIONS = [
   'Inconsolata, monospace',
 ];
 
-const BLUR_OPTIONS: { value: BlurStyle; label: string }[] = [
-  { value: 'none', label: 'Off' },
-  { value: 'subtle', label: 'Subtle' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'full', label: 'Full' },
-];
-
 const CURSOR_OPTIONS: { value: CursorStyle; label: string }[] = [
   { value: 'block', label: 'Block' },
   { value: 'underline', label: 'Line' },
@@ -54,11 +47,39 @@ const FONT_SMOOTHING_OPTIONS: { value: FontSmoothing; label: string }[] = [
   { value: 'none', label: 'None' },
 ];
 
-const TABS: { id: SettingsTab; label: string; icon: string }[] = [
-  { id: 'appearance', label: 'Appearance', icon: '◑' },
-  { id: 'terminal', label: 'Terminal', icon: '▸' },
-  { id: 'behavior', label: 'Behavior', icon: '⚙' },
-  { id: 'account', label: 'Account', icon: '⊙' },
+const TAB_ICONS: Record<SettingsTab, React.ReactNode> = {
+  appearance: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="8" r="6.25" />
+      <path d="M8 1.75v12.5" />
+      <path d="M8 1.75a6.25 6.25 0 0 0 0 12.5" fill="currentColor" />
+    </svg>
+  ),
+  terminal: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2" />
+      <path d="M5 6.5l2.5 2L5 10.5" />
+      <path d="M9 10.5h2" />
+    </svg>
+  ),
+  behavior: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6.86 2.57a1.25 1.25 0 0 1 2.28 0l.58 1.3a1.25 1.25 0 0 0 .94.68l1.42.21c1.04.15 1.46 1.44.7 2.18l-1.03 1a1.25 1.25 0 0 0-.36 1.1l.24 1.42c.18 1.04-.91 1.83-1.84 1.34l-1.27-.67a1.25 1.25 0 0 0-1.16 0l-1.27.67c-.93.49-2.02-.3-1.84-1.34l.24-1.42a1.25 1.25 0 0 0-.36-1.1l-1.03-1c-.76-.74-.34-2.03.7-2.18l1.42-.2a1.25 1.25 0 0 0 .94-.69l.58-1.3z" />
+    </svg>
+  ),
+  account: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="5.5" r="2.75" />
+      <path d="M2.75 14.25c0-2.9 2.35-5.25 5.25-5.25s5.25 2.35 5.25 5.25" />
+    </svg>
+  ),
+};
+
+const TABS: { id: SettingsTab; label: string }[] = [
+  { id: 'appearance', label: 'Appearance' },
+  { id: 'terminal', label: 'Terminal' },
+  { id: 'behavior', label: 'Behavior' },
+  { id: 'account', label: 'Account' },
 ];
 
 export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, onOpenKeybindings, email, onLogout }: SettingsPanelProps) {
@@ -109,13 +130,18 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
               className={`sp-tab ${activeTab === tab.id ? 'sp-tab-active' : ''}`}
               onClick={() => setActiveTab(tab.id)}
             >
-              <span className="sp-tab-icon">{tab.icon}</span>
+              <span className="sp-tab-icon">{TAB_ICONS[tab.id]}</span>
               <span>{tab.label}</span>
             </button>
           ))}
           <div className="sp-sidebar-spacer" />
           <button className="sp-tab sp-tab-reset" onClick={onReset}>
-            <span className="sp-tab-icon">↺</span>
+            <span className="sp-tab-icon">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2.75 3v3.5h3.5" />
+                <path d="M2.75 6.5A5.25 5.25 0 1 1 3.6 10" />
+              </svg>
+            </span>
             <span>Reset All</span>
           </button>
         </nav>
@@ -180,26 +206,6 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                       step={2}
                       value={settings.windowPadding}
                       onChange={(e) => onUpdate({ windowPadding: Number(e.target.value) })}
-                    />
-                  </SettingRow>
-                  <div className="sp-separator" />
-                  <SettingRow label="Background Blur">
-                    <SegmentedControl
-                      options={BLUR_OPTIONS}
-                      value={settings.backgroundBlur}
-                      onChange={(v) => onUpdate({ backgroundBlur: v })}
-                    />
-                  </SettingRow>
-                  <div className="sp-separator" />
-                  <SettingRow label="Opacity" badge={`${Math.round(settings.backgroundOpacity * 100)}%`}>
-                    <input
-                      className="sp-range"
-                      type="range"
-                      min={0.3}
-                      max={1.0}
-                      step={0.05}
-                      value={settings.backgroundOpacity}
-                      onChange={(e) => onUpdate({ backgroundOpacity: Number(e.target.value) })}
                     />
                   </SettingRow>
                 </div>

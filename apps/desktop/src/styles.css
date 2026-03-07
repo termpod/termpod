@@ -498,10 +498,17 @@ body,
 }
 
 .sp-tab-icon {
-  font-size: 14px;
   width: 18px;
-  text-align: center;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.sp-tab-active .sp-tab-icon {
+  opacity: 1;
 }
 
 .sp-tab-reset {
