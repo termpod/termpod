@@ -1384,30 +1384,22 @@ body,
   background: var(--border);
 }
 
-/* ── Terminal Context Menu ── */
+/* ── Terminal Context Menu (macOS-native style) ── */
 .terminal-context-menu {
   position: fixed;
   z-index: 1000;
   min-width: 180px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 4px 0;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  animation: context-menu-in 0.1s ease-out;
-}
-
-@keyframes context-menu-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  background: rgba(38, 38, 40, 0.82);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.4),
+    0 8px 30px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+  backdrop-filter: saturate(180%) blur(50px);
+  -webkit-backdrop-filter: saturate(180%) blur(50px);
+  -webkit-font-smoothing: antialiased;
 }
 
 .terminal-context-menu-item {
@@ -1415,40 +1407,42 @@ body,
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 5px 12px;
+  padding: 2px 8px;
   border: none;
+  border-radius: 4px;
   background: none;
-  color: var(--text-primary);
-  font: 13px var(--font-sans);
-  cursor: pointer;
+  color: rgba(255, 255, 255, 0.85);
+  font: 13px/18px -apple-system, BlinkMacSystemFont, sans-serif;
+  cursor: default;
   text-align: left;
-  gap: 24px;
+  gap: 32px;
+  white-space: nowrap;
 }
 
 .terminal-context-menu-item:hover:not(:disabled) {
-  background: var(--accent);
+  background: #2860d4;
   color: #fff;
 }
 
 .terminal-context-menu-item:hover:not(:disabled) .terminal-context-menu-shortcut {
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .terminal-context-menu-item:disabled {
-  color: var(--text-muted);
-  cursor: default;
+  color: rgba(255, 255, 255, 0.25);
 }
 
 .terminal-context-menu-shortcut {
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.38);
   font-size: 12px;
   flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .terminal-context-menu-separator {
   height: 1px;
-  background: var(--border);
-  margin: 4px 0;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 3px 0;
 }
 
 /* ── Login Screen ── */
