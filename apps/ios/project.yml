@@ -10,10 +10,9 @@ packages:
   SwiftTerm:
     url: https://github.com/migueldeicaza/SwiftTerm.git
     from: "1.0.0"
-  # WebRTC: Uncomment when stasel/WebRTC supports Xcode 26+ / iOS 26 SDK
-  # WebRTC:
-  #   url: https://github.com/stasel/WebRTC.git
-  #   from: "141.0.0"
+  LiveKitWebRTC:
+    url: https://github.com/livekit/webrtc-xcframework.git
+    from: "137.7151.0"
 
 configFiles:
   Debug: Config.xcconfig
@@ -42,7 +41,7 @@ targets:
         RELAY_BASE_URL: $(TERMPOD_RELAY_URL)
     dependencies:
       - package: SwiftTerm
-      # - package: WebRTC
+      - package: LiveKitWebRTC
 
   TermPodTests:
     type: bundle.unit-test

@@ -8,7 +8,7 @@ import {
 } from '@termpod/protocol';
 import type { RelayMessage } from '@termpod/protocol';
 import { RELAY_URL, RECONNECT } from '@termpod/shared';
-import { getAccessToken } from './useAuth';
+import { getAccessToken, getValidAccessToken } from './useAuth';
 import { getSettingsSnapshot } from './useSettings';
 
 export type RelayStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
@@ -171,7 +171,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
       if (!intentionalCloseRef.current && sessionRef.current) {
         updateStatus('reconnecting');
 
-        reconnectTimeoutRef.current = setTimeout(() => {
+        reconnectTimeoutRef.current = setTimeout(async () => {
           const s = sessionRef.current;
 
           if (s) {
@@ -179,6 +179,8 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
               reconnectDelayRef.current * RECONNECT.backoffMultiplier,
               RECONNECT.maxDelay,
             );
+            // Ensure token is fresh before reconnecting
+            await getValidAccessToken();
             connectWebSocketRef.current(s);
           }
         }, reconnectDelayRef.current);

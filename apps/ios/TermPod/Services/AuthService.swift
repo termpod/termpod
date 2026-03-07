@@ -20,6 +20,31 @@ final class AuthService: ObservableObject {
         KeychainService.load(key: Self.accessTokenKey)
     }
 
+    /// Returns a valid access token, refreshing if expired or expiring within 60s.
+    func validAccessToken() async -> String? {
+        if let token = accessToken, !isTokenExpiringSoon(token) {
+            return token
+        }
+
+        let refreshed = await refresh()
+
+        return refreshed ? accessToken : nil
+    }
+
+    private func isTokenExpiringSoon(_ token: String) -> Bool {
+        let parts = token.split(separator: ".")
+
+        guard parts.count == 3,
+              let data = Data(base64URLEncoded: String(parts[1])),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let exp = json["exp"] as? TimeInterval
+        else {
+            return true
+        }
+
+        return exp - Date().timeIntervalSince1970 < 60
+    }
+
     private static let defaultRelayURL = "https://relay.termpod.dev"
 
     init() {
@@ -186,26 +211,42 @@ final class AuthService: ObservableObject {
         startAutoRefresh()
     }
 
-    /// Build a WebSocket URL with auth token. Returns nil if not authenticated.
-    func authenticatedWSURL(sessionId: String) -> URL? {
+    /// Build a WebSocket URL with a fresh auth token. Returns nil if not authenticated.
+    func authenticatedWSURL(sessionId: String) async -> URL? {
         let wsBase = relayHTTP
             .replacingOccurrences(of: "https://", with: "wss://")
             .replacingOccurrences(of: "http://", with: "ws://")
 
-        guard let token = accessToken, !token.isEmpty else {
+        guard let token = await validAccessToken(), !token.isEmpty else {
             return nil
         }
 
         return URL(string: "\(wsBase)/sessions/\(sessionId)/ws?token=\(token)")
     }
 
-    /// Make an authenticated API request.
+    /// Make an authenticated API request. Auto-refreshes and retries once on 401.
     func apiFetch(path: String, method: String = "GET", body: [String: Any]? = nil) async throws -> (Data, HTTPURLResponse) {
+        let token = await validAccessToken()
+
+        let result = try await rawFetch(path: path, method: method, body: body, token: token)
+
+        if result.1.statusCode == 401 {
+            let refreshed = await refresh()
+
+            if refreshed {
+                return try await rawFetch(path: path, method: method, body: body, token: accessToken)
+            }
+        }
+
+        return result
+    }
+
+    private func rawFetch(path: String, method: String, body: [String: Any]?, token: String?) async throws -> (Data, HTTPURLResponse) {
         var request = URLRequest(url: URL(string: "\(relayHTTP)\(path)")!)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        if let token = accessToken {
+        if let token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
@@ -224,6 +265,22 @@ final class AuthService: ObservableObject {
 }
 
 // MARK: - Error
+
+private extension Data {
+    init?(base64URLEncoded string: String) {
+        var base64 = string
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+
+        let remainder = base64.count % 4
+
+        if remainder > 0 {
+            base64.append(String(repeating: "=", count: 4 - remainder))
+        }
+
+        self.init(base64Encoded: base64)
+    }
+}
 
 enum AuthError: Error {
     case networkError

@@ -25,14 +25,44 @@ final class LocalTransport: Transport {
     private var connected = false
     private var intentionalClose = false
     private var reconnectionManager = ReconnectionManager()
+    private let networkMonitor = NWPathMonitor()
+
+    private var isOnWiFi = false
+    private var discoveryRequested = false
 
     init(sessionId: String) {
         self.sessionId = sessionId
+
+        networkMonitor.pathUpdateHandler = { [weak self] path in
+            let wifi = path.usesInterfaceType(.wifi)
+
+            Task { @MainActor in
+                guard let self else { return }
+                let wasOnWiFi = self.isOnWiFi
+                self.isOnWiFi = wifi
+
+                if wifi && !wasOnWiFi && self.discoveryRequested {
+                    self.startBrowsing()
+                } else if !wifi && wasOnWiFi && self.connected {
+                    self.handleDisconnect()
+                }
+            }
+        }
+
+        networkMonitor.start(queue: .main)
     }
 
     // MARK: - Discovery
 
     func startDiscovery() {
+        discoveryRequested = true
+
+        if isOnWiFi {
+            startBrowsing()
+        }
+    }
+
+    private func startBrowsing() {
         let params = NWParameters()
         params.includePeerToPeer = true
 
@@ -208,16 +238,18 @@ final class LocalTransport: Transport {
     }
 
     private func scheduleReconnect() {
+        guard isOnWiFi else { return }
+
         let attempt = reconnectionManager.nextAttempt()
         print("[LocalTransport] Reconnecting in \(String(format: "%.1f", attempt.delay))s (attempt \(attempt.number))")
 
         Task {
             try? await Task.sleep(for: .seconds(attempt.delay))
-            guard !intentionalClose else { return }
+            guard !intentionalClose, isOnWiFi else { return }
             // Restart discovery — the browser won't re-emit for known services,
             // so we cancel and recreate it to get a fresh browse.
             stopDiscovery()
-            startDiscovery()
+            startBrowsing()
         }
     }
 
@@ -245,7 +277,9 @@ final class LocalTransport: Transport {
 
     func disconnect() {
         intentionalClose = true
+        discoveryRequested = false
         stopDiscovery()
+        networkMonitor.cancel()
         webSocket?.cancel(with: .goingAway, reason: nil)
         webSocket = nil
         connected = false

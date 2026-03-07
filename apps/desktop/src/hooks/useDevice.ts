@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getAccessToken, getRelayHttp } from './useAuth';
+import { authFetch } from './useAuth';
 
 const HEARTBEAT_INTERVAL = 30_000; // 30 seconds
 const POLL_INTERVAL = 30_000; // 30 seconds — backup only, primary path is push-based WS
@@ -17,16 +17,8 @@ function getOrCreateDeviceId(): string {
 }
 
 async function deviceFetch(path: string, method = 'GET', body?: unknown): Promise<Response> {
-  const token = getAccessToken();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  return fetch(`${getRelayHttp()}${path}`, {
+  return authFetch(path, {
     method,
-    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
 }

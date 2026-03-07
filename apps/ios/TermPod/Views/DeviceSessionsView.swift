@@ -101,7 +101,7 @@ struct DeviceSessionsView: View {
                         isActive: appState.sessions.contains { $0.id == session.id }
                     )
                     .transition(.scale.combined(with: .opacity))
-                    .onTapGesture { joinSession(session) }
+                    .onTapGesture { Task { await joinSession(session) } }
                     .contextMenu {
                         Button(role: .destructive) {
                             deleteSession(session)
@@ -320,7 +320,7 @@ struct DeviceSessionsView: View {
             }
 
             if let (sessionId, name, _, _, _) = result {
-                guard let wsURL = auth.authenticatedWSURL(sessionId: sessionId) else {
+                guard let wsURL = await auth.authenticatedWSURL(sessionId: sessionId) else {
                     requestingSession = false
                     return
                 }
@@ -357,7 +357,7 @@ struct DeviceSessionsView: View {
             }
 
             if let (sessionId, name, _, _, _) = result {
-                guard let wsURL = auth.authenticatedWSURL(sessionId: sessionId) else {
+                guard let wsURL = await auth.authenticatedWSURL(sessionId: sessionId) else {
                     requestingSession = false
                     return
                 }
@@ -376,7 +376,7 @@ struct DeviceSessionsView: View {
         requestingSession = false
     }
 
-    private func joinSession(_ session: DeviceService.DeviceSession) {
+    private func joinSession(_ session: DeviceService.DeviceSession) async {
         // If already joined, navigate to the existing session
         if let existing = appState.sessions.first(where: { $0.id == session.id }) {
             HapticService.shared.playTap()
@@ -384,7 +384,7 @@ struct DeviceSessionsView: View {
             return
         }
 
-        guard let wsURL = auth.authenticatedWSURL(sessionId: session.id) else { return }
+        guard let wsURL = await auth.authenticatedWSURL(sessionId: session.id) else { return }
 
         HapticService.shared.playTap()
 

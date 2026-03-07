@@ -13,11 +13,21 @@ fi
 TEAM_ID="${APPLE_TEAM_ID:-}"
 RELAY_URL="${VITE_RELAY_URL:-https://relay.termpod.dev}"
 
-cat > "$CONFIG_FILE" <<EOF
+# Normalize WS URLs to HTTPS (AuthService handles the reverse conversion for WebSocket)
+RELAY_URL=$(echo "$RELAY_URL" | sed 's|^wss://|https://|' | sed 's|^ws://|http://|')
+
+# xcconfig treats // as a comment — extract parts and reassemble with $()/$()/ escape
+PROTOCOL=$(echo "$RELAY_URL" | cut -d: -f1)
+HOST=$(echo "$RELAY_URL" | sed 's|.*://||')
+
+cat > "$CONFIG_FILE" <<'XCEOF'
 // Auto-generated — do not edit. Run generate-config.sh to regenerate.
-TERMPOD_TEAM_ID = $TEAM_ID
-TERMPOD_RELAY_URL = $RELAY_URL
-EOF
+XCEOF
+echo "TERMPOD_TEAM_ID = $TEAM_ID" >> "$CONFIG_FILE"
+# Write xcconfig-safe URL: $() is an empty variable reference, producing just /
+echo -n "TERMPOD_RELAY_URL = ${PROTOCOL}:" >> "$CONFIG_FILE"
+echo -n '$()/$()/'"$HOST" >> "$CONFIG_FILE"
+echo "" >> "$CONFIG_FILE"
 
 echo "Generated $CONFIG_FILE"
 echo "  TERMPOD_TEAM_ID = $TEAM_ID"

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		169B3E48F91D8B0A314439D6 /* LockScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52820BB61A9AA96759E63593 /* LockScreenView.swift */; };
 		18ECB53DE13E841EA94AC985 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55CA9DE296CC288EFD4C747D /* SettingsView.swift */; };
+		208941FF81697CC3C6C72249 /* LiveKitWebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = C686E12D6D627D78D4E10351 /* LiveKitWebRTC */; };
 		2FC71C607F7A7E72D237FB37 /* TerminalSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD1B77E6B191FF527246DAED /* TerminalSettings.swift */; };
 		347BACEAD2D25F9F4B57D8D6 /* termpod.icon in Resources */ = {isa = PBXBuildFile; fileRef = A69F87DDD0F1A0630354FAFC /* termpod.icon */; };
 		3692A6B57AA1E587A85D3D4A /* Transport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3324D183A1853C7DBBB1E145 /* Transport.swift */; };
@@ -101,6 +102,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				56C9D79E78A541ACFA8F2C6D /* SwiftTerm in Frameworks */,
+				208941FF81697CC3C6C72249 /* LiveKitWebRTC in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -258,6 +260,7 @@
 			name = TermPod;
 			packageProductDependencies = (
 				B3B9A88023B1AFE3F76F9692 /* SwiftTerm */,
+				C686E12D6D627D78D4E10351 /* LiveKitWebRTC */,
 			);
 			productName = TermPod;
 			productReference = 6EFA137D6BCE65AB2585ABFD /* TermPod.app */;
@@ -306,6 +309,7 @@
 			mainGroup = 9940A5D1C2A4503311EF7898;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				36279F12B70B8EDB5078E75F /* XCRemoteSwiftPackageReference "webrtc-xcframework" */,
 				5248F832886BFB62F9DB6DAC /* XCRemoteSwiftPackageReference "SwiftTerm" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -622,6 +626,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		36279F12B70B8EDB5078E75F /* XCRemoteSwiftPackageReference "webrtc-xcframework" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/livekit/webrtc-xcframework.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 137.7151.0;
+			};
+		};
 		5248F832886BFB62F9DB6DAC /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/migueldeicaza/SwiftTerm.git";
@@ -637,6 +649,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 5248F832886BFB62F9DB6DAC /* XCRemoteSwiftPackageReference "SwiftTerm" */;
 			productName = SwiftTerm;
+		};
+		C686E12D6D627D78D4E10351 /* LiveKitWebRTC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 36279F12B70B8EDB5078E75F /* XCRemoteSwiftPackageReference "webrtc-xcframework" */;
+			productName = LiveKitWebRTC;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -235,6 +235,78 @@ export function getAccessToken(): string | null {
   return store.state.accessToken;
 }
 
+/**
+ * Get a valid access token, refreshing if needed.
+ * Returns null only if refresh also fails (truly logged out).
+ */
+export async function getValidAccessToken(): Promise<string | null> {
+  const token = store.state.accessToken;
+
+  if (token && !isTokenExpiringSoon(token)) {
+    return token;
+  }
+
+  const refreshed = await refreshAccessToken();
+
+  return refreshed ? store.state.accessToken : null;
+}
+
+function isTokenExpiringSoon(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const now = Math.floor(Date.now() / 1000);
+
+    return payload.exp - now < 60;
+  } catch {
+    return true;
+  }
+}
+
+let refreshPromise: Promise<boolean> | null = null;
+
+/**
+ * Fetch wrapper that auto-refreshes on 401 and retries once.
+ */
+export async function authFetch(
+  path: string,
+  options: RequestInit = {},
+): Promise<Response> {
+  const token = await getValidAccessToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string>),
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const url = `${wsToHttp(getRelayBase())}${path}`;
+  const res = await fetch(url, { ...options, headers });
+
+  if (res.status !== 401 || !store.state.refreshToken) {
+    return res;
+  }
+
+  // Deduplicate concurrent refresh attempts
+  if (!refreshPromise) {
+    refreshPromise = refreshAccessToken().finally(() => {
+      refreshPromise = null;
+    });
+  }
+
+  const refreshed = await refreshPromise;
+
+  if (!refreshed) {
+    return res;
+  }
+
+  const newToken = store.state.accessToken;
+  headers['Authorization'] = `Bearer ${newToken}`;
+
+  return fetch(url, { ...options, headers });
+}
+
 export function getRelayHttp(): string {
   return wsToHttp(getRelayBase());
 }

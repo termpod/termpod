@@ -1,14 +1,7 @@
 import Foundation
 
-// TODO: Add `import WebRTC` and uncomment the WebRTC dependency in project.yml
-// once stasel/WebRTC supports Xcode 26+ / iOS 26 SDK.
-//
-// The full WebRTC implementation is below, gated behind #if canImport(WebRTC).
-// When the dependency is available, this file will automatically use the real
-// implementation. Until then, it falls back to a no-op stub.
-
-#if canImport(WebRTC)
-import WebRTC
+#if canImport(LiveKitWebRTC)
+import LiveKitWebRTC
 
 /// WebRTC DataChannel transport for cross-network P2P communication.
 /// Signaling flows through the relay; data flows directly peer-to-peer.
@@ -27,14 +20,14 @@ final class WebRTCTransport: NSObject, Transport {
     /// Called when we need to send signaling messages through the relay.
     var sendSignaling: (([String: Any]) -> Void)?
 
-    private var peerConnection: RTCPeerConnection?
-    private var dataChannel: RTCDataChannel?
+    private var peerConnection: LKRTCPeerConnection?
+    private var dataChannel: LKRTCDataChannel?
     private let clientId: String
     private var remoteClientId: String?
 
-    private static let factory: RTCPeerConnectionFactory = {
-        RTCInitializeSSL()
-        return RTCPeerConnectionFactory()
+    private static let factory: LKRTCPeerConnectionFactory = {
+        LKRTCInitializeSSL()
+        return LKRTCPeerConnectionFactory()
     }()
 
     init(clientId: String) {
@@ -73,7 +66,7 @@ final class WebRTCTransport: NSObject, Transport {
 
     private func handleOffer(sdp: String, from: String) {
         let pc = createPeerConnection()
-        let remoteSdp = RTCSessionDescription(type: .offer, sdp: sdp)
+        let remoteSdp = LKRTCSessionDescription(type: .offer, sdp: sdp)
 
         pc.setRemoteDescription(remoteSdp) { [weak self] error in
             guard let self, error == nil else { return }
@@ -98,38 +91,39 @@ final class WebRTCTransport: NSObject, Transport {
     }
 
     private func handleAnswer(sdp: String) {
-        let remoteSdp = RTCSessionDescription(type: .answer, sdp: sdp)
+        let remoteSdp = LKRTCSessionDescription(type: .answer, sdp: sdp)
         peerConnection?.setRemoteDescription(remoteSdp) { error in
             let _ = error
         }
     }
 
     private func handleIceCandidate(candidate: String, sdpMid: String?, sdpMLineIndex: Int32) {
-        let iceCandidate = RTCIceCandidate(sdp: candidate, sdpMLineIndex: sdpMLineIndex, sdpMid: sdpMid)
+        let iceCandidate = LKRTCIceCandidate(sdp: candidate, sdpMLineIndex: sdpMLineIndex, sdpMid: sdpMid)
         peerConnection?.add(iceCandidate)
     }
 
-    private func createPeerConnection() -> RTCPeerConnection {
+    private func createPeerConnection() -> LKRTCPeerConnection {
         peerConnection?.close()
 
-        let config = RTCConfiguration()
+        let config = LKRTCConfiguration()
         config.iceServers = [
-            RTCIceServer(urlStrings: [
+            LKRTCIceServer(urlStrings: [
                 "stun:stun.l.google.com:19302",
                 "stun:stun1.l.google.com:19302",
+                "stun:stun.cloudflare.com:3478",
             ]),
         ]
         config.sdpSemantics = .unifiedPlan
 
-        let constraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
+        let constraints = LKRTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
         let pc = Self.factory.peerConnection(with: config, constraints: constraints, delegate: self)!
         peerConnection = pc
 
         return pc
     }
 
-    private static func defaultConstraints() -> RTCMediaConstraints {
-        RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
+    private static func defaultConstraints() -> LKRTCMediaConstraints {
+        LKRTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
     }
 
     // MARK: - Transport
@@ -139,7 +133,7 @@ final class WebRTCTransport: NSObject, Transport {
 
         var frame = Data([0x00])
         frame.append(data)
-        dc.sendData(RTCDataBuffer(data: frame, isBinary: true))
+        dc.sendData(LKRTCDataBuffer(data: frame, isBinary: true))
     }
 
     func sendResize(cols: Int, rows: Int) {
@@ -151,7 +145,7 @@ final class WebRTCTransport: NSObject, Transport {
         frame[2] = UInt8(cols & 0xFF)
         frame[3] = UInt8((rows >> 8) & 0xFF)
         frame[4] = UInt8(rows & 0xFF)
-        dc.sendData(RTCDataBuffer(data: frame, isBinary: true))
+        dc.sendData(LKRTCDataBuffer(data: frame, isBinary: true))
     }
 
     func disconnect() {
@@ -162,13 +156,13 @@ final class WebRTCTransport: NSObject, Transport {
     }
 }
 
-extension WebRTCTransport: RTCPeerConnectionDelegate {
-    nonisolated func peerConnection(_ pc: RTCPeerConnection, didChange state: RTCSignalingState) {}
-    nonisolated func peerConnection(_ pc: RTCPeerConnection, didAdd stream: RTCMediaStream) {}
-    nonisolated func peerConnection(_ pc: RTCPeerConnection, didRemove stream: RTCMediaStream) {}
-    nonisolated func peerConnectionShouldNegotiate(_ pc: RTCPeerConnection) {}
+extension WebRTCTransport: LKRTCPeerConnectionDelegate {
+    nonisolated func peerConnection(_ pc: LKRTCPeerConnection, didChange state: LKRTCSignalingState) {}
+    nonisolated func peerConnection(_ pc: LKRTCPeerConnection, didAdd stream: LKRTCMediaStream) {}
+    nonisolated func peerConnection(_ pc: LKRTCPeerConnection, didRemove stream: LKRTCMediaStream) {}
+    nonisolated func peerConnectionShouldNegotiate(_ pc: LKRTCPeerConnection) {}
 
-    nonisolated func peerConnection(_ pc: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
+    nonisolated func peerConnection(_ pc: LKRTCPeerConnection, didChange newState: LKRTCIceConnectionState) {
         Task { @MainActor in
             switch newState {
             case .connected: self.onConnected?()
@@ -178,9 +172,9 @@ extension WebRTCTransport: RTCPeerConnectionDelegate {
         }
     }
 
-    nonisolated func peerConnection(_ pc: RTCPeerConnection, didChange state: RTCIceGatheringState) {}
+    nonisolated func peerConnection(_ pc: LKRTCPeerConnection, didChange state: LKRTCIceGatheringState) {}
 
-    nonisolated func peerConnection(_ pc: RTCPeerConnection, didGenerate candidate: RTCIceCandidate) {
+    nonisolated func peerConnection(_ pc: LKRTCPeerConnection, didGenerate candidate: LKRTCIceCandidate) {
         Task { @MainActor in
             guard let remote = self.remoteClientId else { return }
             self.sendSignaling?([
@@ -194,9 +188,9 @@ extension WebRTCTransport: RTCPeerConnectionDelegate {
         }
     }
 
-    nonisolated func peerConnection(_ pc: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {}
+    nonisolated func peerConnection(_ pc: LKRTCPeerConnection, didRemove candidates: [LKRTCIceCandidate]) {}
 
-    nonisolated func peerConnection(_ pc: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {
+    nonisolated func peerConnection(_ pc: LKRTCPeerConnection, didOpen dataChannel: LKRTCDataChannel) {
         Task { @MainActor in
             self.dataChannel = dataChannel
             dataChannel.delegate = self
@@ -204,8 +198,8 @@ extension WebRTCTransport: RTCPeerConnectionDelegate {
     }
 }
 
-extension WebRTCTransport: RTCDataChannelDelegate {
-    nonisolated func dataChannelDidChangeState(_ dataChannel: RTCDataChannel) {
+extension WebRTCTransport: LKRTCDataChannelDelegate {
+    nonisolated func dataChannelDidChangeState(_ dataChannel: LKRTCDataChannel) {
         Task { @MainActor in
             switch dataChannel.readyState {
             case .open: self.onConnected?()
@@ -215,7 +209,7 @@ extension WebRTCTransport: RTCDataChannelDelegate {
         }
     }
 
-    nonisolated func dataChannel(_ dataChannel: RTCDataChannel, didReceiveMessageWith buffer: RTCDataBuffer) {
+    nonisolated func dataChannel(_ dataChannel: LKRTCDataChannel, didReceiveMessageWith buffer: LKRTCDataBuffer) {
         let data = buffer.data
         Task { @MainActor in
             guard let channel = data.first else { return }
@@ -234,8 +228,8 @@ extension WebRTCTransport: RTCDataChannelDelegate {
 
 #else
 
-/// Stub WebRTC transport — the WebRTC framework is not available in this build.
-/// All methods are no-ops. Enable by adding the WebRTC SPM dependency in project.yml.
+/// Stub WebRTC transport — LiveKitWebRTC framework is not available in this build.
+/// All methods are no-ops. Enable by adding the LiveKitWebRTC SPM dependency in project.yml.
 @MainActor
 final class WebRTCTransport: Transport {
 

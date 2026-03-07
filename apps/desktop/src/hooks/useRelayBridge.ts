@@ -51,7 +51,7 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
     },
     onViewerLeft: () => {
       // If no more viewers, revert PTY and xterm to desktop dimensions
-      if (relay.viewers <= 1 && localServer.localViewers === 0) {
+      if (relay.viewers <= 1 && localServer.localViewers === 0 && !webrtcConnectedRef.current) {
         const s = sessionRef.current;
 
         if (s && !s.exited) {
@@ -115,7 +115,7 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
     },
     onViewerLeft: () => {
       // If no more viewers, revert PTY and xterm to desktop dimensions
-      if (relay.viewers === 0 && localServer.localViewers <= 1) {
+      if (relay.viewers === 0 && localServer.localViewers <= 1 && !webrtcConnectedRef.current) {
         const s = sessionRef.current;
 
         if (s && !s.exited) {
@@ -154,6 +154,35 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
 
       if (s && !s.exited) {
         s.pty.write(data);
+      }
+    },
+    onViewerResize: (cols, _rows) => {
+      const s = sessionRef.current;
+
+      if (s && !s.exited) {
+        const term = s.termRef.current;
+        const currentRows = term?.rows ?? 40;
+        ptySizeRef.current = { cols, rows: currentRows };
+        s.pty.resize(cols, currentRows);
+        term?.lockSize();
+        term?.resize(cols, currentRows);
+      }
+    },
+    onStatusChange: (status) => {
+      if (status === 'failed' || status === 'idle') {
+        // WebRTC disconnected — restore desktop size if no other viewers
+        if (relay.viewers === 0 && localServer.localViewers === 0) {
+          const s = sessionRef.current;
+
+          if (s && !s.exited) {
+            const term = s.termRef.current;
+            ptySizeRef.current = null;
+            term?.unlockSize();
+            const cols = term?.cols ?? 120;
+            const rows = term?.rows ?? 40;
+            s.pty.resize(cols, rows);
+          }
+        }
       }
     },
     sendSignaling,

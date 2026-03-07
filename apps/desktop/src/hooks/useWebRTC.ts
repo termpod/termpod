@@ -3,6 +3,7 @@ const WEBRTC_CONFIG: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
   ],
 };
 
@@ -10,6 +11,7 @@ export type WebRTCStatus = 'idle' | 'connecting' | 'connected' | 'failed';
 
 interface UseWebRTCOptions {
   onViewerInput?: (data: string) => void;
+  onViewerResize?: (cols: number, rows: number) => void;
   onStatusChange?: (status: WebRTCStatus) => void;
   sendSignaling: (msg: Record<string, unknown>) => void;
   localClientId: string;
@@ -82,6 +84,10 @@ export function useWebRTC(options: UseWebRTCOptions) {
             optionsRef.current.onViewerInput?.(
               new TextDecoder().decode(data.subarray(1)),
             );
+          } else if (data[0] === 0x01 && data.length >= 5) {
+            const cols = (data[1] << 8) | data[2];
+            const rows = (data[3] << 8) | data[4];
+            optionsRef.current.onViewerResize?.(cols, rows);
           }
         }
       };
