@@ -156,7 +156,7 @@ wrangler deploy
 
 - [Architecture Overview](./docs/ARCHITECTURE.md)
 - [Protocol Specification](./docs/PROTOCOL.md)
-- [Development Roadmap](./docs/ROADMAP.md)
+- [Contributing](./docs/CONTRIBUTING.md)
 
 ## License
 

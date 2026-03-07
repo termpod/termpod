@@ -17,39 +17,35 @@ Desktop App
 ├── Tauri 2.0 shell (Rust backend + WKWebView frontend)
 ├── React UI
 │   ├── xterm.js terminal (with fit, webgl, web-links addons)
-│   ├── Session sidebar (list, create, switch sessions)
-│   └── Settings (relay config, theme, keybindings)
+│   ├── Session tabs (create, switch, close sessions)
+│   └── Settings (relay config, theme, font)
 ├── PTY Manager (Rust)
 │   ├── tauri-plugin-pty for shell spawning
 │   ├── Session lifecycle (create, resize, destroy)
 │   └── Working directory tracking
+├── Local Server (Rust)
+│   ├── WebSocket server for LAN connections
+│   └── Bonjour/mDNS advertisement via dns-sd
 └── Relay Connection (TypeScript)
     ├── WebSocket client to relay
     ├── Reconnection with exponential backoff
-    └── Scrollback buffer (local copy for instant rendering)
+    └── JWT auth
 ```
 
 ### 2. Mobile App (The "Viewer")
 
-The iOS app is a pure viewer + input device. It does NOT run a shell — it connects to the relay and renders the terminal stream.
+The iOS app is a native Swift app. It does NOT run a shell — it connects to the desktop (directly or via relay) and renders the terminal stream.
 
 ```
-Mobile App
-├── Tauri 2.0 iOS shell (Rust + WKWebView)
-├── React UI
-│   ├── xterm.js terminal (read + write, matching desktop PTY dimensions)
-│   ├── Quick Actions bar (Accept, Deny, Ctrl+C, Enter, Tab, custom)
-│   ├── Smart Input field (avoids iOS dictation bugs in raw xterm)
-│   ├── Session browser (list sessions, see status)
-│   └── QR code scanner (for pairing)
-├── Swift Plugins (via Tauri plugin system)
-│   ├── Push notifications (APNs)
-│   ├── Background WebSocket keep-alive
-│   └── Haptic feedback on events
-└── Relay Connection
-    ├── WebSocket client
-    ├── Scrollback request on connect
-    └── Auto-reconnect on network switch
+iOS App (SwiftUI + SwiftTerm)
+├── Terminal rendering (SwiftTerm — native CoreText)
+├── Connection Manager
+│   ├── Local transport (Bonjour discovery → direct WebSocket)
+│   └── Relay transport (WebSocket via Cloudflare)
+├── Auth (JWT stored in Keychain)
+├── Device & session discovery
+├── Special keys bar (Ctrl, Esc, Tab, arrows)
+└── QR code scanner (fallback pairing)
 ```
 
 ### 3. Relay Server (The "Hub")
@@ -59,16 +55,21 @@ The relay is a Cloudflare Worker + Durable Object that sits between all clients.
 ```
 Cloudflare Edge
 ├── Worker (stateless entry point)
-│   ├── POST /sessions          → create session, return token
-│   ├── GET  /sessions          → list user's sessions
-│   ├── GET  /sessions/:id/ws   → upgrade to WebSocket, route to DO
-│   └── POST /auth/pair         → validate QR code token
-└── Durable Object (one per session)
-    ├── WebSocket connections (desktop + N viewers)
-    ├── Scrollback buffer (circular, ~100KB, persisted in SQLite)
-    ├── Session metadata (name, cwd, created_at, pty_size)
-    ├── Client registry (who's connected, device type)
-    └── Hibernation (sleeps when idle, wakes on message)
+│   ├── POST /auth/signup, /auth/login, /auth/refresh
+│   ├── POST /devices          → register device
+│   ├── GET  /devices          → list user's devices
+│   ├── POST /devices/:id/sessions → register session
+│   ├── GET  /sessions/:id/ws  → upgrade to WebSocket, route to DO
+│   └── POST /auth/pair        → validate QR code token
+└── Durable Objects
+    ├── TerminalSession (one per session)
+    │   ├── WebSocket connections (desktop + N viewers)
+    │   ├── Scrollback buffer (circular, persisted in SQLite)
+    │   ├── Session metadata (name, cwd, pty_size)
+    │   └── Hibernation (sleeps when idle, wakes on message)
+    └── User (one per email)
+        ├── Profile, devices, sessions
+        └── SQLite storage
 ```
 
 ## Data Flow
@@ -80,18 +81,32 @@ PTY stdout → Desktop xterm.js (local render)
           → WebSocket binary frame → Relay DO
           → DO appends to scrollback buffer
           → DO fans out to all connected viewers
-          → Mobile xterm.js (remote render)
+          → Mobile SwiftTerm (remote render)
 ```
 
 ### Terminal Input (Phone → Mac)
 
 ```
-Mobile keyboard/quick-action → WebSocket binary frame → Relay DO
-                             → DO forwards to desktop WebSocket
-                             → Desktop writes to PTY stdin
-                             → PTY processes input
-                             → Output flows back via the output path above
+Mobile keyboard → WebSocket binary frame → Relay DO
+               → DO forwards to desktop WebSocket
+               → Desktop writes to PTY stdin
+               → PTY processes input
+               → Output flows back via the output path above
 ```
+
+### Local P2P (Same Network)
+
+When both devices are on the same LAN, the mobile app connects directly to the desktop via Bonjour, bypassing the relay entirely:
+
+```
+iPhone discovers Mac via Bonjour (_termpod._tcp)
+ → Resolves IP + port
+ → Direct WebSocket connection (ws://)
+ → Same binary protocol, no relay hop
+ → ~1-5ms latency vs ~30-80ms via relay
+```
+
+Transport priority: **Local WS (Bonjour) > Relay**
 
 ### New Viewer Connects (mid-session)
 
@@ -99,7 +114,7 @@ Mobile keyboard/quick-action → WebSocket binary frame → Relay DO
 Mobile opens app → WebSocket connect to relay
                 → Relay sends session metadata (cols, rows, cwd)
                 → Relay sends full scrollback buffer
-                → Mobile xterm.js writes scrollback (instant catch-up)
+                → Mobile SwiftTerm writes scrollback (instant catch-up)
                 → Switch to real-time streaming
 ```
 
@@ -113,8 +128,6 @@ The shell runs locally with full access to your filesystem, credentials, SSH key
 - Environment variables and PATH are your real ones
 - The Mac must be awake for sessions to be active
 
-This is a deliberate trade-off. Cloud-hosted PTY (like Codespaces) solves the "always on" problem but introduces complexity around file sync, credential management, and latency. For the MVP, local PTY is simpler and more powerful.
-
 ### Relay uses Durable Objects with Hibernation
 
 Each session = one Durable Object. This gives us:
@@ -122,39 +135,18 @@ Each session = one Durable Object. This gives us:
 - **Built-in persistence**: SQLite storage for scrollback that survives DO restarts
 - **Cost efficiency**: Hibernatable WebSockets mean we only pay when data flows
 - **Global edge**: DO runs near the desktop client, minimizing latency
-- **No infrastructure**: No servers to manage, scales automatically
-
-### Mobile renders at desktop PTY dimensions
-
-The mobile terminal does NOT resize the PTY. It renders a virtual viewport matching the desktop's cols × rows, with pinch-to-zoom and horizontal scroll for overflow. This prevents:
-- Desktop terminal reflowing when phone connects
-- Broken TUI layouts (vim, htop, Claude Code's UI)
-- Resize fight between multiple clients
 
 ### Binary frames for terminal data, JSON for control
 
-Terminal output is raw bytes — ANSI escape codes, UTF-8 text, control characters. Parsing this into JSON would add overhead and break binary data. So terminal I/O uses WebSocket binary frames (zero copy, zero parse). Control messages (resize, auth, session management) use JSON text frames. The first byte of each binary frame is a channel ID (0x00 = terminal data, 0x01 = terminal resize, etc.) for future extensibility.
+Terminal output is raw bytes — ANSI escape codes, UTF-8 text, control characters. Terminal I/O uses WebSocket binary frames (zero copy, zero parse). Control messages (resize, auth, session management) use JSON text frames. The first byte of each binary frame is a channel ID for extensibility. See [PROTOCOL.md](./PROTOCOL.md) for details.
 
-## Security Model
+## Configuration
 
-### Authentication flow
+All sensitive values are configured via environment variables. See `.env.example` for the full list:
 
-1. Desktop app generates a session token (cryptographically random, 256-bit)
-2. Token is displayed as a QR code on the desktop
-3. Mobile scans the QR code, extracts the token
-4. Mobile connects to relay with the token in the WebSocket handshake
-5. Relay validates the token against the session's stored token
-6. Connection is established
+- `VITE_RELAY_URL` — Relay WebSocket URL (desktop app, via Vite)
+- `JWT_SECRET` — Relay server signing key (Cloudflare Worker secret)
+- `APPLE_TEAM_ID` — Apple Developer Team ID (iOS + macOS signing)
+- `APPLE_SIGNING_IDENTITY` — macOS code signing identity
 
-### Transport security
-
-- All WebSocket connections use WSS (TLS)
-- Relay runs on Cloudflare's edge (DDoS protection included)
-- Optional: Cloudflare Access for zero-trust auth (email/SSO)
-- Optional: End-to-end encryption between desktop and mobile (relay sees ciphertext only)
-
-### Threat model
-
-- **Relay compromise**: If using E2E encryption, relay only sees encrypted terminal data. Without E2E, Cloudflare can theoretically see terminal content (same trust model as any HTTPS proxy).
-- **Token theft**: Tokens are single-use for pairing. After pairing, a session key is derived. Tokens expire after 5 minutes.
-- **Network sniffing**: TLS prevents passive eavesdropping.
+The iOS app reads relay URL and team ID from `Config.xcconfig`, generated from `.env` by `apps/ios/generate-config.sh`.

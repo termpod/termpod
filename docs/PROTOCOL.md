@@ -134,7 +134,7 @@ Sent after `hello` is received. Provides session metadata.
   "type": "session_info",
   "sessionId": "session-abc123",
   "name": "termpod/apps/desktop",
-  "cwd": "/Users/swapnil/code/termpod/apps/desktop",
+  "cwd": "/Users/dev/code/termpod/apps/desktop",
   "ptySize": { "cols": 120, "rows": 40 },
   "createdAt": "2026-03-05T10:00:00Z",
   "clients": [
@@ -281,7 +281,7 @@ Authorization: Bearer <user-token>
     {
       "sessionId": "session-abc123",
       "name": "my-project",
-      "cwd": "/Users/swapnil/code/my-project",
+      "cwd": "/Users/dev/code/my-project",
       "createdAt": "2026-03-05T10:00:00Z",
       "lastActivity": "2026-03-05T12:34:56Z",
       "viewerCount": 1,

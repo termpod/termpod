@@ -1,37 +1,26 @@
 # Contributing to TermPod
 
-## Development Setup
-
-### Prerequisites
+## Prerequisites
 
 - **macOS 13+** (Ventura or later)
-- **Xcode 15+** (for iOS builds and Tauri compilation)
-- **Rust** (latest stable via rustup)
+- **Xcode 16+** (for iOS builds)
+- **Rust** (latest stable via [rustup](https://rustup.rs/))
 - **Node.js 20+** (LTS)
-- **pnpm 9+** (package manager)
-- **Wrangler** (Cloudflare CLI, `pnpm add -g wrangler`)
+- **pnpm 10+** (`npm install -g pnpm`)
+- **XcodeGen** (`brew install xcodegen`)
 
-### First-time setup
+## Setup
 
 ```bash
-# Install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-# (Optional) Add iOS targets for Tauri desktop iOS testing
-# rustup target add aarch64-apple-ios aarch64-apple-ios-sim
-
-# Clone the repo
 git clone https://github.com/user/termpod.git
 cd termpod
-
-# Install dependencies
 pnpm install
-
-# Install Tauri CLI
-pnpm add -g @tauri-apps/cli
+cp .env.example .env
 ```
 
-### Running locally
+Edit `.env` with your values (see `.env.example` for all options).
+
+## Running locally
 
 ```bash
 # Desktop app (dev mode with hot reload)
@@ -40,70 +29,59 @@ pnpm dev:desktop
 # Relay (local dev with Miniflare)
 pnpm dev:relay
 
-# iOS app (Expo, opens simulator)
-pnpm dev:mobile
-
-# Run all (desktop + relay)
+# Both at once
 pnpm dev
-```
 
-### Running tests
-
-```bash
-# All tests
-pnpm test
-
-# Specific package
-pnpm --filter @termpod/relay test
-pnpm --filter @termpod/protocol test
-
-# E2E tests (requires desktop app + relay running)
-pnpm test:e2e
+# iOS app — generate Xcode config, then open in Xcode
+pnpm ios:generate
+open apps/ios/TermPod.xcodeproj
 ```
 
 ## Project Structure
 
 ```
 termpod/
-├── apps/desktop/       → Tauri macOS app
-├── apps/mobile-expo/   → Expo iOS app
+├── apps/desktop/       → Tauri macOS app (React + Rust)
+├── apps/ios/           → Native iOS app (SwiftUI + SwiftTerm)
 ├── packages/ui/        → Shared React components
-├── packages/protocol/  → WebSocket message types
+├── packages/protocol/  → WebSocket message types + binary encoding
 ├── packages/shared/    → Shared utilities and constants
 ├── relay/              → Cloudflare Worker + Durable Object
-└── docs/               → Architecture, protocol, roadmap
+└── docs/               → Architecture, protocol spec
 ```
 
 ## Code Style
 
-- TypeScript for all frontend and relay code
-- Rust for Tauri backend and plugins
-- Prettier for formatting (`pnpm format`)
-- ESLint for linting (`pnpm lint`)
-- Clippy for Rust linting (`cargo clippy`)
+- **TypeScript**: Prettier for formatting (`pnpm format`), ESLint for linting
+- **Rust**: Clippy (`cargo clippy`)
+- **Swift**: Standard Swift conventions
 
-## Branching Strategy
+## Environment Variables
 
-- `main` — stable, deployable
-- `dev` — integration branch
-- `feat/*` — feature branches (branch from `dev`)
-- `fix/*` — bug fixes
+All sensitive or deployment-specific values come from `.env`. Never commit secrets. Key variables:
 
-## Commit Messages
+| Variable | Used By | Purpose |
+|----------|---------|---------|
+| `VITE_RELAY_URL` | Desktop app | Relay WebSocket URL |
+| `JWT_SECRET` | Relay server | JWT signing key |
+| `APPLE_TEAM_ID` | iOS + macOS builds | Apple Developer Team ID |
+| `APPLE_SIGNING_IDENTITY` | macOS builds | Code signing identity |
+| `APPLE_ID` | macOS notarization | Apple ID for notarization |
+| `APPLE_PASSWORD` | macOS notarization | App-specific password |
 
-Follow Conventional Commits:
+For iOS, run `pnpm ios:config` to generate `Config.xcconfig` from your `.env`.
 
-```
-feat(desktop): add session tab management
-fix(relay): handle scrollback overflow correctly
-docs: update protocol spec with input lock messages
-chore: bump tauri to 2.1.0
-```
+## Making Changes
 
-## Pull Request Process
+- Follow the protocol spec in [PROTOCOL.md](./PROTOCOL.md) for any WebSocket changes
+- Terminal data = binary frames (channel 0x00), control = JSON text frames
+- Shared React components go in `packages/ui/`, not duplicated per app
+- Test relay changes with Miniflare locally before deploying
+- iOS project is generated via XcodeGen — edit `project.yml`, not `.xcodeproj` directly
 
-1. Branch from `dev`
-2. Make changes, add tests
-3. Run `pnpm lint && pnpm test`
-4. Open PR against `dev`
-5. One approval required to merge
+## Pull Requests
+
+1. Branch from `main`
+2. Make changes
+3. Run `pnpm lint` and test locally
+4. Open a PR with a clear description of what and why
