@@ -55,6 +55,12 @@ struct SessionDetailView: View {
                 terminalTitle = title
             }
         }
+        .onAppear {
+            UIApplication.shared.isIdleTimerDisabled = true
+        }
+        .onDisappear {
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
     }
 
     // MARK: - Special Keys Bar

@@ -208,11 +208,7 @@ struct DeviceSessionsView: View {
                     return
                 }
 
-                let connection = ConnectionManager(sessionId: sessionId)
-                let newSession = Session(id: sessionId, name: name, connection: connection)
-                appState.sessions.append(newSession)
-                connection.connect(wsURL: wsURL)
-                joinedSession = newSession
+                createAndJoinSession(id: sessionId, name: name, wsURL: wsURL)
                 requestingSession = false
                 return
             }
@@ -249,11 +245,7 @@ struct DeviceSessionsView: View {
                     return
                 }
 
-                let connection = ConnectionManager(sessionId: sessionId)
-                let newSession = Session(id: sessionId, name: name, connection: connection)
-                appState.sessions.append(newSession)
-                connection.connect(wsURL: wsURL)
-                joinedSession = newSession
+                createAndJoinSession(id: sessionId, name: name, wsURL: wsURL)
                 requestingSession = false
                 return
             }
@@ -279,14 +271,26 @@ struct DeviceSessionsView: View {
 
         HapticService.shared.playTap()
 
-        let connection = ConnectionManager(sessionId: session.id)
-        let newSession = Session(
-            id: session.id,
-            name: session.name,
-            connection: connection
-        )
+        createAndJoinSession(id: session.id, name: session.name, wsURL: wsURL)
+    }
+
+    private func createAndJoinSession(id: String, name: String, wsURL: URL) {
+        let connection = ConnectionManager(sessionId: id)
+        let newSession = Session(id: id, name: name, connection: connection)
 
         appState.sessions.append(newSession)
+
+        connection.onSessionClosed = {
+            if let joined = appState.sessions.first(where: { $0.id == id }) {
+                appState.removeSession(joined)
+            }
+            sessions.removeAll { $0.id == id }
+
+            if joinedSession?.id == id {
+                joinedSession = nil
+            }
+        }
+
         connection.connect(wsURL: wsURL)
         joinedSession = newSession
     }

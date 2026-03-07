@@ -110,6 +110,7 @@ export interface ClientJoinedMessage {
 export interface ClientLeftMessage {
   type: 'client_left';
   clientId: string;
+  role: ClientRole;
   reason: DisconnectReason;
 }
 

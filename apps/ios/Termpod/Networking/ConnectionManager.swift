@@ -19,6 +19,7 @@ final class ConnectionManager: ObservableObject {
     var onTerminalData: ((Data) -> Void)?
     var onResize: ((Int, Int) -> Void)?
     var onSessionCreated: ((_ requestId: String, _ sessionId: String, _ name: String, _ cwd: String, _ ptyCols: Int, _ ptyRows: Int) -> Void)?
+    var onSessionClosed: (() -> Void)?
 
     let relay: RelayClient
     private let localTransport: LocalTransport
@@ -126,6 +127,10 @@ final class ConnectionManager: ObservableObject {
 
         relay.onSessionCreated = { [weak self] requestId, sessionId, name, cwd, ptyCols, ptyRows in
             self?.onSessionCreated?(requestId, sessionId, name, cwd, ptyCols, ptyRows)
+        }
+
+        relay.onSessionClosed = { [weak self] in
+            self?.onSessionClosed?()
         }
 
         // Forward WebRTC signaling from relay (always needed)

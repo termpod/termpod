@@ -156,6 +156,7 @@ export class TerminalSession extends DurableObject {
       this.broadcastJson(ws, {
         type: 'client_left',
         clientId: tag.clientId,
+        role: tag.role,
         reason: 'closed',
       });
     }
@@ -168,6 +169,7 @@ export class TerminalSession extends DurableObject {
       this.broadcastJson(ws, {
         type: 'client_left',
         clientId: tag.clientId,
+        role: tag.role,
         reason: 'error',
       });
     }

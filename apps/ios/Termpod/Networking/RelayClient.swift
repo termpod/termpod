@@ -20,6 +20,7 @@ final class RelayClient: ObservableObject, Transport {
     var onResize: ((Int, Int) -> Void)?
     var onSignaling: (([String: Any]) -> Void)?
     var onSessionCreated: ((_ requestId: String, _ sessionId: String, _ name: String, _ cwd: String, _ ptyCols: Int, _ ptyRows: Int) -> Void)?
+    var onSessionClosed: (() -> Void)?
 
     private var webSocket: URLSessionWebSocketTask?
     private let session = URLSession(configuration: .default)
@@ -62,11 +63,16 @@ final class RelayClient: ObservableObject, Transport {
     }
 
     func disconnect() {
+        tearDown()
+    }
+
+    /// Shared cleanup: stops reconnection, cancels socket, resets state.
+    private func tearDown() {
+        state = .disconnected
         storedURL = nil
         reconnectionManager.reset()
         webSocket?.cancel(with: .goingAway, reason: nil)
         webSocket = nil
-        state = .disconnected
     }
 
     // MARK: - Sending
@@ -207,9 +213,14 @@ final class RelayClient: ObservableObject, Transport {
 
         case "client_left":
             connectedViewers = max(0, connectedViewers - 1)
+            if json["role"] as? String == "desktop" {
+                tearDown()
+                onSessionClosed?()
+            }
 
-        case "session_ended":
-            state = .disconnected
+        case "session_ended", "session_closed":
+            tearDown()
+            onSessionClosed?()
 
         case "error":
             break
