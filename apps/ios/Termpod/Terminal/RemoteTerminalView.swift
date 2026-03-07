@@ -9,6 +9,12 @@ import UIKit
 class RemoteTerminalView: TerminalView {
 
     private var connection: ConnectionManager?
+    weak var settingsRef: TerminalSettings?
+
+    // Track applied settings to avoid redundant updates
+    private var appliedFontSize: Double = 0
+    private var appliedFontFamily: String = ""
+    private var appliedThemeId: String = ""
 
     // Coalesce setNeedsDisplay calls — one per frame is enough to fix
     // cursor ghosting without the latency cost of data batching.
@@ -17,33 +23,77 @@ class RemoteTerminalView: TerminalView {
     // Accumulated scroll delta for smooth line-by-line scrolling
     private var scrollAccumulator: CGFloat = 0
 
+    // Pinch-to-zoom state
+    private var pinchBaseFontSize: CGFloat = 13
+
     init(frame: CGRect, connection: ConnectionManager) {
         self.connection = connection
         super.init(frame: frame)
         _ = Self.swizzleOnce
         self.terminalDelegate = self
-
-        // Appearance
-        let fontSize: CGFloat = 13
-        self.font = UIFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
-        self.nativeForegroundColor = UIColor(red: 0.80, green: 0.83, blue: 0.90, alpha: 1)
-        self.nativeBackgroundColor = UIColor(red: 0.09, green: 0.09, blue: 0.13, alpha: 1)
         self.optionAsMetaKey = true
         self.inputAccessoryView = nil
 
         setupScrollGesture()
+        setupPinchGesture()
+        setupDragArrowGesture()
         wireConnection(connection)
     }
+
+    // MARK: - Settings
+
+    func applySettings(_ settings: TerminalSettings) {
+        let theme = settings.currentTheme
+
+        let fontChanged = settings.fontSize != appliedFontSize
+            || settings.fontFamily.rawValue != appliedFontFamily
+        let themeChanged = settings.themeName != appliedThemeId
+
+        if fontChanged {
+            self.font = settings.uiFont
+            appliedFontSize = settings.fontSize
+            appliedFontFamily = settings.fontFamily.rawValue
+        }
+
+        if themeChanged {
+            self.nativeForegroundColor = theme.foreground
+            self.nativeBackgroundColor = theme.background
+            if theme.ansiColors.count == 16 {
+                self.installColors(theme.ansiColors.map { $0.toSwiftTermColor() })
+            }
+            appliedThemeId = settings.themeName
+        }
+
+        if fontChanged || themeChanged {
+            setNeedsDisplay()
+        }
+    }
+
+    // MARK: - Gestures
 
     private func setupScrollGesture() {
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handleScrollPan(_:)))
         pan.minimumNumberOfTouches = 2
         pan.maximumNumberOfTouches = 2
+        pan.delegate = self
         addGestureRecognizer(pan)
 
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleFocusTap))
         tap.numberOfTapsRequired = 1
         addGestureRecognizer(tap)
+    }
+
+    private func setupPinchGesture() {
+        let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
+        pinch.delegate = self
+        addGestureRecognizer(pinch)
+    }
+
+    private func setupDragArrowGesture() {
+        let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleDragArrow(_:)))
+        longPress.minimumPressDuration = 0.3
+        longPress.delegate = self
+        addGestureRecognizer(longPress)
     }
 
     @objc private func handleFocusTap() {
@@ -72,10 +122,78 @@ class RemoteTerminalView: TerminalView {
         }
     }
 
+    @objc private func handlePinch(_ gesture: UIPinchGestureRecognizer) {
+        switch gesture.state {
+        case .began:
+            pinchBaseFontSize = CGFloat(settingsRef?.fontSize ?? 13)
+
+        case .changed:
+            let newSize = pinchBaseFontSize * gesture.scale
+            let clamped = min(max(newSize, 8), 24)
+            self.font = UIFont.monospacedSystemFont(ofSize: clamped, weight: .regular)
+            appliedFontSize = Double(clamped)
+
+        case .ended, .cancelled:
+            let finalSize = Double(min(max(pinchBaseFontSize * gesture.scale, 8), 24)).rounded()
+            settingsRef?.setFontSize(finalSize)
+            self.font = settingsRef?.uiFont ?? UIFont.monospacedSystemFont(ofSize: finalSize, weight: .regular)
+            appliedFontSize = finalSize
+            appliedFontFamily = settingsRef?.fontFamily.rawValue ?? ""
+
+        default:
+            break
+        }
+    }
+
+    // Hold-and-drag arrow gesture
+    private var dragAccumulator: CGPoint = .zero
+    private let dragThreshold: CGFloat = 20
+
+    @objc private func handleDragArrow(_ gesture: UILongPressGestureRecognizer) {
+        switch gesture.state {
+        case .began:
+            dragAccumulator = .zero
+            HapticService.shared.playTap()
+
+        case .changed:
+            let location = gesture.location(in: self)
+
+            if dragAccumulator == .zero {
+                dragAccumulator = location
+                return
+            }
+
+            let currentDelta = CGPoint(
+                x: location.x - dragAccumulator.x,
+                y: location.y - dragAccumulator.y
+            )
+
+            if abs(currentDelta.x) > dragThreshold {
+                let arrow: [UInt8] = currentDelta.x > 0
+                    ? [0x1B, 0x5B, 0x43]  // right
+                    : [0x1B, 0x5B, 0x44]  // left
+                connection?.sendInput(Data(arrow))
+                HapticService.shared.playTap()
+                dragAccumulator.x = location.x
+            }
+
+            if abs(currentDelta.y) > dragThreshold {
+                let arrow: [UInt8] = currentDelta.y > 0
+                    ? [0x1B, 0x5B, 0x42]  // down
+                    : [0x1B, 0x5B, 0x41]  // up
+                connection?.sendInput(Data(arrow))
+                HapticService.shared.playTap()
+                dragAccumulator.y = location.y
+            }
+
+        default:
+            break
+        }
+    }
+
     // Prevent terminal from stealing keyboard focus — input goes
     // through the CommandInputBar text field instead.
     override var canBecomeFirstResponder: Bool { true }
-
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) not implemented")
@@ -92,10 +210,6 @@ class RemoteTerminalView: TerminalView {
             self.feed(byteArray: ArraySlice<UInt8>(data))
             self.scheduleFullRedraw()
         }
-
-        // Don't set connection.onResize — mobile manages its own dimensions.
-        // SwiftTerm auto-sizes from the physical frame in layoutSubviews,
-        // then sizeChanged sends the mobile dimensions to the connection.
     }
 
     // MARK: - Suppress iOS composing text preview
@@ -106,13 +220,11 @@ class RemoteTerminalView: TerminalView {
     private static let swizzleOnce: Void = {
         let cls: AnyClass = RemoteTerminalView.self
 
-        // firstRect(for:)
         if let original = class_getInstanceMethod(cls, #selector(TerminalView.firstRect(for:))),
            let replacement = class_getInstanceMethod(cls, #selector(RemoteTerminalView._swizzled_firstRect(for:))) {
             method_exchangeImplementations(original, replacement)
         }
 
-        // caretRect(for:)
         if let original = class_getInstanceMethod(cls, #selector(TerminalView.caretRect(for:))),
            let replacement = class_getInstanceMethod(cls, #selector(RemoteTerminalView._swizzled_caretRect(for:))) {
             method_exchangeImplementations(original, replacement)
@@ -128,9 +240,6 @@ class RemoteTerminalView: TerminalView {
     }
 
     /// Schedule a single setNeedsDisplay() per frame to fix cursor ghosting.
-    /// SwiftTerm's updateDisplay() skips setNeedsDisplay when only the cursor
-    /// moved (getUpdateRange() returns nil), leaving stale CaretView imprints.
-    /// Coalescing avoids redundant redraws when many messages arrive per frame.
     private func scheduleFullRedraw() {
         guard !needsFullRedraw else { return }
         needsFullRedraw = true
@@ -140,6 +249,22 @@ class RemoteTerminalView: TerminalView {
             self.needsFullRedraw = false
             self.setNeedsDisplay()
         }
+    }
+}
+
+// MARK: - UIGestureRecognizerDelegate
+
+extension RemoteTerminalView: UIGestureRecognizerDelegate {
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        // Allow pinch and pan to coexist
+        if gestureRecognizer is UIPinchGestureRecognizer || otherGestureRecognizer is UIPinchGestureRecognizer {
+            return true
+        }
+        return false
     }
 }
 
@@ -157,13 +282,13 @@ extension RemoteTerminalView: TerminalViewDelegate {
     func setTerminalTitle(source: TerminalView, title: String) {
         NotificationCenter.default.post(
             name: .terminalTitleChanged,
-            object: nil,
+            object: self,
             userInfo: ["title": title]
         )
     }
 
     func bell(source: TerminalView) {
-        HapticService.shared.playBell()
+        NotificationCenter.default.post(name: .terminalBell, object: self)
     }
 
     func sizeChanged(source: TerminalView, newCols: Int, newRows: Int) {
@@ -192,4 +317,5 @@ extension RemoteTerminalView: TerminalViewDelegate {
 extension Notification.Name {
     static let terminalTitleChanged = Notification.Name("terminalTitleChanged")
     static let terminalTapped = Notification.Name("terminalTapped")
+    static let terminalBell = Notification.Name("terminalBell")
 }

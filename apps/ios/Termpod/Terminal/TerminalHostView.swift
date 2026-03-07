@@ -7,9 +7,14 @@ import SwiftTerm
 struct TerminalHostView: UIViewRepresentable {
 
     let connection: ConnectionManager
+    @EnvironmentObject private var settings: TerminalSettings
 
     func makeUIView(context: Context) -> RemoteTerminalView {
         let terminalView = RemoteTerminalView(frame: .zero, connection: connection)
+        terminalView.settingsRef = settings
+        terminalView.applySettings(settings)
+        connection.terminalView = terminalView
+
         // Auto-focus so keyboard appears
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             _ = terminalView.becomeFirstResponder()
@@ -18,6 +23,7 @@ struct TerminalHostView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: RemoteTerminalView, context: Context) {
-        // Data flows via connection callbacks, no SwiftUI-driven updates needed
+        uiView.settingsRef = settings
+        uiView.applySettings(settings)
     }
 }

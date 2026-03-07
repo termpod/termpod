@@ -7,397 +7,418 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1234934A076E56B8166F2552 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8948D2B6BB4DE432E45FDF85 /* AppState.swift */; };
-		1445A370B77B55BB02860C02 /* DeviceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A6E06FDBC8530CA0DFBB26 /* DeviceService.swift */; };
-		3D14295C8E631AC552F0192D /* termpod.icon in Resources */ = {isa = PBXBuildFile; fileRef = D1D96200DB31D2D1B62299EC /* termpod.icon */; };
-		3F48D2371CC04B57BF7AB89C /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56584326DFB96229495153E1 /* KeychainService.swift */; };
-		4F4B2D903F3E64A125E37A3F /* ProcessIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BC73C410A9570AFBBE05521 /* ProcessIcon.swift */; };
-		541BC3CEAA6163577F965679 /* Transport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8047DF4F97AD96B9499E3311 /* Transport.swift */; };
-		58B6E755F5454F63EAD134E9 /* TermpodApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADD5F26F6CF5CFF0E58C879E /* TermpodApp.swift */; };
-		6623E71F21BFCE48DAF5F77E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 098B8570FC69BB98165FCFA1 /* Assets.xcassets */; };
-		686A7C9461D458F2344CF356 /* ConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3862DB88016BACF27DC3AA7D /* ConnectionManager.swift */; };
-		6B18688EFA60D85E6CC7A1DC /* LocalDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E85DC817EDB3FB8301467C7 /* LocalDiscoveryService.swift */; };
-		72DFC784A231DDEB879FDEEA /* DeviceSessionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1BDB4550424436B192A0900 /* DeviceSessionsView.swift */; };
-		9353C4801B1FB71E3BE45F6D /* ReconnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9A8CD578944DBFC96BB7328 /* ReconnectionManager.swift */; };
-		96F75FDDE97E576AE26E8AD5 /* HapticService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 646949C1CB84FF932B77704F /* HapticService.swift */; };
-		9B7C16F921B38D875F4992FE /* RelayClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1630E0B212321DD0A1D6B7D /* RelayClient.swift */; };
-		9D2828660D64E9CA3DA4A761 /* RemoteTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6C2C4DDC27FA4B52EE1D8FE /* RemoteTerminalView.swift */; };
-		9F6BFFF60D457F032019387D /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = 8167016EDB97DA0A58EB29E2 /* SwiftTerm */; };
-		B4A90BAC1E4FA5C3C5F6ABC2 /* TerminalHostView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD41221BF3840B9AF34085B4 /* TerminalHostView.swift */; };
-		BD6A0EBFDD05AB2C2D4B4C57 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FFFCA022CCB91970E83156B /* LoginView.swift */; };
-		BE53C37AB16EAE2AE485F1C9 /* SessionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C81BC6ACC218A4137DF9E2D /* SessionDetailView.swift */; };
-		D6D7A6BEA1E901A72E1485F4 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F51B3F17455D1430D68AEB4 /* AuthService.swift */; };
-		DD1BE4AD10088AE826265668 /* LocalTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B29227BBDD7885C2C1107A8F /* LocalTransport.swift */; };
-		E950C5C574585CA93B327A78 /* WebRTCTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4430C16341FEF5189B8A8DB3 /* WebRTCTransport.swift */; };
-		EB4BE65371EE7858CD1B3BBD /* DeviceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE8161A75D7930448677049A /* DeviceListView.swift */; };
-		FBB17DD48DEFE6CCD17ECF10 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E8D192947F83AC0560600EE /* Session.swift */; };
+		169B3E48F91D8B0A314439D6 /* LockScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52820BB61A9AA96759E63593 /* LockScreenView.swift */; };
+		18ECB53DE13E841EA94AC985 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55CA9DE296CC288EFD4C747D /* SettingsView.swift */; };
+		2FC71C607F7A7E72D237FB37 /* TerminalSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD1B77E6B191FF527246DAED /* TerminalSettings.swift */; };
+		347BACEAD2D25F9F4B57D8D6 /* termpod.icon in Resources */ = {isa = PBXBuildFile; fileRef = A69F87DDD0F1A0630354FAFC /* termpod.icon */; };
+		3692A6B57AA1E587A85D3D4A /* Transport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3324D183A1853C7DBBB1E145 /* Transport.swift */; };
+		37246D9D68447270D01D92FD /* LocalTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5FD9C0B964B0BAD2D902C42 /* LocalTransport.swift */; };
+		3EF221D64C2DC11E6E654183 /* ReconnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A9F879B9B2B12FA50E3F15B /* ReconnectionManager.swift */; };
+		46658A124D3E903C9DA4E7D1 /* TerminalTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99DAF0CE05725E8242B9B9EA /* TerminalTheme.swift */; };
+		48D101ABCF03ED278C97276E /* HapticService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1658B6D700C3D56AAE7874A /* HapticService.swift */; };
+		4BE72EC7D5F6C04334FB287B /* TerminalHostView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AD0D18605076142C8E08D02 /* TerminalHostView.swift */; };
+		513D2673309F500F453AA617 /* DeviceSessionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13D3C957F435FC17208E7AD2 /* DeviceSessionsView.swift */; };
+		56C9D79E78A541ACFA8F2C6D /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = B3B9A88023B1AFE3F76F9692 /* SwiftTerm */; };
+		57A80DDEC970086620610ED3 /* Clip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37D41903B18EFF8D1562741B /* Clip.swift */; };
+		5BB634A1B51E8E53A213B1DA /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0A87B98F1799C534F7F892 /* NotificationService.swift */; };
+		640B46B16EDEA59FDBFACD76 /* ClipsEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C11EA916A9631A12DEC0CC2F /* ClipsEditorView.swift */; };
+		83750D3E8A519D36FD8B93CF /* RemoteTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 841A266B269D03CB688C05B3 /* RemoteTerminalView.swift */; };
+		8779931460CF22DC1B4B01FF /* BiometricService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59439100CDD413A19780061B /* BiometricService.swift */; };
+		904FBB734AD25523C8DA75B0 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 308996CBB5A1661B87904400 /* LoginView.swift */; };
+		91B5BA0BB8E26314408A96E0 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D86531B4E3A2CC88842E91CC /* KeychainService.swift */; };
+		A1844232E4E70D6344B13914 /* TermPodApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FAD268E70962E4FABA50804 /* TermPodApp.swift */; };
+		A8A3E032031E613D680D8728 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 67E0E7A70B0425BD15A1D034 /* Assets.xcassets */; };
+		AB30547F26E32CC6654EB911 /* DeviceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB5D3714B7A41054A075566F /* DeviceListView.swift */; };
+		B0934BB883F78D1F7DB4788F /* SpecialKeysBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78CD626EAADBF090C1A20B0A /* SpecialKeysBar.swift */; };
+		B71016EB1E13D185478B1E5F /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D653DE01157D8934F0943A9 /* Session.swift */; };
+		BCF5A627D61A119A0AA54D1B /* SearchBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0847EF1E05138048DA864079 /* SearchBarView.swift */; };
+		BFB001DEE3F8416678778971 /* DeviceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDAA21D4EF7A351D890F412 /* DeviceService.swift */; };
+		C721A1302A6AB28278F6F5D5 /* RelayClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88D42769FD28AA23E4D775DD /* RelayClient.swift */; };
+		C82094DBDCDB97DB8EDD7BED /* SessionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70D9AAC4418354C463392FA /* SessionDetailView.swift */; };
+		CCBCDF730E235A1E2642035A /* LocalDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B1A555ECF2049C3DBF3579F /* LocalDiscoveryService.swift */; };
+		CDF95D66D906C9D17E56F859 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA835A2D44DCC88387B48449 /* AuthService.swift */; };
+		D64DEB2D9CC93AE91A5813A0 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85FC2E09AA694551F2E70116 /* OnboardingView.swift */; };
+		D83FBCA10AD10B036876AC68 /* WebRTCTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B74C0D47AE677EA73D9F1EA /* WebRTCTransport.swift */; };
+		E30E11F23F17C5E8D40D1414 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 012D6D7CF30481F06B4F7465 /* AppState.swift */; };
+		EB1E906EA590973E13780EF7 /* ProcessIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90250A199EE661EEBEB629EA /* ProcessIcon.swift */; };
+		FB517BEAB72E391E79410AED /* ConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB034420FF46809865A261D9 /* ConnectionManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		B8CE912FB9EA8F581B2ECFEE /* PBXContainerItemProxy */ = {
+		D93CB7F42A249AA6CAE8AD3F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 8985720109FEAF38AEDCFAC9 /* Project object */;
+			containerPortal = 4827DAD9BE9A0D166D39A2BC /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 5C4EFEC4790CAB0C5F098D9E;
-			remoteInfo = Termpod;
+			remoteGlobalIDString = 7190DADF2B672129C399ADEF;
+			remoteInfo = TermPod;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		098B8570FC69BB98165FCFA1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		0E85DC817EDB3FB8301467C7 /* LocalDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDiscoveryService.swift; sourceTree = "<group>"; };
-		0E8D192947F83AC0560600EE /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
-		3862DB88016BACF27DC3AA7D /* ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManager.swift; sourceTree = "<group>"; };
-		4430C16341FEF5189B8A8DB3 /* WebRTCTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebRTCTransport.swift; sourceTree = "<group>"; };
-		4BC73C410A9570AFBBE05521 /* ProcessIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessIcon.swift; sourceTree = "<group>"; };
-		56584326DFB96229495153E1 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
-		646949C1CB84FF932B77704F /* HapticService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticService.swift; sourceTree = "<group>"; };
-		6C81BC6ACC218A4137DF9E2D /* SessionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionDetailView.swift; sourceTree = "<group>"; };
-		77A6E06FDBC8530CA0DFBB26 /* DeviceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceService.swift; sourceTree = "<group>"; };
-		8047DF4F97AD96B9499E3311 /* Transport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transport.swift; sourceTree = "<group>"; };
-		8948D2B6BB4DE432E45FDF85 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
-		8F51B3F17455D1430D68AEB4 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
-		8FFFCA022CCB91970E83156B /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
-		A2894B97309C6C26C26B9949 /* Termpod.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Termpod.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		ADD5F26F6CF5CFF0E58C879E /* TermpodApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermpodApp.swift; sourceTree = "<group>"; };
-		B29227BBDD7885C2C1107A8F /* LocalTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTransport.swift; sourceTree = "<group>"; };
-		B9A8CD578944DBFC96BB7328 /* ReconnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReconnectionManager.swift; sourceTree = "<group>"; };
-		C3557838B762205AF9AA49EC /* TermpodTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TermpodTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		CD41221BF3840B9AF34085B4 /* TerminalHostView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalHostView.swift; sourceTree = "<group>"; };
-		D1D96200DB31D2D1B62299EC /* termpod.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = termpod.icon; sourceTree = "<group>"; };
-		E1630E0B212321DD0A1D6B7D /* RelayClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayClient.swift; sourceTree = "<group>"; };
-		E717F4FE242C88B093907459 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		EE8161A75D7930448677049A /* DeviceListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceListView.swift; sourceTree = "<group>"; };
-		F1BDB4550424436B192A0900 /* DeviceSessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSessionsView.swift; sourceTree = "<group>"; };
-		F6C2C4DDC27FA4B52EE1D8FE /* RemoteTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteTerminalView.swift; sourceTree = "<group>"; };
+		012D6D7CF30481F06B4F7465 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		0847EF1E05138048DA864079 /* SearchBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchBarView.swift; sourceTree = "<group>"; };
+		13D3C957F435FC17208E7AD2 /* DeviceSessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSessionsView.swift; sourceTree = "<group>"; };
+		308996CBB5A1661B87904400 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		3324D183A1853C7DBBB1E145 /* Transport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transport.swift; sourceTree = "<group>"; };
+		37D41903B18EFF8D1562741B /* Clip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clip.swift; sourceTree = "<group>"; };
+		4D653DE01157D8934F0943A9 /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
+		52820BB61A9AA96759E63593 /* LockScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenView.swift; sourceTree = "<group>"; };
+		55CA9DE296CC288EFD4C747D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		59439100CDD413A19780061B /* BiometricService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricService.swift; sourceTree = "<group>"; };
+		67E0E7A70B0425BD15A1D034 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		6AD004AA104E14274ECB150D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		6EFA137D6BCE65AB2585ABFD /* TermPod.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TermPod.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6FAD268E70962E4FABA50804 /* TermPodApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermPodApp.swift; sourceTree = "<group>"; };
+		78CD626EAADBF090C1A20B0A /* SpecialKeysBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpecialKeysBar.swift; sourceTree = "<group>"; };
+		7A9F879B9B2B12FA50E3F15B /* ReconnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReconnectionManager.swift; sourceTree = "<group>"; };
+		7AD0D18605076142C8E08D02 /* TerminalHostView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalHostView.swift; sourceTree = "<group>"; };
+		841A266B269D03CB688C05B3 /* RemoteTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteTerminalView.swift; sourceTree = "<group>"; };
+		85FC2E09AA694551F2E70116 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		88D42769FD28AA23E4D775DD /* RelayClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayClient.swift; sourceTree = "<group>"; };
+		8B1A555ECF2049C3DBF3579F /* LocalDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDiscoveryService.swift; sourceTree = "<group>"; };
+		90250A199EE661EEBEB629EA /* ProcessIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessIcon.swift; sourceTree = "<group>"; };
+		99DAF0CE05725E8242B9B9EA /* TerminalTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalTheme.swift; sourceTree = "<group>"; };
+		9B74C0D47AE677EA73D9F1EA /* WebRTCTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebRTCTransport.swift; sourceTree = "<group>"; };
+		A69F87DDD0F1A0630354FAFC /* termpod.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = termpod.icon; sourceTree = "<group>"; };
+		A70D9AAC4418354C463392FA /* SessionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionDetailView.swift; sourceTree = "<group>"; };
+		AD1B77E6B191FF527246DAED /* TerminalSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSettings.swift; sourceTree = "<group>"; };
+		AD66FE26C3A93B9C7E8DD75D /* TermPodTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TermPodTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B5FD9C0B964B0BAD2D902C42 /* LocalTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTransport.swift; sourceTree = "<group>"; };
+		C11EA916A9631A12DEC0CC2F /* ClipsEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipsEditorView.swift; sourceTree = "<group>"; };
+		C1658B6D700C3D56AAE7874A /* HapticService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticService.swift; sourceTree = "<group>"; };
+		CA835A2D44DCC88387B48449 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
+		D86531B4E3A2CC88842E91CC /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
+		DB5D3714B7A41054A075566F /* DeviceListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceListView.swift; sourceTree = "<group>"; };
+		DC0A87B98F1799C534F7F892 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		EB034420FF46809865A261D9 /* ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManager.swift; sourceTree = "<group>"; };
+		EEDAA21D4EF7A351D890F412 /* DeviceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		4F9162ED8FA57AA32328DFD5 /* Frameworks */ = {
+		94700D8F0E4E3BA6D8C0456B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9F6BFFF60D457F032019387D /* SwiftTerm in Frameworks */,
+				56C9D79E78A541ACFA8F2C6D /* SwiftTerm in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		34E7A9EA0BC52F087098823B /* Tests */ = {
+		0BAEADE9FACDEFA9430E89E5 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
 			);
 			path = Tests;
 			sourceTree = "<group>";
 		};
-		411E6D9A601EBA63DE93E9A2 /* Terminal */ = {
+		0C4C8D295469D7021AD966AF /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				F6C2C4DDC27FA4B52EE1D8FE /* RemoteTerminalView.swift */,
-				CD41221BF3840B9AF34085B4 /* TerminalHostView.swift */,
-			);
-			path = Terminal;
-			sourceTree = "<group>";
-		};
-		540CFE6B5C3812D419698C73 /* Services */ = {
-			isa = PBXGroup;
-			children = (
-				8F51B3F17455D1430D68AEB4 /* AuthService.swift */,
-				77A6E06FDBC8530CA0DFBB26 /* DeviceService.swift */,
-				646949C1CB84FF932B77704F /* HapticService.swift */,
-				56584326DFB96229495153E1 /* KeychainService.swift */,
-				0E85DC817EDB3FB8301467C7 /* LocalDiscoveryService.swift */,
-			);
-			path = Services;
-			sourceTree = "<group>";
-		};
-		58D754372DF449229B5C83F5 = {
-			isa = PBXGroup;
-			children = (
-				C7A0763DF24B1AABC6648025 /* Termpod */,
-				34E7A9EA0BC52F087098823B /* Tests */,
-				615FA2B220FA3FE9E16F01BF /* Products */,
-			);
-			sourceTree = "<group>";
-		};
-		615FA2B220FA3FE9E16F01BF /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				A2894B97309C6C26C26B9949 /* Termpod.app */,
-				C3557838B762205AF9AA49EC /* TermpodTests.xctest */,
+				6EFA137D6BCE65AB2585ABFD /* TermPod.app */,
+				AD66FE26C3A93B9C7E8DD75D /* TermPodTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		845293D560EF3DDCDFCD8D13 /* Networking */ = {
+		0CA4EE5B4E08B6C2C24D0238 /* Networking */ = {
 			isa = PBXGroup;
 			children = (
-				3862DB88016BACF27DC3AA7D /* ConnectionManager.swift */,
-				B29227BBDD7885C2C1107A8F /* LocalTransport.swift */,
-				B9A8CD578944DBFC96BB7328 /* ReconnectionManager.swift */,
-				E1630E0B212321DD0A1D6B7D /* RelayClient.swift */,
-				8047DF4F97AD96B9499E3311 /* Transport.swift */,
-				4430C16341FEF5189B8A8DB3 /* WebRTCTransport.swift */,
+				EB034420FF46809865A261D9 /* ConnectionManager.swift */,
+				B5FD9C0B964B0BAD2D902C42 /* LocalTransport.swift */,
+				7A9F879B9B2B12FA50E3F15B /* ReconnectionManager.swift */,
+				88D42769FD28AA23E4D775DD /* RelayClient.swift */,
+				3324D183A1853C7DBBB1E145 /* Transport.swift */,
+				9B74C0D47AE677EA73D9F1EA /* WebRTCTransport.swift */,
 			);
 			path = Networking;
 			sourceTree = "<group>";
 		};
-		8AED6C31B374A3B262008336 /* App */ = {
+		0DB59E3618AED4DD460C57BF /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				8948D2B6BB4DE432E45FDF85 /* AppState.swift */,
-				E717F4FE242C88B093907459 /* Info.plist */,
-				ADD5F26F6CF5CFF0E58C879E /* TermpodApp.swift */,
-			);
-			path = App;
-			sourceTree = "<group>";
-		};
-		A4F38368B73E4FCB8FA345B8 /* Models */ = {
-			isa = PBXGroup;
-			children = (
-				0E8D192947F83AC0560600EE /* Session.swift */,
+				37D41903B18EFF8D1562741B /* Clip.swift */,
+				4D653DE01157D8934F0943A9 /* Session.swift */,
+				AD1B77E6B191FF527246DAED /* TerminalSettings.swift */,
+				99DAF0CE05725E8242B9B9EA /* TerminalTheme.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
 		};
-		B79EC873564368D8C3588225 /* Views */ = {
+		15ABCEB858FCF75D3CD32E63 /* Services */ = {
 			isa = PBXGroup;
 			children = (
-				EE8161A75D7930448677049A /* DeviceListView.swift */,
-				F1BDB4550424436B192A0900 /* DeviceSessionsView.swift */,
-				8FFFCA022CCB91970E83156B /* LoginView.swift */,
-				4BC73C410A9570AFBBE05521 /* ProcessIcon.swift */,
-				6C81BC6ACC218A4137DF9E2D /* SessionDetailView.swift */,
+				CA835A2D44DCC88387B48449 /* AuthService.swift */,
+				59439100CDD413A19780061B /* BiometricService.swift */,
+				EEDAA21D4EF7A351D890F412 /* DeviceService.swift */,
+				C1658B6D700C3D56AAE7874A /* HapticService.swift */,
+				D86531B4E3A2CC88842E91CC /* KeychainService.swift */,
+				8B1A555ECF2049C3DBF3579F /* LocalDiscoveryService.swift */,
+				DC0A87B98F1799C534F7F892 /* NotificationService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		62AD9AE5A936A48398D35232 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				012D6D7CF30481F06B4F7465 /* AppState.swift */,
+				6AD004AA104E14274ECB150D /* Info.plist */,
+				6FAD268E70962E4FABA50804 /* TermPodApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		9940A5D1C2A4503311EF7898 = {
+			isa = PBXGroup;
+			children = (
+				AD55B5945458E7E4749522F5 /* TermPod */,
+				0BAEADE9FACDEFA9430E89E5 /* Tests */,
+				0C4C8D295469D7021AD966AF /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AD55B5945458E7E4749522F5 /* TermPod */ = {
+			isa = PBXGroup;
+			children = (
+				62AD9AE5A936A48398D35232 /* App */,
+				0DB59E3618AED4DD460C57BF /* Models */,
+				0CA4EE5B4E08B6C2C24D0238 /* Networking */,
+				C63DCADC8A313CF453AB0E23 /* Resources */,
+				15ABCEB858FCF75D3CD32E63 /* Services */,
+				FC0FE18D8B14A986DB4C960C /* Terminal */,
+				DB92F1F5F119D20D8BBD895C /* Views */,
+			);
+			path = TermPod;
+			sourceTree = "<group>";
+		};
+		C63DCADC8A313CF453AB0E23 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				67E0E7A70B0425BD15A1D034 /* Assets.xcassets */,
+				A69F87DDD0F1A0630354FAFC /* termpod.icon */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		DB92F1F5F119D20D8BBD895C /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				C11EA916A9631A12DEC0CC2F /* ClipsEditorView.swift */,
+				DB5D3714B7A41054A075566F /* DeviceListView.swift */,
+				13D3C957F435FC17208E7AD2 /* DeviceSessionsView.swift */,
+				52820BB61A9AA96759E63593 /* LockScreenView.swift */,
+				308996CBB5A1661B87904400 /* LoginView.swift */,
+				85FC2E09AA694551F2E70116 /* OnboardingView.swift */,
+				90250A199EE661EEBEB629EA /* ProcessIcon.swift */,
+				0847EF1E05138048DA864079 /* SearchBarView.swift */,
+				A70D9AAC4418354C463392FA /* SessionDetailView.swift */,
+				55CA9DE296CC288EFD4C747D /* SettingsView.swift */,
+				78CD626EAADBF090C1A20B0A /* SpecialKeysBar.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
 		};
-		C7A0763DF24B1AABC6648025 /* Termpod */ = {
+		FC0FE18D8B14A986DB4C960C /* Terminal */ = {
 			isa = PBXGroup;
 			children = (
-				8AED6C31B374A3B262008336 /* App */,
-				A4F38368B73E4FCB8FA345B8 /* Models */,
-				845293D560EF3DDCDFCD8D13 /* Networking */,
-				D34AD71A78225661737990D2 /* Resources */,
-				540CFE6B5C3812D419698C73 /* Services */,
-				411E6D9A601EBA63DE93E9A2 /* Terminal */,
-				B79EC873564368D8C3588225 /* Views */,
+				841A266B269D03CB688C05B3 /* RemoteTerminalView.swift */,
+				7AD0D18605076142C8E08D02 /* TerminalHostView.swift */,
 			);
-			path = Termpod;
-			sourceTree = "<group>";
-		};
-		D34AD71A78225661737990D2 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				098B8570FC69BB98165FCFA1 /* Assets.xcassets */,
-				D1D96200DB31D2D1B62299EC /* termpod.icon */,
-			);
-			path = Resources;
+			path = Terminal;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		5C4EFEC4790CAB0C5F098D9E /* Termpod */ = {
+		7190DADF2B672129C399ADEF /* TermPod */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = C2265FB9375F58923D99B11C /* Build configuration list for PBXNativeTarget "Termpod" */;
+			buildConfigurationList = 01B5BE0207E7B66348E19ADF /* Build configuration list for PBXNativeTarget "TermPod" */;
 			buildPhases = (
-				2A2D29BB8B21658E8D4377A7 /* Sources */,
-				1F6C1C30BAAF7AD840513C89 /* Resources */,
-				4F9162ED8FA57AA32328DFD5 /* Frameworks */,
+				964F3EEF75AFEA953A4C0CB1 /* Sources */,
+				95BC1A1DF0AAAE3CB19BF410 /* Resources */,
+				94700D8F0E4E3BA6D8C0456B /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = Termpod;
+			name = TermPod;
 			packageProductDependencies = (
-				8167016EDB97DA0A58EB29E2 /* SwiftTerm */,
+				B3B9A88023B1AFE3F76F9692 /* SwiftTerm */,
 			);
-			productName = Termpod;
-			productReference = A2894B97309C6C26C26B9949 /* Termpod.app */;
+			productName = TermPod;
+			productReference = 6EFA137D6BCE65AB2585ABFD /* TermPod.app */;
 			productType = "com.apple.product-type.application";
 		};
-		97254901A07152FB90B400A5 /* TermpodTests */ = {
+		C5798B2F1EACCA5FA46EADEE /* TermPodTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = D85D3C0BB37043DF4FC9E495 /* Build configuration list for PBXNativeTarget "TermpodTests" */;
+			buildConfigurationList = C09B80CF1DB9F5D21C791D29 /* Build configuration list for PBXNativeTarget "TermPodTests" */;
 			buildPhases = (
-				6CF1179FEFCE681A108A0585 /* Sources */,
+				34A4A65CF398CC0D03AB64C8 /* Sources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				06EAE1E3E9DFD822C8A49F11 /* PBXTargetDependency */,
+				5A864463BD356179C940CF34 /* PBXTargetDependency */,
 			);
-			name = TermpodTests;
+			name = TermPodTests;
 			packageProductDependencies = (
 			);
-			productName = TermpodTests;
-			productReference = C3557838B762205AF9AA49EC /* TermpodTests.xctest */;
+			productName = TermPodTests;
+			productReference = AD66FE26C3A93B9C7E8DD75D /* TermPodTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		8985720109FEAF38AEDCFAC9 /* Project object */ = {
+		4827DAD9BE9A0D166D39A2BC /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
-					5C4EFEC4790CAB0C5F098D9E = {
+					7190DADF2B672129C399ADEF = {
 						ProvisioningStyle = Automatic;
 					};
 				};
 			};
-			buildConfigurationList = 813C1FB1CDB4A4245B48EDB8 /* Build configuration list for PBXProject "Termpod" */;
+			buildConfigurationList = 0682F3CD54E62B2D8B0E2F66 /* Build configuration list for PBXProject "TermPod" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				Base,
 				en,
 			);
-			mainGroup = 58D754372DF449229B5C83F5;
+			mainGroup = 9940A5D1C2A4503311EF7898;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				9C3A9BD8E315182B4EE017C0 /* XCRemoteSwiftPackageReference "SwiftTerm" */,
+				5248F832886BFB62F9DB6DAC /* XCRemoteSwiftPackageReference "SwiftTerm" */,
 			);
 			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				5C4EFEC4790CAB0C5F098D9E /* Termpod */,
-				97254901A07152FB90B400A5 /* TermpodTests */,
+				7190DADF2B672129C399ADEF /* TermPod */,
+				C5798B2F1EACCA5FA46EADEE /* TermPodTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		1F6C1C30BAAF7AD840513C89 /* Resources */ = {
+		95BC1A1DF0AAAE3CB19BF410 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6623E71F21BFCE48DAF5F77E /* Assets.xcassets in Resources */,
-				3D14295C8E631AC552F0192D /* termpod.icon in Resources */,
+				A8A3E032031E613D680D8728 /* Assets.xcassets in Resources */,
+				347BACEAD2D25F9F4B57D8D6 /* termpod.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		2A2D29BB8B21658E8D4377A7 /* Sources */ = {
+		34A4A65CF398CC0D03AB64C8 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1234934A076E56B8166F2552 /* AppState.swift in Sources */,
-				D6D7A6BEA1E901A72E1485F4 /* AuthService.swift in Sources */,
-				686A7C9461D458F2344CF356 /* ConnectionManager.swift in Sources */,
-				EB4BE65371EE7858CD1B3BBD /* DeviceListView.swift in Sources */,
-				1445A370B77B55BB02860C02 /* DeviceService.swift in Sources */,
-				72DFC784A231DDEB879FDEEA /* DeviceSessionsView.swift in Sources */,
-				96F75FDDE97E576AE26E8AD5 /* HapticService.swift in Sources */,
-				3F48D2371CC04B57BF7AB89C /* KeychainService.swift in Sources */,
-				6B18688EFA60D85E6CC7A1DC /* LocalDiscoveryService.swift in Sources */,
-				DD1BE4AD10088AE826265668 /* LocalTransport.swift in Sources */,
-				BD6A0EBFDD05AB2C2D4B4C57 /* LoginView.swift in Sources */,
-				4F4B2D903F3E64A125E37A3F /* ProcessIcon.swift in Sources */,
-				9353C4801B1FB71E3BE45F6D /* ReconnectionManager.swift in Sources */,
-				9B7C16F921B38D875F4992FE /* RelayClient.swift in Sources */,
-				9D2828660D64E9CA3DA4A761 /* RemoteTerminalView.swift in Sources */,
-				FBB17DD48DEFE6CCD17ECF10 /* Session.swift in Sources */,
-				BE53C37AB16EAE2AE485F1C9 /* SessionDetailView.swift in Sources */,
-				B4A90BAC1E4FA5C3C5F6ABC2 /* TerminalHostView.swift in Sources */,
-				58B6E755F5454F63EAD134E9 /* TermpodApp.swift in Sources */,
-				541BC3CEAA6163577F965679 /* Transport.swift in Sources */,
-				E950C5C574585CA93B327A78 /* WebRTCTransport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		6CF1179FEFCE681A108A0585 /* Sources */ = {
+		964F3EEF75AFEA953A4C0CB1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E30E11F23F17C5E8D40D1414 /* AppState.swift in Sources */,
+				CDF95D66D906C9D17E56F859 /* AuthService.swift in Sources */,
+				8779931460CF22DC1B4B01FF /* BiometricService.swift in Sources */,
+				57A80DDEC970086620610ED3 /* Clip.swift in Sources */,
+				640B46B16EDEA59FDBFACD76 /* ClipsEditorView.swift in Sources */,
+				FB517BEAB72E391E79410AED /* ConnectionManager.swift in Sources */,
+				AB30547F26E32CC6654EB911 /* DeviceListView.swift in Sources */,
+				BFB001DEE3F8416678778971 /* DeviceService.swift in Sources */,
+				513D2673309F500F453AA617 /* DeviceSessionsView.swift in Sources */,
+				48D101ABCF03ED278C97276E /* HapticService.swift in Sources */,
+				91B5BA0BB8E26314408A96E0 /* KeychainService.swift in Sources */,
+				CCBCDF730E235A1E2642035A /* LocalDiscoveryService.swift in Sources */,
+				37246D9D68447270D01D92FD /* LocalTransport.swift in Sources */,
+				169B3E48F91D8B0A314439D6 /* LockScreenView.swift in Sources */,
+				904FBB734AD25523C8DA75B0 /* LoginView.swift in Sources */,
+				5BB634A1B51E8E53A213B1DA /* NotificationService.swift in Sources */,
+				D64DEB2D9CC93AE91A5813A0 /* OnboardingView.swift in Sources */,
+				EB1E906EA590973E13780EF7 /* ProcessIcon.swift in Sources */,
+				3EF221D64C2DC11E6E654183 /* ReconnectionManager.swift in Sources */,
+				C721A1302A6AB28278F6F5D5 /* RelayClient.swift in Sources */,
+				83750D3E8A519D36FD8B93CF /* RemoteTerminalView.swift in Sources */,
+				BCF5A627D61A119A0AA54D1B /* SearchBarView.swift in Sources */,
+				B71016EB1E13D185478B1E5F /* Session.swift in Sources */,
+				C82094DBDCDB97DB8EDD7BED /* SessionDetailView.swift in Sources */,
+				18ECB53DE13E841EA94AC985 /* SettingsView.swift in Sources */,
+				B0934BB883F78D1F7DB4788F /* SpecialKeysBar.swift in Sources */,
+				A1844232E4E70D6344B13914 /* TermPodApp.swift in Sources */,
+				4BE72EC7D5F6C04334FB287B /* TerminalHostView.swift in Sources */,
+				2FC71C607F7A7E72D237FB37 /* TerminalSettings.swift in Sources */,
+				46658A124D3E903C9DA4E7D1 /* TerminalTheme.swift in Sources */,
+				3692A6B57AA1E587A85D3D4A /* Transport.swift in Sources */,
+				D83FBCA10AD10B036876AC68 /* WebRTCTransport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		06EAE1E3E9DFD822C8A49F11 /* PBXTargetDependency */ = {
+		5A864463BD356179C940CF34 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 5C4EFEC4790CAB0C5F098D9E /* Termpod */;
-			targetProxy = B8CE912FB9EA8F581B2ECFEE /* PBXContainerItemProxy */;
+			target = 7190DADF2B672129C399ADEF /* TermPod */;
+			targetProxy = D93CB7F42A249AA6CAE8AD3F /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		1616CC9B8F7ED2C27E16F5D4 /* Release */ = {
+		0FCEEFB4275793C944EFC56F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				ENABLE_NS_ASSERTIONS = NO;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				MTL_FAST_MATH = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.termpod.TermPodTests;
 				SDKROOT = iphoneos;
-				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_OPTIMIZATION_LEVEL = "-O";
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TermPod.app/TermPod";
+			};
+			name = Debug;
+		};
+		1B9AE77250DAA32B45816FBB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.termpod.TermPodTests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TermPod.app/TermPod";
 			};
 			name = Release;
 		};
-		2D9C3F9CAD178791F1EE8640 /* Release */ = {
+		2993E40A4E7EC689EFD2B54E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = termpod;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
-				DEVELOPMENT_TEAM = D69S8L2V46;
-				INFOPLIST_FILE = Termpod/App/Info.plist;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = TermPod/App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -410,41 +431,28 @@
 			};
 			name = Release;
 		};
-		60C53A6A14B4B7D7D5A132AC /* Debug */ = {
+		5908B6BA3CA72BF544FA25B9 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = termpod;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = TermPod/App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = dev.termpod.TermpodTests;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.termpod.mobile;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Termpod.app/Termpod";
 			};
 			name = Debug;
 		};
-		8D3106FF22FA02620F484B51 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = dev.termpod.TermpodTests;
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.9;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Termpod.app/Termpod";
-			};
-			name = Release;
-		};
-		928A5781291EA681F61A138B /* Debug */ = {
+		ACEC89A92245DD4E909E2981 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -507,54 +515,88 @@
 			};
 			name = Debug;
 		};
-		FF4076940A5EC1B33FCA8635 /* Debug */ = {
+		FE5FE2AD0E8308EF7A8D976A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = termpod;
-				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
-				DEVELOPMENT_TEAM = D69S8L2V46;
-				INFOPLIST_FILE = Termpod/App/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.termpod.mobile;
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.9;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
 			};
-			name = Debug;
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		813C1FB1CDB4A4245B48EDB8 /* Build configuration list for PBXProject "Termpod" */ = {
+		01B5BE0207E7B66348E19ADF /* Build configuration list for PBXNativeTarget "TermPod" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				928A5781291EA681F61A138B /* Debug */,
-				1616CC9B8F7ED2C27E16F5D4 /* Release */,
+				5908B6BA3CA72BF544FA25B9 /* Debug */,
+				2993E40A4E7EC689EFD2B54E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		C2265FB9375F58923D99B11C /* Build configuration list for PBXNativeTarget "Termpod" */ = {
+		0682F3CD54E62B2D8B0E2F66 /* Build configuration list for PBXProject "TermPod" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				FF4076940A5EC1B33FCA8635 /* Debug */,
-				2D9C3F9CAD178791F1EE8640 /* Release */,
+				ACEC89A92245DD4E909E2981 /* Debug */,
+				FE5FE2AD0E8308EF7A8D976A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		D85D3C0BB37043DF4FC9E495 /* Build configuration list for PBXNativeTarget "TermpodTests" */ = {
+		C09B80CF1DB9F5D21C791D29 /* Build configuration list for PBXNativeTarget "TermPodTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				60C53A6A14B4B7D7D5A132AC /* Debug */,
-				8D3106FF22FA02620F484B51 /* Release */,
+				0FCEEFB4275793C944EFC56F /* Debug */,
+				1B9AE77250DAA32B45816FBB /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
@@ -562,7 +604,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		9C3A9BD8E315182B4EE017C0 /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
+		5248F832886BFB62F9DB6DAC /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/migueldeicaza/SwiftTerm.git";
 			requirement = {
@@ -573,12 +615,12 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		8167016EDB97DA0A58EB29E2 /* SwiftTerm */ = {
+		B3B9A88023B1AFE3F76F9692 /* SwiftTerm */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 9C3A9BD8E315182B4EE017C0 /* XCRemoteSwiftPackageReference "SwiftTerm" */;
+			package = 5248F832886BFB62F9DB6DAC /* XCRemoteSwiftPackageReference "SwiftTerm" */;
 			productName = SwiftTerm;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = 8985720109FEAF38AEDCFAC9 /* Project object */;
+	rootObject = 4827DAD9BE9A0D166D39A2BC /* Project object */;
 }

@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Termpod</string>
+	<string>TermPod</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -25,9 +25,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Termpod needs camera access to scan QR codes for pairing with your Mac.</string>
+	<string>TermPod needs camera access to scan QR codes for pairing with your Mac.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>TermPod uses Face ID to protect your terminal sessions.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Termpod uses your local network to connect directly to your Mac for lower latency.</string>
+	<string>TermPod uses your local network to connect directly to your Mac for lower latency.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_termpod._tcp</string>

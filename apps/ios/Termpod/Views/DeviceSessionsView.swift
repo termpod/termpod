@@ -75,7 +75,13 @@ struct DeviceSessionsView: View {
             }
         }
         .navigationDestination(item: $joinedSession) { session in
-            SessionDetailView(session: session)
+            SessionDetailView(
+                session: session,
+                allSessions: appState.sessions,
+                onSwitchSession: { newSession in
+                    joinedSession = newSession
+                }
+            )
         }
         .refreshable {
             await loadSessions()
@@ -350,6 +356,7 @@ struct DeviceSessionsView: View {
 
     private func createAndJoinSession(id: String, name: String, wsURL: URL) {
         let connection = ConnectionManager(sessionId: id)
+        connection.sessionName = name
         let newSession = Session(id: id, name: name, connection: connection)
 
         appState.sessions.append(newSession)

@@ -15,6 +15,10 @@ final class ConnectionManager: ObservableObject {
     @Published var state: RelayClient.ConnectionState = .disconnected
     @Published var connectedViewers: Int = 0
     @Published var ptySize: (cols: Int, rows: Int) = (80, 24)
+    var isBackgrounded = false
+    var sessionName: String = ""
+    weak var terminalView: RemoteTerminalView?
+    private var lastBackgroundNotification: Date = .distantPast
 
     var onTerminalData: ((Data) -> Void)?
     var onResize: ((Int, Int) -> Void)?
@@ -90,8 +94,6 @@ final class ConnectionManager: ObservableObject {
     }
 
     private func updateActiveTransport() {
-        let previous = activeTransport
-
         if localTransport.isConnected {
             activeTransport = .local
         } else if webrtcTransport.isConnected {
@@ -118,6 +120,16 @@ final class ConnectionManager: ObservableObject {
         relay.onTerminalData = { [weak self] data in
             guard let self, self.shouldAcceptData(from: .relay) else { return }
             self.onTerminalData?(data)
+            if self.isBackgrounded {
+                let now = Date()
+                if now.timeIntervalSince(self.lastBackgroundNotification) > 5 {
+                    self.lastBackgroundNotification = now
+                    NotificationService.shared.notifyBackgroundOutput(
+                        sessionName: self.sessionName,
+                        sessionId: self.sessionId
+                    )
+                }
+            }
         }
 
         relay.onResize = { [weak self] cols, rows in

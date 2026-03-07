@@ -1,3 +1,4 @@
+import AudioToolbox
 import UIKit
 
 final class HapticService {
@@ -14,6 +15,10 @@ final class HapticService {
 
     func playBell() {
         bellGenerator.notificationOccurred(.warning)
+    }
+
+    func playBellSound() {
+        AudioServicesPlaySystemSound(1007)
     }
 
     func playTap() {

@@ -4,44 +4,135 @@ import SwiftUI
 struct SessionDetailView: View {
 
     let session: Session
-    @ObservedObject var connection: ConnectionManager
-    @State private var terminalTitle: String
+    let allSessions: [Session]
+    let onSwitchSession: ((Session) -> Void)?
 
-    init(session: Session) {
+    @ObservedObject var connection: ConnectionManager
+    @EnvironmentObject private var settings: TerminalSettings
+    @State private var terminalTitle: String
+    @State private var showSearch = false
+    @State private var showVisualBell = false
+
+    init(session: Session, allSessions: [Session] = [], onSwitchSession: ((Session) -> Void)? = nil) {
         self.session = session
+        self.allSessions = allSessions
+        self.onSwitchSession = onSwitchSession
         self.connection = session.connection
         self._terminalTitle = State(initialValue: session.name)
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            statusBanner
-                .transition(.move(edge: .top).combined(with: .opacity))
-                .animation(.easeInOut(duration: 0.25), value: connection.state.isTransient)
+        ZStack {
+            VStack(spacing: 0) {
+                // Search bar
+                if showSearch {
+                    SearchBarView(
+                        isVisible: $showSearch,
+                        terminalView: connection.terminalView
+                    )
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
 
-            TerminalHostView(connection: connection)
-        }
-        .safeAreaInset(edge: .bottom) {
-            specialKeysBar
+                statusBanner
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .animation(.easeInOut(duration: 0.25), value: connection.state.isTransient)
+
+                TerminalHostView(connection: connection)
+            }
+            .safeAreaInset(edge: .bottom) {
+                SpecialKeysBar(
+                    onSendBytes: { bytes in
+                        connection.sendInput(Data(bytes))
+                    },
+                    onSendString: { string in
+                        if let data = string.data(using: .utf8) {
+                            connection.sendInput(data)
+                        }
+                    }
+                )
+            }
+
+            // Visual bell flash
+            if showVisualBell {
+                Color.white.opacity(0.15)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
         }
         .navigationTitle(terminalTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                connectionBadge
+                HStack(spacing: 12) {
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            showSearch.toggle()
+                        }
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 14))
+                    }
+
+                    connectionBadge
+                }
             }
         }
+        .gesture(sessionSwipeGesture)
         .onReceive(NotificationCenter.default.publisher(for: .terminalTitleChanged)) { notif in
             if let title = notif.userInfo?["title"] as? String {
                 terminalTitle = title
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .terminalBell)) { _ in
+            handleBell()
+        }
         .onAppear {
-            UIApplication.shared.isIdleTimerDisabled = true
+            UIApplication.shared.isIdleTimerDisabled = settings.keepScreenAwake
+            NotificationService.shared.requestPermission()
         }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
         }
+    }
+
+    // MARK: - Bell Handling
+
+    private func handleBell() {
+        switch settings.bellBehavior {
+        case .haptic:
+            HapticService.shared.playBell()
+        case .sound:
+            HapticService.shared.playBellSound()
+        case .visual:
+            withAnimation(.easeOut(duration: 0.1)) { showVisualBell = true }
+            withAnimation(.easeIn(duration: 0.2).delay(0.1)) { showVisualBell = false }
+        case .off:
+            break
+        }
+    }
+
+    // MARK: - Session Switching
+
+    private var sessionSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 80)
+            .onEnded { value in
+                guard let onSwitchSession, allSessions.count > 1 else { return }
+                guard let currentIndex = allSessions.firstIndex(where: { $0.id == session.id }) else { return }
+
+                let horizontal = value.translation.width
+                guard abs(horizontal) > abs(value.translation.height) else { return }
+
+                if horizontal < -80, currentIndex + 1 < allSessions.count {
+                    // Swipe left -> next session
+                    HapticService.shared.playTap()
+                    onSwitchSession(allSessions[currentIndex + 1])
+                } else if horizontal > 80, currentIndex > 0 {
+                    // Swipe right -> previous session
+                    HapticService.shared.playTap()
+                    onSwitchSession(allSessions[currentIndex - 1])
+                }
+            }
     }
 
     // MARK: - Connection Badge
@@ -82,86 +173,6 @@ struct SessionDetailView: View {
         case .local: return .green
         case .webrtc: return .blue
         case .relay: return .orange
-        }
-    }
-
-    // MARK: - Special Keys Bar
-
-    private var specialKeysBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                keyGroup {
-                    specialKey("esc", bytes: [0x1B], wide: true)
-                    specialKey("tab", bytes: [0x09], wide: true)
-                }
-
-                keyGroup {
-                    specialKey("^C", bytes: [0x03])
-                    specialKey("^D", bytes: [0x04])
-                    specialKey("^Z", bytes: [0x1A])
-                    specialKey("^L", bytes: [0x0C])
-                }
-
-                keyGroup {
-                    specialKey("↑", bytes: [0x1B, 0x5B, 0x41])
-                    specialKey("↓", bytes: [0x1B, 0x5B, 0x42])
-                    specialKey("←", bytes: [0x1B, 0x5B, 0x44])
-                    specialKey("→", bytes: [0x1B, 0x5B, 0x43])
-                }
-
-                keyGroup {
-                    specialKey("|", bytes: [0x7C])
-                    specialKey("~", bytes: [0x7E])
-                }
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-        }
-        .background(Color(UIColor.secondarySystemBackground))
-    }
-
-    private func keyGroup(@ViewBuilder content: () -> some View) -> some View {
-        HStack(spacing: 4) {
-            content()
-        }
-    }
-
-    private func specialKey(_ label: String, bytes: [UInt8], wide: Bool = false) -> some View {
-        Button {
-            HapticService.shared.playTap()
-            connection.sendInput(Data(bytes))
-        } label: {
-            Text(label)
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
-                .foregroundStyle(.primary)
-                .frame(minWidth: wide ? 40 : 30, minHeight: 28)
-                .background(
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(Color(UIColor.systemBackground))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 5)
-                        .strokeBorder(Color(UIColor.separator).opacity(0.5), lineWidth: 0.5)
-                )
-        }
-        .accessibilityLabel(accessibilityName(for: label))
-    }
-
-    private func accessibilityName(for key: String) -> String {
-        switch key {
-        case "esc": return "Escape"
-        case "tab": return "Tab"
-        case "^C": return "Control C"
-        case "^D": return "Control D"
-        case "^Z": return "Control Z"
-        case "^L": return "Control L"
-        case "↑": return "Arrow up"
-        case "↓": return "Arrow down"
-        case "←": return "Arrow left"
-        case "→": return "Arrow right"
-        case "|": return "Pipe"
-        case "~": return "Tilde"
-        default: return key
         }
     }
 

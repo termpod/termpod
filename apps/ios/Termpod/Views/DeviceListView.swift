@@ -8,6 +8,8 @@ struct DeviceListView: View {
     @EnvironmentObject private var deviceService: DeviceService
     @State private var localDesktopFound = false
     @State private var bonjourBrowser: NWBrowser?
+    @State private var showSettings = false
+
     var body: some View {
         NavigationStack {
             List {
@@ -23,7 +25,7 @@ struct DeviceListView: View {
                         ContentUnavailableView {
                             Label("No Devices", systemImage: "desktopcomputer")
                         } description: {
-                            Text("Open Termpod on your Mac to register a device.")
+                            Text("Open TermPod on your Mac to register a device.")
                         }
                         .listRowBackground(Color.clear)
                     } else {
@@ -36,11 +38,11 @@ struct DeviceListView: View {
                 } header: {
                     Text("Devices")
                 } footer: {
-                    Text("Devices running Termpod on your account. Tap a device to see its terminal sessions.")
+                    Text("Devices running TermPod on your account. Tap a device to see its terminal sessions.")
                 }
             }
             .animation(.default, value: deviceService.devices.count)
-            .navigationTitle("Termpod")
+            .navigationTitle("TermPod")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
@@ -62,6 +64,17 @@ struct DeviceListView: View {
                     .accessibilityLabel("Account menu")
                 }
 
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("Settings")
+                }
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
             }
             .refreshable {
                 await deviceService.fetchDevices(auth: auth)
