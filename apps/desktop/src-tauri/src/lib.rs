@@ -128,6 +128,13 @@ fn get_foreground_process(pid: u32) -> Option<String> {
 }
 
 #[tauri::command]
+fn check_full_disk_access() -> bool {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let tcc_path = format!("{home}/Library/Application Support/com.apple.TCC/TCC.db");
+    std::fs::metadata(&tcc_path).is_ok()
+}
+
+#[tauri::command]
 fn open_url(url: String) {
     let _ = std::process::Command::new("open").arg(&url).spawn();
 }
@@ -141,6 +148,7 @@ pub fn run() {
             get_pid_cwd,
             get_foreground_process,
             get_shell_children,
+            check_full_disk_access,
             open_url,
             local_server::start_local_server,
             local_server::stop_local_server,

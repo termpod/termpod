@@ -1,26 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 
-const DISMISSED_KEY = 'termpod-fda-banner-dismissed';
-
 export function FullDiskAccessBanner() {
-  const [dismissed, setDismissed] = useState(
-    () => localStorage.getItem(DISMISSED_KEY) === '1',
-  );
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
 
-  if (dismissed) {
+  useEffect(() => {
+    invoke<boolean>('check_full_disk_access').then(setHasAccess);
+  }, []);
+
+  if (hasAccess !== false) {
     return null;
   }
-
-  const handleDismiss = () => {
-    localStorage.setItem(DISMISSED_KEY, '1');
-    setDismissed(true);
-  };
 
   const handleOpenSettings = async () => {
     await invoke('open_url', {
       url: 'x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles',
     });
+  };
+
+  const handleRecheck = async () => {
+    const result = await invoke<boolean>('check_full_disk_access');
+    setHasAccess(result);
   };
 
   return (
@@ -32,8 +32,8 @@ export function FullDiskAccessBanner() {
       <button className="fda-open" onClick={handleOpenSettings}>
         Open Settings
       </button>
-      <button className="fda-dismiss" onClick={handleDismiss} aria-label="Dismiss">
-        ✕
+      <button className="fda-dismiss" onClick={handleRecheck} aria-label="Recheck">
+        ↻
       </button>
     </div>
   );
