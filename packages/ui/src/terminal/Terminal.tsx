@@ -75,6 +75,7 @@ export interface TerminalProps {
   padding?: number;
   promptAtBottom?: boolean;
   theme?: TerminalThemeColors;
+  onOpenUrl?: (url: string) => void;
 }
 
 const SEARCH_DECORATIONS = {
@@ -87,7 +88,7 @@ const SEARCH_DECORATIONS = {
 };
 
 export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
-  ({ onData, onResize, onTitleChange, onCwdChange, onBell, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', fontWeight = 'normal', fontSmoothing = 'antialiased', fontLigatures = false, drawBoldInBold = true, scrollbackLines = 5000, cursorStyle = 'block', cursorBlink = true, lineHeight = 1.0, padding = 0, promptAtBottom = false, theme }, ref) => {
+  ({ onData, onResize, onTitleChange, onCwdChange, onBell, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', fontWeight = 'normal', fontSmoothing = 'antialiased', fontLigatures = false, drawBoldInBold = true, scrollbackLines = 5000, cursorStyle = 'block', cursorBlink = true, lineHeight = 1.0, padding = 0, promptAtBottom = false, theme, onOpenUrl }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const terminalRef = useRef<XTerm | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -111,6 +112,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     onBellRef.current = onBell;
     const onReadyRef = useRef(onReady);
     onReadyRef.current = onReady;
+    const onOpenUrlRef = useRef(onOpenUrl);
+    onOpenUrlRef.current = onOpenUrl;
     const promptAtBottomRef = useRef(promptAtBottom);
     promptAtBottomRef.current = promptAtBottom;
 
@@ -376,7 +379,11 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       const searchAddon = new SearchAddon();
       term.loadAddon(fitAddon);
       term.loadAddon(searchAddon);
-      term.loadAddon(new WebLinksAddon());
+      term.loadAddon(new WebLinksAddon((event, uri) => {
+        if (event.metaKey) {
+          onOpenUrlRef.current?.(uri);
+        }
+      }));
 
       const unicodeAddon = new UnicodeGraphemesAddon();
       term.loadAddon(unicodeAddon);

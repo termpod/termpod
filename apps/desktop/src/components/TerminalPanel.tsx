@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { Terminal } from '@termpod/ui';
 import type { TerminalThemeColors } from '@termpod/ui';
 import type { PtySize } from '@termpod/protocol';
@@ -229,6 +230,7 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
         padding={windowPadding}
         promptAtBottom={promptAtBottom}
         theme={adjustedTheme}
+        onOpenUrl={(url) => invoke('open_url', { url })}
       />
     </div>
   );
