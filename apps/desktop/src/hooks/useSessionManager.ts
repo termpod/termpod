@@ -16,7 +16,7 @@ export interface TerminalSession {
   shellPid: number | null;
   termRef: React.RefObject<TerminalHandle | null>;
   dataListeners: Set<PtyDataListener>;
-  pendingData: (Uint8Array | number[])[];
+  pendingData: Uint8Array[];
   termReady: boolean;
   createdAt: number;
   exited: boolean;

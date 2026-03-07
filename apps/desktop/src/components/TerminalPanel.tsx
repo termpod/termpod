@@ -42,7 +42,7 @@ interface TerminalPanelProps {
   backgroundOpacity?: number;
   onRelayChange?: (info: RelayInfo) => void;
   onSessionRegistered?: (relaySessionId: string) => void;
-  onCreateSessionRequest?: (requestId: string, source: 'relay' | 'local', localClientId?: string) => void;
+  onCreateSessionRequest?: (requestId: string, source: 'relay' | 'local' | 'webrtc', localClientId?: string) => void;
   onDeleteSession?: (relaySessionId: string) => void;
   onSessionClosed?: () => void;
   onCwdChange?: (cwd: string) => void;
