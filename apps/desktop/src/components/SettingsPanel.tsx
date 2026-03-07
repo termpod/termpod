@@ -49,28 +49,35 @@ const FONT_SMOOTHING_OPTIONS: { value: FontSmoothing; label: string }[] = [
 
 const TAB_ICONS: Record<SettingsTab, React.ReactNode> = {
   appearance: (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="8" cy="8" r="6.25" />
-      <path d="M8 1.75v12.5" />
-      <path d="M8 1.75a6.25 6.25 0 0 0 0 12.5" fill="currentColor" />
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect x="2" y="2" width="14" height="14" rx="3" fill="url(#appearance-grad)" />
+      <path d="M9 3v12" stroke="rgba(255,255,255,0.9)" strokeWidth="1.2" />
+      <path d="M9 3a6 6 0 0 1 0 12" fill="rgba(255,255,255,0.25)" />
+      <defs><linearGradient id="appearance-grad" x1="2" y1="2" x2="16" y2="16"><stop stopColor="#5AC8FA" /><stop offset="1" stopColor="#007AFF" /></linearGradient></defs>
     </svg>
   ),
   terminal: (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2" />
-      <path d="M5 6.5l2.5 2L5 10.5" />
-      <path d="M9 10.5h2" />
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect x="2" y="3" width="14" height="12" rx="2.5" fill="url(#terminal-grad)" />
+      <path d="M5.5 7.5l2.5 1.75L5.5 11" stroke="#fff" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M9.5 11h3" stroke="#fff" strokeWidth="1.3" strokeLinecap="round" />
+      <defs><linearGradient id="terminal-grad" x1="2" y1="3" x2="16" y2="15"><stop stopColor="#34C759" /><stop offset="1" stopColor="#248A3D" /></linearGradient></defs>
     </svg>
   ),
   behavior: (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6.86 2.57a1.25 1.25 0 0 1 2.28 0l.58 1.3a1.25 1.25 0 0 0 .94.68l1.42.21c1.04.15 1.46 1.44.7 2.18l-1.03 1a1.25 1.25 0 0 0-.36 1.1l.24 1.42c.18 1.04-.91 1.83-1.84 1.34l-1.27-.67a1.25 1.25 0 0 0-1.16 0l-1.27.67c-.93.49-2.02-.3-1.84-1.34l.24-1.42a1.25 1.25 0 0 0-.36-1.1l-1.03-1c-.76-.74-.34-2.03.7-2.18l1.42-.2a1.25 1.25 0 0 0 .94-.69l.58-1.3z" />
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect x="2" y="2" width="14" height="14" rx="3" fill="url(#behavior-grad)" />
+      <circle cx="9" cy="9" r="2.5" stroke="#fff" strokeWidth="1.3" />
+      <path d="M9 4v1.5M9 12.5V14M4 9h1.5M12.5 9H14M5.46 5.46l1.06 1.06M11.48 11.48l1.06 1.06M5.46 12.54l1.06-1.06M11.48 6.52l1.06-1.06" stroke="#fff" strokeWidth="1" strokeLinecap="round" />
+      <defs><linearGradient id="behavior-grad" x1="2" y1="2" x2="16" y2="16"><stop stopColor="#8E8E93" /><stop offset="1" stopColor="#636366" /></linearGradient></defs>
     </svg>
   ),
   account: (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="8" cy="5.5" r="2.75" />
-      <path d="M2.75 14.25c0-2.9 2.35-5.25 5.25-5.25s5.25 2.35 5.25 5.25" />
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect x="2" y="2" width="14" height="14" rx="3" fill="url(#account-grad)" />
+      <circle cx="9" cy="7" r="2.5" stroke="#fff" strokeWidth="1.2" />
+      <path d="M4.5 15c0-2.5 2-4.5 4.5-4.5s4.5 2 4.5 4.5" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" />
+      <defs><linearGradient id="account-grad" x1="2" y1="2" x2="16" y2="16"><stop stopColor="#5856D6" /><stop offset="1" stopColor="#AF52DE" /></linearGradient></defs>
     </svg>
   ),
 };
@@ -137,9 +144,11 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
           <div className="sp-sidebar-spacer" />
           <button className="sp-tab sp-tab-reset" onClick={onReset}>
             <span className="sp-tab-icon">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M2.75 3v3.5h3.5" />
-                <path d="M2.75 6.5A5.25 5.25 0 1 1 3.6 10" />
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <rect x="2" y="2" width="14" height="14" rx="3" fill="url(#reset-grad)" />
+                <path d="M5.5 5.5v2.5H8" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M5.5 8A3.75 3.75 0 1 1 6.2 11" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" />
+                <defs><linearGradient id="reset-grad" x1="2" y1="2" x2="16" y2="16"><stop stopColor="#FF9500" /><stop offset="1" stopColor="#FF3B30" /></linearGradient></defs>
               </svg>
             </span>
             <span>Reset All</span>
@@ -150,20 +159,22 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
         <div className="sp-content">
           <div className="sp-content-header">
             <h2 className="sp-content-title">{TABS.find((t) => t.id === activeTab)?.label}</h2>
-            <button className="modal-close" onClick={onClose} aria-label="Close">&times;</button>
+            <button className="sp-close-btn" onClick={onClose} aria-label="Close">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <path d="M2 2l8 8M10 2l-8 8" />
+              </svg>
+            </button>
           </div>
 
           <div className="sp-content-body">
             {activeTab === 'appearance' && (
               <>
-                {/* Theme */}
                 <ThemeSection
                   themes={THEMES}
                   selected={settings.theme}
                   onSelect={(key) => onUpdate({ theme: key })}
                 />
 
-                {/* Cursor */}
                 <div className="sp-group-label">Cursor</div>
                 <div className="sp-group">
                   <SettingRow label="Style">
@@ -182,8 +193,7 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                   </SettingRow>
                 </div>
 
-                {/* Display */}
-                <div className="sp-group-label">Display</div>
+                <div className="sp-group-label">Window</div>
                 <div className="sp-group">
                   <SettingRow label="Line Height" badge={settings.lineHeight.toFixed(2)}>
                     <input
@@ -197,7 +207,7 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                     />
                   </SettingRow>
                   <div className="sp-separator" />
-                  <SettingRow label="Window Padding" badge={`${settings.windowPadding}px`}>
+                  <SettingRow label="Padding" badge={`${settings.windowPadding}px`}>
                     <input
                       className="sp-range"
                       type="range"
@@ -209,7 +219,7 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                     />
                   </SettingRow>
                   <div className="sp-separator" />
-                  <SettingRow label="Window Opacity" badge={`${Math.round(settings.backgroundOpacity * 100)}`}>
+                  <SettingRow label="Opacity" badge={`${Math.round(settings.backgroundOpacity * 100)}%`}>
                     <input
                       className="sp-range"
                       type="range"
@@ -221,7 +231,7 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                     />
                   </SettingRow>
                   <div className="sp-separator" />
-                  <SettingRow label="Window Blur Radius" badge={`${settings.blurRadius}`}>
+                  <SettingRow label="Blur Radius" badge={`${settings.blurRadius}`}>
                     <input
                       className="sp-range"
                       type="range"
@@ -238,7 +248,6 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
 
             {activeTab === 'terminal' && (
               <>
-                {/* Font */}
                 <div className="sp-group-label">Font</div>
                 <div className="sp-group">
                   <SettingRow label="Family">
@@ -276,6 +285,13 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                     />
                   </SettingRow>
                   <div className="sp-separator" />
+                  <SettingRow label="Ligatures">
+                    <NativeToggle
+                      value={settings.fontLigatures}
+                      onChange={(v) => onUpdate({ fontLigatures: v })}
+                    />
+                  </SettingRow>
+                  <div className="sp-separator" />
                   <SettingRow label="Draw Bold in Bold Font">
                     <NativeToggle
                       value={settings.drawBoldInBold}
@@ -304,7 +320,6 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                   <div style={{ color: THEMES[settings.theme]?.foreground }}>Hello, world!</div>
                 </div>
 
-                {/* Shell */}
                 <div className="sp-group-label">Shell</div>
                 <div className="sp-group">
                   <SettingRow label="Path">
@@ -410,7 +425,9 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                         }}
                       >
                         <span className="sp-nav-row-label">Keyboard Shortcuts</span>
-                        <span className="sp-nav-row-chevron">&#x203A;</span>
+                        <svg className="sp-nav-row-chevron" width="7" height="12" viewBox="0 0 7 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 1l5 5-5 5" />
+                        </svg>
                       </button>
                     </div>
                   </>
@@ -635,7 +652,9 @@ function FontPicker({ value, options, onChange }: {
         type="button"
       >
         <span className="sp-font-trigger-name">{displayName(value)}</span>
-        <span className="sp-font-trigger-chevron">{open ? '\u25B4' : '\u25BE'}</span>
+        <svg className="sp-font-trigger-chevron" width="8" height="5" viewBox="0 0 8 5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d={open ? 'M1 4l3-3 3 3' : 'M1 1l3 3 3-3'} />
+        </svg>
       </button>
 
       {open && (
@@ -676,7 +695,11 @@ function FontPicker({ value, options, onChange }: {
                   <span className="sp-font-item-sample" style={{ fontFamily: font }}>
                     AaBb 0Oo {'{}'}
                   </span>
-                  {font === value && <span className="sp-font-check">&#x2713;</span>}
+                  {font === value && (
+                    <svg className="sp-font-check" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 7.5l3 3 5-6" />
+                    </svg>
+                  )}
                 </button>
               ))
             )}
