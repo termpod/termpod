@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useImperativeHandle, forwardRef, useState } from 'react';
+import { useEffect, useRef, useCallback, useImperativeHandle, forwardRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
@@ -116,6 +116,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
 
     const searchQueryRef = useRef(searchQuery);
     const kittyKeyboardStackRef = useRef<number[]>([]);
+    const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
     searchQueryRef.current = searchQuery;
 
     // Matches cursor-home followed by erase display/scrollback/to-end:
@@ -258,6 +259,76 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         }
       }
     }, [handleSearchNext, handleSearchPrev]);
+
+    const handleContextMenu = useCallback((e: ReactMouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu({ x: e.clientX, y: e.clientY });
+    }, []);
+
+    const closeContextMenu = useCallback(() => {
+      setContextMenu(null);
+    }, []);
+
+    const handleCopy = useCallback(() => {
+      const selection = terminalRef.current?.getSelection();
+
+      if (selection) {
+        navigator.clipboard.writeText(selection);
+        terminalRef.current?.clearSelection();
+      }
+
+      setContextMenu(null);
+      terminalRef.current?.focus();
+    }, []);
+
+    const handlePaste = useCallback(async () => {
+      setContextMenu(null);
+
+      try {
+        const text = await navigator.clipboard.readText();
+
+        if (text) {
+          onDataRef.current?.(text);
+        }
+      } catch {
+        // clipboard access denied
+      }
+
+      terminalRef.current?.focus();
+    }, []);
+
+    const handleSelectAll = useCallback(() => {
+      terminalRef.current?.selectAll();
+      setContextMenu(null);
+    }, []);
+
+    const handleClearTerminal = useCallback(() => {
+      terminalRef.current?.clear();
+      setContextMenu(null);
+      terminalRef.current?.focus();
+    }, []);
+
+    const handleContextSearch = useCallback(() => {
+      setContextMenu(null);
+      setSearchVisible(true);
+    }, []);
+
+    // Close context menu on click outside or scroll
+    useEffect(() => {
+      if (!contextMenu) return;
+
+      const close = () => setContextMenu(null);
+      window.addEventListener('click', close);
+      window.addEventListener('scroll', close, true);
+      window.addEventListener('blur', close);
+
+      return () => {
+        window.removeEventListener('click', close);
+        window.removeEventListener('scroll', close, true);
+        window.removeEventListener('blur', close);
+      };
+    }, [contextMenu]);
 
     // Trigger search as user types
     useEffect(() => {
@@ -510,8 +581,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       el.style.fontVariantLigatures = fontLigatures ? 'normal' : 'none';
     }, [fontSmoothing, fontLigatures]);
 
+    const hasSelection = contextMenu ? !!terminalRef.current?.getSelection() : false;
+
     return (
-      <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <div style={{ width: '100%', height: '100%', position: 'relative' }} onContextMenu={handleContextMenu}>
         {searchVisible && (
           <div className="terminal-search-bar">
             <input
@@ -542,6 +615,36 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
               title="Close (Esc)"
             >
               &times;
+            </button>
+          </div>
+        )}
+        {contextMenu && (
+          <div
+            className="terminal-context-menu"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button className="terminal-context-menu-item" onClick={handleCopy} disabled={!hasSelection}>
+              <span className="terminal-context-menu-label">Copy</span>
+              <span className="terminal-context-menu-shortcut">&#8984;C</span>
+            </button>
+            <button className="terminal-context-menu-item" onClick={handlePaste}>
+              <span className="terminal-context-menu-label">Paste</span>
+              <span className="terminal-context-menu-shortcut">&#8984;V</span>
+            </button>
+            <div className="terminal-context-menu-separator" />
+            <button className="terminal-context-menu-item" onClick={handleSelectAll}>
+              <span className="terminal-context-menu-label">Select All</span>
+              <span className="terminal-context-menu-shortcut">&#8984;A</span>
+            </button>
+            <div className="terminal-context-menu-separator" />
+            <button className="terminal-context-menu-item" onClick={handleClearTerminal}>
+              <span className="terminal-context-menu-label">Clear Terminal</span>
+              <span className="terminal-context-menu-shortcut">&#8984;K</span>
+            </button>
+            <button className="terminal-context-menu-item" onClick={handleContextSearch}>
+              <span className="terminal-context-menu-label">Find...</span>
+              <span className="terminal-context-menu-shortcut">&#8984;F</span>
             </button>
           </div>
         )}
