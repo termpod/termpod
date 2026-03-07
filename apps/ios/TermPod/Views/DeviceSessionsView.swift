@@ -13,54 +13,22 @@ struct DeviceSessionsView: View {
     @State private var joinedSession: Session?
     @State private var requestingSession = false
 
+    /// Static cache so session cards survive view recreation (NavigationStack
+    /// creates a fresh view every time the user pushes back into this screen).
+    private static var sessionsCache: [String: [DeviceService.DeviceSession]] = [:]
+
+    init(device: DeviceService.Device) {
+        self.device = device
+        self._sessions = State(initialValue: Self.sessionsCache[device.id] ?? [])
+    }
+
     private let columns = [
         GridItem(.flexible(), spacing: 16),
         GridItem(.flexible(), spacing: 16),
     ]
 
     var body: some View {
-        Group {
-            if loading && sessions.isEmpty {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if sessions.isEmpty {
-                ContentUnavailableView {
-                    Label("No Sessions", systemImage: "terminal")
-                } description: {
-                    Text("This device has no active terminal sessions.")
-                } actions: {
-                    Button {
-                        Task { await requestNewSession() }
-                    } label: {
-                        Label("New Session", systemImage: "plus")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(requestingSession)
-                }
-            } else {
-                ScrollView {
-                    LazyVGrid(columns: columns, spacing: 16) {
-                        ForEach(sessions) { session in
-                            SessionCard(
-                                session: session,
-                                isActive: appState.sessions.contains { $0.id == session.id }
-                            )
-                            .transition(.scale.combined(with: .opacity))
-                            .onTapGesture { joinSession(session) }
-                            .contextMenu {
-                                Button(role: .destructive) {
-                                    deleteSession(session)
-                                } label: {
-                                    Label("Close Session", systemImage: "xmark.circle")
-                                }
-                            }
-                        }
-                    }
-                    .animation(.default, value: sessions.map(\.id))
-                    .padding(16)
-                }
-            }
-        }
+        content
         .navigationTitle(device.displayName)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -88,41 +56,63 @@ struct DeviceSessionsView: View {
         }
         .task {
             localDiscovery.start()
-
-            // Start loading from relay immediately
             await loadSessions()
-
-            // If Bonjour discovers the device, it will update sessions
-            // reactively via .onChange(of: localDiscovery.sessions)
         }
-        .onDisappear {
-            localDiscovery.stop()
+        .onChange(of: sessions) { _, newValue in
+            Self.sessionsCache[device.id] = newValue
         }
         .onChange(of: localDiscovery.sessions) { _, newSessions in
-            // React to real-time session updates from local server
-            guard localDiscovery.isDiscovered else { return }
+            handleLocalSessionsUpdate(newSessions)
+        }
+    }
 
-            let updated = newSessions.map { local in
-                DeviceService.DeviceSession(
-                    id: local.id,
-                    name: local.name,
-                    cwd: local.cwd,
-                    processName: local.processName,
-                    ptyCols: local.ptyCols,
-                    ptyRows: local.ptyRows
-                )
+    // MARK: - Content
+
+    @ViewBuilder
+    private var content: some View {
+        if loading && sessions.isEmpty {
+            ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if sessions.isEmpty {
+            ContentUnavailableView {
+                Label("No Sessions", systemImage: "terminal")
+            } description: {
+                Text("This device has no active terminal sessions.")
+            } actions: {
+                Button {
+                    Task { await requestNewSession() }
+                } label: {
+                    Label("New Session", systemImage: "plus")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(requestingSession)
             }
+        } else {
+            sessionsGrid
+        }
+    }
 
-            // Disconnect mobile sessions that no longer exist on desktop
-            let newIds = Set(updated.map(\.id))
-
-            for session in sessions where !newIds.contains(session.id) {
-                if let joined = appState.sessions.first(where: { $0.id == session.id }) {
-                    appState.removeSession(joined)
+    private var sessionsGrid: some View {
+        ScrollView {
+            LazyVGrid(columns: columns, spacing: 16) {
+                ForEach(sessions) { session in
+                    SessionCard(
+                        session: session,
+                        isActive: appState.sessions.contains { $0.id == session.id }
+                    )
+                    .transition(.scale.combined(with: .opacity))
+                    .onTapGesture { joinSession(session) }
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            deleteSession(session)
+                        } label: {
+                            Label("Close Session", systemImage: "xmark.circle")
+                        }
+                    }
                 }
             }
-
-            sessions = updated
+            .animation(.default, value: sessions.map(\.id))
+            .padding(16)
         }
     }
 
@@ -207,6 +197,34 @@ struct DeviceSessionsView: View {
         }
     }
 
+    // MARK: - Local Discovery Sync
+
+    private func handleLocalSessionsUpdate(_ newSessions: [LocalDiscoveryService.LocalSession]) {
+        guard localDiscovery.isDiscovered, !newSessions.isEmpty else { return }
+
+        let updated = newSessions.map { local in
+            DeviceService.DeviceSession(
+                id: local.id,
+                name: local.name,
+                cwd: local.cwd,
+                processName: local.processName,
+                ptyCols: local.ptyCols,
+                ptyRows: local.ptyRows
+            )
+        }
+
+        let newIds = Set(updated.map(\.id))
+        var merged = updated
+
+        for session in sessions where !newIds.contains(session.id) {
+            if appState.sessions.contains(where: { $0.id == session.id }) {
+                merged.append(session)
+            }
+        }
+
+        sessions = merged
+    }
+
     // MARK: - Actions
 
     private func deleteSession(_ session: DeviceService.DeviceSession) {
@@ -228,12 +246,14 @@ struct DeviceSessionsView: View {
     private func loadSessions() async {
         loading = true
 
+        var fetched: [DeviceService.DeviceSession] = []
+
         // Try local discovery first
         if localDiscovery.isDiscovered {
             await localDiscovery.refresh()
 
             if !localDiscovery.sessions.isEmpty {
-                sessions = localDiscovery.sessions.map { local in
+                fetched = localDiscovery.sessions.map { local in
                     DeviceService.DeviceSession(
                         id: local.id,
                         name: local.name,
@@ -243,13 +263,30 @@ struct DeviceSessionsView: View {
                         ptyRows: local.ptyRows
                     )
                 }
-                loading = false
-                return
             }
         }
 
-        // Fall back to relay
-        sessions = await deviceService.fetchSessions(auth: auth, deviceId: device.id)
+        // Fall back to relay if local didn't return anything
+        if fetched.isEmpty {
+            fetched = await deviceService.fetchSessions(auth: auth, deviceId: device.id)
+        }
+
+        // Merge: never drop sessions that are actively joined
+        if fetched.isEmpty {
+            loading = false
+            return
+        }
+
+        let fetchedIds = Set(fetched.map(\.id))
+        var merged = fetched
+
+        for session in sessions where !fetchedIds.contains(session.id) {
+            if appState.sessions.contains(where: { $0.id == session.id }) {
+                merged.append(session)
+            }
+        }
+
+        sessions = merged
         loading = false
     }
 

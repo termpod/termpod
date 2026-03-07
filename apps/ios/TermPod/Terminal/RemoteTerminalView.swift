@@ -98,6 +98,22 @@ class RemoteTerminalView: TerminalView {
 
     @objc private func handleFocusTap() {
         NotificationCenter.default.post(name: .terminalTapped, object: nil)
+        _ = becomeFirstResponder()
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        guard window != nil else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            guard let self, self.window != nil else { return }
+            _ = self.becomeFirstResponder()
+        }
+        // Nudge resize triggers SIGWINCH on the desktop, causing a full
+        // redraw so fresh output flows to this newly attached view.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self, self.window != nil else { return }
+            self.connection?.sendNudgeResize()
+        }
     }
 
     @objc private func handleScrollPan(_ gesture: UIPanGestureRecognizer) {
@@ -210,6 +226,10 @@ class RemoteTerminalView: TerminalView {
             self.feed(byteArray: ArraySlice<UInt8>(data))
             self.scheduleFullRedraw()
         }
+
+        // Replay buffered terminal data so re-entering a session
+        // shows existing content instead of a blank screen.
+        connection.replayScrollback()
     }
 
     // MARK: - Suppress iOS composing text preview

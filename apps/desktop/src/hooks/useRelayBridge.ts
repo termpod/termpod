@@ -65,15 +65,16 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
         }
       }
     },
-    onViewerResize: (cols, rows) => {
+    onViewerResize: (cols, _rows) => {
       const s = sessionRef.current;
 
       if (s && !s.exited) {
-        ptySizeRef.current = { cols, rows };
-        s.pty.resize(cols, rows);
         const term = s.termRef.current;
+        const currentRows = term?.rows ?? 40;
+        ptySizeRef.current = { cols, rows: currentRows };
+        s.pty.resize(cols, currentRows);
         term?.lockSize();
-        term?.resize(cols, rows);
+        term?.resize(cols, currentRows);
       }
     },
     onSignaling: (msg) => {
@@ -127,15 +128,16 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
         }
       }
     },
-    onViewerResize: (cols, rows) => {
+    onViewerResize: (cols, _rows) => {
       const s = sessionRef.current;
 
       if (s && !s.exited) {
-        ptySizeRef.current = { cols, rows };
-        s.pty.resize(cols, rows);
         const term = s.termRef.current;
+        const currentRows = term?.rows ?? 40;
+        ptySizeRef.current = { cols, rows: currentRows };
+        s.pty.resize(cols, currentRows);
         term?.lockSize();
-        term?.resize(cols, rows);
+        term?.resize(cols, currentRows);
       }
     },
     onCreateSessionRequest: (requestId, clientId) => {

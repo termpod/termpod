@@ -31,6 +31,11 @@ final class ConnectionManager: ObservableObject {
     private let sessionId: String
     private var cancellables: Set<AnyCancellable> = []
 
+    /// Circular buffer of recent terminal output so we can replay it
+    /// when a new terminal view is attached (e.g. after navigation).
+    private var scrollbackBuffer = Data()
+    private let maxScrollbackSize = 256 * 1024
+
     init(sessionId: String) {
         self.sessionId = sessionId
         self.relay = RelayClient()
@@ -66,6 +71,23 @@ final class ConnectionManager: ObservableObject {
     func sendResize(cols: Int, rows: Int) {
         lastRequestedSize = (cols, rows)
         bestTransport.sendResize(cols: cols, rows: rows)
+    }
+
+    /// Replay buffered terminal output to the current `onTerminalData` callback.
+    func replayScrollback() {
+        guard !scrollbackBuffer.isEmpty else { return }
+        onTerminalData?(scrollbackBuffer)
+    }
+
+    /// Briefly change cols by -1 then restore, forcing a SIGWINCH on the
+    /// desktop so the shell redraws. Used after attaching a new terminal view.
+    func sendNudgeResize() {
+        guard let size = lastRequestedSize, size.cols > 1 else { return }
+        bestTransport.sendResize(cols: size.cols - 1, rows: size.rows)
+        Task {
+            try? await Task.sleep(for: .milliseconds(50))
+            self.bestTransport.sendResize(cols: size.cols, rows: size.rows)
+        }
     }
 
     func sendCreateSessionRequest(requestId: String) {
@@ -115,11 +137,19 @@ final class ConnectionManager: ObservableObject {
         return type == activeTransport
     }
 
+    private func bufferAndDeliver(_ data: Data) {
+        scrollbackBuffer.append(data)
+        if scrollbackBuffer.count > maxScrollbackSize {
+            scrollbackBuffer = Data(scrollbackBuffer.suffix(maxScrollbackSize))
+        }
+        onTerminalData?(data)
+    }
+
     private func setupCallbacks() {
         // Relay output — accepted during scrollback phase, filtered once live
         relay.onTerminalData = { [weak self] data in
             guard let self, self.shouldAcceptData(from: .relay) else { return }
-            self.onTerminalData?(data)
+            self.bufferAndDeliver(data)
             if self.isBackgrounded {
                 let now = Date()
                 if now.timeIntervalSince(self.lastBackgroundNotification) > 5 {
@@ -153,7 +183,7 @@ final class ConnectionManager: ObservableObject {
         // Local transport callbacks — accepted when local is active
         localTransport.onTerminalData = { [weak self] data in
             guard let self, self.shouldAcceptData(from: .local) else { return }
-            self.onTerminalData?(data)
+            self.bufferAndDeliver(data)
         }
 
         localTransport.onResize = { [weak self] cols, rows in
@@ -185,7 +215,7 @@ final class ConnectionManager: ObservableObject {
         // WebRTC transport callbacks — accepted when WebRTC is active
         webrtcTransport.onTerminalData = { [weak self] data in
             guard let self, self.shouldAcceptData(from: .webrtc) else { return }
-            self.onTerminalData?(data)
+            self.bufferAndDeliver(data)
         }
 
         webrtcTransport.onResize = { [weak self] cols, rows in

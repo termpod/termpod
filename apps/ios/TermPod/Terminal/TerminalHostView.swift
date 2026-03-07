@@ -14,11 +14,6 @@ struct TerminalHostView: UIViewRepresentable {
         terminalView.settingsRef = settings
         terminalView.applySettings(settings)
         connection.terminalView = terminalView
-
-        // Auto-focus so keyboard appears
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            _ = terminalView.becomeFirstResponder()
-        }
         return terminalView
     }
 

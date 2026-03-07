@@ -5,13 +5,21 @@ import UIKit
 @MainActor
 final class DeviceService: ObservableObject {
 
-    struct Device: Identifiable, Codable {
+    struct Device: Identifiable, Codable, Hashable {
         let id: String
         let name: String
         let deviceType: String
         let platform: String
         let isOnline: Bool
         let lastSeenAt: String?
+
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(id)
+        }
+
+        static func == (lhs: Device, rhs: Device) -> Bool {
+            lhs.id == rhs.id
+        }
 
         var displayName: String {
             name.isEmpty ? "\(platform) device" : name
@@ -26,7 +34,7 @@ final class DeviceService: ObservableObject {
         }
     }
 
-    struct DeviceSession: Identifiable, Codable {
+    struct DeviceSession: Identifiable, Codable, Equatable {
         let id: String
         let name: String
         let cwd: String

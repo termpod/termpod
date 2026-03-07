@@ -31,6 +31,8 @@ final class LocalDiscoveryService: ObservableObject {
     // MARK: - Discovery
 
     func start() {
+        guard browser == nil else { return }
+
         intentionalClose = false
 
         let params = NWParameters()

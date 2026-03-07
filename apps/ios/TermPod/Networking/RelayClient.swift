@@ -213,12 +213,16 @@ final class RelayClient: ObservableObject, Transport {
 
         case "client_left":
             connectedViewers = max(0, connectedViewers - 1)
-            if json["role"] as? String == "desktop" {
+            let leftRole = json["role"] as? String ?? "unknown"
+            let leftReason = json["reason"] as? String ?? "unknown"
+            print("[Relay] client_left role=\(leftRole) reason=\(leftReason)")
+            if leftRole == "desktop" {
                 tearDown()
                 onSessionClosed?()
             }
 
         case "session_ended", "session_closed":
+            print("[Relay] \(type) received — tearing down")
             tearDown()
             onSessionClosed?()
 
@@ -246,6 +250,7 @@ final class RelayClient: ObservableObject, Transport {
     // MARK: - Reconnection
 
     private func handleDisconnect(error: Error) {
+        print("[Relay] handleDisconnect error=\(error.localizedDescription) state=\(state)")
         guard state != .disconnected else { return }
 
         webSocket?.cancel(with: .goingAway, reason: nil)

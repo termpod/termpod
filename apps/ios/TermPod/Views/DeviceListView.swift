@@ -30,7 +30,7 @@ struct DeviceListView: View {
                         .listRowBackground(Color.clear)
                     } else {
                         ForEach(devicesWithLocalStatus) { device in
-                            NavigationLink(destination: DeviceSessionsView(device: device)) {
+                            NavigationLink(value: device.id) {
                                 DeviceRow(device: device)
                             }
                         }
@@ -75,6 +75,11 @@ struct DeviceListView: View {
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
+            }
+            .navigationDestination(for: String.self) { deviceId in
+                if let device = deviceService.devices.first(where: { $0.id == deviceId }) {
+                    DeviceSessionsView(device: device)
+                }
             }
             .refreshable {
                 await deviceService.fetchDevices(auth: auth)
