@@ -84,10 +84,11 @@ final class ConnectionManager: ObservableObject {
     /// desktop so the shell redraws. Used after attaching a new terminal view.
     func sendNudgeResize() {
         guard let size = lastRequestedSize, size.cols > 1 else { return }
-        bestTransport.sendResize(cols: size.cols - 1, rows: size.rows)
+        let transport = bestTransport
+        transport.sendResize(cols: size.cols - 1, rows: size.rows)
         Task {
             try? await Task.sleep(for: .milliseconds(50))
-            self.bestTransport.sendResize(cols: size.cols, rows: size.rows)
+            transport.sendResize(cols: size.cols, rows: size.rows)
         }
     }
 
@@ -153,6 +154,19 @@ final class ConnectionManager: ObservableObject {
         if localTransport.isConnected { return localTransport }
         if webrtcTransport.isConnected { return webrtcTransport }
         return relay
+    }
+
+    /// Re-send mobile dimensions after a short delay, guarding against
+    /// the transport having changed during the wait.
+    private func resendSizeAfterDelay() {
+        guard let size = lastRequestedSize else { return }
+        let transportBefore = activeTransport
+
+        Task {
+            try? await Task.sleep(for: .milliseconds(150))
+            guard self.activeTransport == transportBefore else { return }
+            self.bestTransport.sendResize(cols: size.cols, rows: size.rows)
+        }
     }
 
     private func updateActiveTransport() {
@@ -239,17 +253,14 @@ final class ConnectionManager: ObservableObject {
             self?.onSessionsList?(sessions)
         }
 
+        localTransport.onSessionClosed = { [weak self] in
+            self?.onSessionClosed?()
+        }
+
         localTransport.onConnected = { [weak self] in
             guard let self else { return }
             self.updateActiveTransport()
-            // Re-send mobile dimensions after a short delay so the PTY
-            // adapts after the desktop's relay nudge-resize (50ms timeout).
-            if let size = self.lastRequestedSize {
-                Task {
-                    try? await Task.sleep(for: .milliseconds(150))
-                    self.bestTransport.sendResize(cols: size.cols, rows: size.rows)
-                }
-            }
+            self.resendSizeAfterDelay()
         }
 
         localTransport.onDisconnected = { [weak self] in
@@ -268,7 +279,9 @@ final class ConnectionManager: ObservableObject {
         }
 
         webrtcTransport.onConnected = { [weak self] in
-            self?.updateActiveTransport()
+            guard let self else { return }
+            self.updateActiveTransport()
+            self.resendSizeAfterDelay()
         }
 
         webrtcTransport.onDisconnected = { [weak self] in
@@ -278,7 +291,8 @@ final class ConnectionManager: ObservableObject {
         webrtcTransport.onControlMessage = { [weak self] json in
             guard let type = json["type"] as? String else { return }
 
-            if type == "session_created" {
+            switch type {
+            case "session_created":
                 if let requestId = json["requestId"] as? String,
                    let sessionId = json["sessionId"] as? String,
                    let name = json["name"] as? String,
@@ -287,10 +301,14 @@ final class ConnectionManager: ObservableObject {
                    let ptyRows = json["ptyRows"] as? Int {
                     self?.onSessionCreated?(requestId, sessionId, name, cwd, ptyCols, ptyRows)
                 }
-            } else if type == "sessions_list" {
+            case "sessions_list":
                 if let sessions = json["sessions"] as? [[String: Any]] {
                     self?.onSessionsList?(sessions)
                 }
+            case "session_closed", "session_ended":
+                self?.onSessionClosed?()
+            default:
+                break
             }
         }
 
@@ -310,15 +328,9 @@ final class ConnectionManager: ObservableObject {
                 self.objectWillChange.send()
 
                 // When session becomes live, re-send mobile dimensions so the
-                // PTY redraws at the correct size (scrollback arrived at desktop dims).
-                // When session becomes live, re-send mobile dimensions so the
                 // PTY redraws at the correct size after the desktop's nudge-resize.
-                if previousState != .live && self.relay.state == .live,
-                   let size = self.lastRequestedSize {
-                    Task {
-                        try? await Task.sleep(for: .milliseconds(100))
-                        self.bestTransport.sendResize(cols: size.cols, rows: size.rows)
-                    }
+                if previousState != .live && self.relay.state == .live {
+                    self.resendSizeAfterDelay()
                 }
             }
         }.store(in: &cancellables)

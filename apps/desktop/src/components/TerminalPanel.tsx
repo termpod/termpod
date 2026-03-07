@@ -13,6 +13,7 @@ export interface RelayInfo {
   sessionId: string | null;
   sendSessionCreated?: (requestId: string, sessionId: string, name: string, cwd: string, ptyCols: number, ptyRows: number) => void;
   sendToLocalClient?: (clientId: string, json: string) => void;
+  sendLocalControl?: (sessionId: string, json: string) => void;
   sendWebRTCControl?: (msg: Record<string, unknown>) => void;
 }
 
@@ -87,9 +88,10 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
       sessionId: relay.sessionId,
       sendSessionCreated: relay.sendSessionCreated,
       sendToLocalClient: relay.sendToLocalClient,
+      sendLocalControl: relay.sendLocalControl,
       sendWebRTCControl: relay.sendWebRTCControl,
     });
-  }, [relay.status, relay.viewers, relay.sessionId, relay.sendSessionCreated, relay.sendToLocalClient, relay.sendWebRTCControl]);
+  }, [relay.status, relay.viewers, relay.sessionId, relay.sendSessionCreated, relay.sendToLocalClient, relay.sendLocalControl, relay.sendWebRTCControl]);
 
   // Notify parent when relay session is created (for device registration)
   const registeredRef = useRef<string | null>(null);

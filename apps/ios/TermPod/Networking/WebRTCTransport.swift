@@ -25,6 +25,7 @@ final class WebRTCTransport: NSObject, Transport {
     private var dataChannel: LKRTCDataChannel?
     private let clientId: String
     private var remoteClientId: String?
+    private var connectionTimeout: Task<Void, Never>?
 
     private static let factory: LKRTCPeerConnectionFactory = {
         LKRTCInitializeSSL()
@@ -66,6 +67,7 @@ final class WebRTCTransport: NSObject, Transport {
     }
 
     private func handleOffer(sdp: String, from: String) {
+        startConnectionTimeout()
         let pc = createPeerConnection()
         let remoteSdp = LKRTCSessionDescription(type: .offer, sdp: sdp)
 
@@ -127,6 +129,22 @@ final class WebRTCTransport: NSObject, Transport {
         LKRTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
     }
 
+    private func startConnectionTimeout() {
+        connectionTimeout?.cancel()
+        connectionTimeout = Task {
+            try? await Task.sleep(for: .seconds(30))
+            guard !Task.isCancelled, !self.isConnected else { return }
+            print("[WebRTC] Connection timed out after 30s")
+            self.disconnect()
+            self.onDisconnected?()
+        }
+    }
+
+    private func cancelConnectionTimeout() {
+        connectionTimeout?.cancel()
+        connectionTimeout = nil
+    }
+
     // MARK: - Control Messages
 
     func sendControlMessage(_ msg: [String: Any]) {
@@ -161,6 +179,7 @@ final class WebRTCTransport: NSObject, Transport {
     }
 
     func disconnect() {
+        cancelConnectionTimeout()
         dataChannel?.close()
         peerConnection?.close()
         dataChannel = nil
@@ -214,8 +233,11 @@ extension WebRTCTransport: LKRTCDataChannelDelegate {
     nonisolated func dataChannelDidChangeState(_ dataChannel: LKRTCDataChannel) {
         Task { @MainActor in
             switch dataChannel.readyState {
-            case .open: self.onConnected?()
-            case .closed: self.onDisconnected?()
+            case .open:
+                self.cancelConnectionTimeout()
+                self.onConnected?()
+            case .closed:
+                self.onDisconnected?()
             default: break
             }
         }

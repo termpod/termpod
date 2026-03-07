@@ -142,10 +142,13 @@ export function App() {
       }
     }
 
-    // Unregister session from relay before closing
+    // Notify P2P viewers and unregister session from relay before closing
     const relayInfo = relayMapRef.current.get(id);
 
     if (relayInfo?.sessionId) {
+      const closedMsg = JSON.stringify({ type: 'session_closed', sessionId: relayInfo.sessionId });
+      relayInfo.sendLocalControl?.(relayInfo.sessionId, closedMsg);
+      relayInfo.sendWebRTCControl?.({ type: 'session_closed', sessionId: relayInfo.sessionId });
       device.removeSession(relayInfo.sessionId);
     }
 

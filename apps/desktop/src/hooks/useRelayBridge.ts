@@ -262,6 +262,7 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
     localViewers: localServer.localViewers,
     webrtcStatus: webrtc.status,
     sendToLocalClient: localServer.sendToClient,
+    sendLocalControl: localServer.sendControl,
     sendWebRTCControl: webrtc.sendControlMessage,
   };
 }

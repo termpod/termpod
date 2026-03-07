@@ -17,6 +17,7 @@ final class LocalTransport: Transport {
     var onDisconnected: (() -> Void)?
     var onSessionCreated: ((_ requestId: String, _ sessionId: String, _ name: String, _ cwd: String, _ ptyCols: Int, _ ptyRows: Int) -> Void)?
     var onSessionsList: (([[String: Any]]) -> Void)?
+    var onSessionClosed: (() -> Void)?
 
     private var browser: NWBrowser?
     private var webSocket: URLSessionWebSocketTask?
@@ -64,6 +65,8 @@ final class LocalTransport: Transport {
     }
 
     private func startBrowsing() {
+        browser?.cancel()
+
         let params = NWParameters()
         params.includePeerToPeer = true
 
@@ -225,6 +228,8 @@ final class LocalTransport: Transport {
                 if let sessions = json["sessions"] as? [[String: Any]] {
                     onSessionsList?(sessions)
                 }
+            } else if type == "session_closed" || type == "session_ended" {
+                onSessionClosed?()
             }
 
         @unknown default:
