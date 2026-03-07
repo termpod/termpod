@@ -13,14 +13,6 @@ final class DeviceService: ObservableObject {
         let isOnline: Bool
         let lastSeenAt: String?
 
-        func hash(into hasher: inout Hasher) {
-            hasher.combine(id)
-        }
-
-        static func == (lhs: Device, rhs: Device) -> Bool {
-            lhs.id == rhs.id
-        }
-
         var displayName: String {
             name.isEmpty ? "\(platform) device" : name
         }
