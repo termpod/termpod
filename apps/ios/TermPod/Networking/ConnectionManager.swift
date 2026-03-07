@@ -22,9 +22,28 @@ final class ConnectionManager: ObservableObject {
 
     var onTerminalData: ((Data) -> Void)?
     var onResize: ((Int, Int) -> Void)?
-    var onSessionCreated: ((_ requestId: String, _ sessionId: String, _ name: String, _ cwd: String, _ ptyCols: Int, _ ptyRows: Int) -> Void)?
-    var onSessionsList: (([[String: Any]]) -> Void)?
     var onSessionClosed: (() -> Void)?
+
+    /// Keyed completion handlers for request/response control messages.
+    /// Each request registers a handler with a unique ID; the response removes it.
+    private var sessionCreatedHandlers: [String: (_ requestId: String, _ sessionId: String, _ name: String, _ cwd: String, _ ptyCols: Int, _ ptyRows: Int) -> Void] = [:]
+    private var sessionsListHandlers: [String: ([[String: Any]]) -> Void] = [:]
+
+    func addSessionCreatedHandler(id: String, handler: @escaping (_ requestId: String, _ sessionId: String, _ name: String, _ cwd: String, _ ptyCols: Int, _ ptyRows: Int) -> Void) {
+        sessionCreatedHandlers[id] = handler
+    }
+
+    func removeSessionCreatedHandler(id: String) {
+        sessionCreatedHandlers.removeValue(forKey: id)
+    }
+
+    func addSessionsListHandler(id: String, handler: @escaping ([[String: Any]]) -> Void) {
+        sessionsListHandlers[id] = handler
+    }
+
+    func removeSessionsListHandler(id: String) {
+        sessionsListHandlers.removeValue(forKey: id)
+    }
 
     let relay: RelayClient
     private let localTransport: LocalTransport
@@ -62,7 +81,14 @@ final class ConnectionManager: ObservableObject {
     // MARK: - Sending (through best transport only)
 
     func sendInput(_ data: Data) {
-        bestTransport.sendInput(data)
+        let transport = bestTransport
+        transport.sendInput(data)
+
+        // If a P2P transport was selected but disconnected between bestTransport
+        // and sendInput, also send through relay as a safety net.
+        if transport.transportType != .relay && !transport.isConnected {
+            relay.sendInput(data)
+        }
     }
 
     /// Track the last size this mobile client requested so we can
@@ -71,7 +97,12 @@ final class ConnectionManager: ObservableObject {
 
     func sendResize(cols: Int, rows: Int) {
         lastRequestedSize = (cols, rows)
-        bestTransport.sendResize(cols: cols, rows: rows)
+        let transport = bestTransport
+        transport.sendResize(cols: cols, rows: rows)
+
+        if transport.transportType != .relay && !transport.isConnected {
+            relay.sendResize(cols: cols, rows: rows)
+        }
     }
 
     /// Replay buffered terminal output to the current `onTerminalData` callback.
@@ -169,6 +200,22 @@ final class ConnectionManager: ObservableObject {
         }
     }
 
+    private func dispatchSessionCreated(_ requestId: String, _ sessionId: String, _ name: String, _ cwd: String, _ ptyCols: Int, _ ptyRows: Int) {
+        // Dispatch to matching handler (keyed by requestId)
+        if let handler = sessionCreatedHandlers.removeValue(forKey: requestId) {
+            handler(requestId, sessionId, name, cwd, ptyCols, ptyRows)
+        }
+    }
+
+    private func dispatchSessionsList(_ sessions: [[String: Any]]) {
+        // Dispatch to ALL waiting handlers (list_sessions has no request ID)
+        let handlers = sessionsListHandlers
+        sessionsListHandlers.removeAll()
+        for (_, handler) in handlers {
+            handler(sessions)
+        }
+    }
+
     private func updateActiveTransport() {
         if localTransport.isConnected {
             activeTransport = .local
@@ -222,7 +269,7 @@ final class ConnectionManager: ObservableObject {
         }
 
         relay.onSessionCreated = { [weak self] requestId, sessionId, name, cwd, ptyCols, ptyRows in
-            self?.onSessionCreated?(requestId, sessionId, name, cwd, ptyCols, ptyRows)
+            self?.dispatchSessionCreated(requestId, sessionId, name, cwd, ptyCols, ptyRows)
         }
 
         relay.onSessionClosed = { [weak self] in
@@ -246,11 +293,11 @@ final class ConnectionManager: ObservableObject {
         }
 
         localTransport.onSessionCreated = { [weak self] requestId, sessionId, name, cwd, ptyCols, ptyRows in
-            self?.onSessionCreated?(requestId, sessionId, name, cwd, ptyCols, ptyRows)
+            self?.dispatchSessionCreated(requestId, sessionId, name, cwd, ptyCols, ptyRows)
         }
 
         localTransport.onSessionsList = { [weak self] sessions in
-            self?.onSessionsList?(sessions)
+            self?.dispatchSessionsList(sessions)
         }
 
         localTransport.onSessionClosed = { [weak self] in
@@ -299,11 +346,11 @@ final class ConnectionManager: ObservableObject {
                    let cwd = json["cwd"] as? String,
                    let ptyCols = json["ptyCols"] as? Int,
                    let ptyRows = json["ptyRows"] as? Int {
-                    self?.onSessionCreated?(requestId, sessionId, name, cwd, ptyCols, ptyRows)
+                    self?.dispatchSessionCreated(requestId, sessionId, name, cwd, ptyCols, ptyRows)
                 }
             case "sessions_list":
                 if let sessions = json["sessions"] as? [[String: Any]] {
-                    self?.onSessionsList?(sessions)
+                    self?.dispatchSessionsList(sessions)
                 }
             case "session_closed", "session_ended":
                 self?.onSessionClosed?()

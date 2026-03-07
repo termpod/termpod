@@ -134,10 +134,13 @@ struct DeviceListView: View {
 
         if device.platform == "macos" && localDesktopFound { return .local }
 
-        // Check if any active session has a P2P transport
+        // Check if any active session to this device has a P2P transport.
+        // We match by checking active WebRTC connections — these are always
+        // to the single desktop device in the current architecture.
         let hasP2P = appState.sessions.contains { $0.connection.hasP2PTransport }
         if hasP2P { return .webrtc }
 
+        // Device is online per relay API
         return .relay
     }
 

@@ -263,8 +263,12 @@ struct DeviceSessionsView: View {
     // MARK: - Actions
 
     /// Find an active P2P connection (local or WebRTC) to route control messages through.
+    /// Only considers sessions that belong to this device (matched by session ID).
     private var activeP2PConnection: ConnectionManager? {
-        appState.sessions.first(where: { $0.connection.hasP2PTransport })?.connection
+        let deviceSessionIds = Set(sessions.map(\.id))
+        return appState.sessions
+            .first(where: { deviceSessionIds.contains($0.id) && $0.connection.hasP2PTransport })?
+            .connection
     }
 
     private func deleteSession(_ session: DeviceService.DeviceSession) {
@@ -310,13 +314,14 @@ struct DeviceSessionsView: View {
 
         // Try P2P (WebRTC/local via existing session) if local discovery didn't return anything
         if fetched.isEmpty, let p2p = activeP2PConnection {
+            let handlerId = UUID().uuidString
+
             fetched = await withCheckedContinuation { (continuation: CheckedContinuation<[DeviceService.DeviceSession], Never>) in
                 var resumed = false
 
-                p2p.onSessionsList = { sessionsJson in
+                p2p.addSessionsListHandler(id: handlerId) { sessionsJson in
                     guard !resumed else { return }
                     resumed = true
-                    p2p.onSessionsList = nil
 
                     let parsed = sessionsJson.compactMap { json -> DeviceService.DeviceSession? in
                         guard let id = json["id"] as? String,
@@ -340,7 +345,7 @@ struct DeviceSessionsView: View {
                     try? await Task.sleep(for: .seconds(3))
                     guard !resumed else { return }
                     resumed = true
-                    p2p.onSessionsList = nil
+                    p2p.removeSessionsListHandler(id: handlerId)
                     continuation.resume(returning: [])
                 }
             }
@@ -418,10 +423,9 @@ struct DeviceSessionsView: View {
             let result = await withCheckedContinuation { (continuation: CheckedContinuation<(String, String, String, Int, Int)?, Never>) in
                 var resumed = false
 
-                activeSession.connection.onSessionCreated = { rId, sessionId, name, cwd, ptyCols, ptyRows in
+                activeSession.connection.addSessionCreatedHandler(id: requestId) { rId, sessionId, name, cwd, ptyCols, ptyRows in
                     guard rId == requestId, !resumed else { return }
                     resumed = true
-                    activeSession.connection.onSessionCreated = nil
                     continuation.resume(returning: (sessionId, name, cwd, ptyCols, ptyRows))
                 }
 
@@ -431,7 +435,7 @@ struct DeviceSessionsView: View {
                     try? await Task.sleep(for: .seconds(5))
                     guard !resumed else { return }
                     resumed = true
-                    activeSession.connection.onSessionCreated = nil
+                    activeSession.connection.removeSessionCreatedHandler(id: requestId)
                     continuation.resume(returning: nil)
                 }
             }
