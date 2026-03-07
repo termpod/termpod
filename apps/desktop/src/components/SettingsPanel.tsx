@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Settings, CursorStyle, NewTabCwd, TerminalTheme, FontSmoothing, FontWeight } from '../hooks/useSettings';
+import type { Settings, CursorStyle, NewTabCwd, FontSmoothing, FontWeight } from '../hooks/useSettings';
 import { THEMES } from '../hooks/useSettings';
+import { ThemePicker } from './ThemePicker';
 
 type SettingsTab = 'appearance' | 'terminal' | 'behavior' | 'account';
 
@@ -169,8 +170,7 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
           <div className="sp-content-body">
             {activeTab === 'appearance' && (
               <>
-                <ThemeSection
-                  themes={THEMES}
+                <ThemeSelector
                   selected={settings.theme}
                   onSelect={(key) => onUpdate({ theme: key })}
                 />
@@ -516,59 +516,52 @@ function SegmentedControl<T extends string>({ options, value, onChange }: {
   );
 }
 
-const LIGHT_THEMES = new Set(['github-light', 'catppuccin-latte', 'solarized-light', 'one-light', 'rose-pine-dawn']);
-
-function isLightTheme(key: string): boolean {
-  return LIGHT_THEMES.has(key);
-}
-
-function ThemeCard({ themeKey, theme, selected, onSelect }: {
-  themeKey: string;
-  theme: TerminalTheme;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      className={`sp-theme-card ${selected ? 'sp-theme-active' : ''}`}
-      onClick={onSelect}
-      title={theme.name}
-    >
-      <div
-        className="sp-theme-preview"
-        style={{ background: theme.background }}
-      >
-        <span style={{ color: theme.green }}>$</span>
-        <span style={{ color: theme.foreground }}> echo </span>
-        <span style={{ color: theme.yellow }}>hello</span>
-      </div>
-      <span className="sp-theme-name">{theme.name}</span>
-    </button>
-  );
-}
-
-function ThemeSection({ themes, selected, onSelect }: {
-  themes: Record<string, TerminalTheme>;
+function ThemeSelector({ selected, onSelect }: {
   selected: string;
   onSelect: (key: string) => void;
 }) {
-  const dark = Object.entries(themes).filter(([k]) => !isLightTheme(k));
-  const light = Object.entries(themes).filter(([k]) => isLightTheme(k));
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const theme = THEMES[selected] ?? THEMES['tokyo-night'];
+  const swatches = [theme.red, theme.green, theme.yellow, theme.blue, theme.magenta, theme.cyan];
 
   return (
     <>
-      <div className="sp-group-label">Dark Themes</div>
-      <div className="sp-theme-grid">
-        {dark.map(([key, theme]) => (
-          <ThemeCard key={key} themeKey={key} theme={theme} selected={selected === key} onSelect={() => onSelect(key)} />
-        ))}
+      <div className="sp-group-label">Theme</div>
+      <div className="sp-group">
+        <button className="sp-theme-selector" onClick={() => setPickerOpen(true)}>
+          <div className="sp-theme-selector-preview" style={{ background: theme.background }}>
+            <div className="sp-theme-selector-line">
+              <span style={{ color: theme.green }}>~</span>
+              <span style={{ color: theme.foreground }}> </span>
+              <span style={{ color: theme.cyan }}>git</span>
+              <span style={{ color: theme.foreground }}> status</span>
+            </div>
+            <div className="sp-theme-selector-line">
+              <span style={{ color: theme.yellow }}>  M</span>
+              <span style={{ color: theme.foreground }}> src/</span>
+              <span style={{ color: theme.blue }}>app.ts</span>
+            </div>
+          </div>
+          <div className="sp-theme-selector-info">
+            <span className="sp-theme-selector-name">{theme.name}</span>
+            <div className="sp-theme-selector-swatches">
+              {swatches.map((c, i) => (
+                <span key={i} className="sp-theme-selector-swatch" style={{ background: c }} />
+              ))}
+            </div>
+          </div>
+          <svg className="sp-theme-selector-chevron" width="7" height="12" viewBox="0 0 7 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M1 1l5 5-5 5" />
+          </svg>
+        </button>
       </div>
-      <div className="sp-group-label">Light Themes</div>
-      <div className="sp-theme-grid">
-        {light.map(([key, theme]) => (
-          <ThemeCard key={key} themeKey={key} theme={theme} selected={selected === key} onSelect={() => onSelect(key)} />
-        ))}
-      </div>
+      {pickerOpen && (
+        <ThemePicker
+          selected={selected}
+          onSelect={onSelect}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </>
   );
 }
