@@ -281,6 +281,7 @@ pub fn run() {
 
             let session_menu = session_menu.build()?;
 
+            #[allow(unused_mut)]
             let mut menu_builder = MenuBuilder::new(app)
                 .item(&SubmenuBuilder::new(app, "TermPod")
                     .about(None)
