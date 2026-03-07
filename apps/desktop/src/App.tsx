@@ -132,8 +132,13 @@ export function App() {
       return;
     }
 
+    if (wasLast) {
+      createSession({ shell: settings.shellPath });
+      return;
+    }
+
     setTimeout(focusActive, 50);
-  }, [closeSession, focusActive, device]);
+  }, [closeSession, focusActive, device, createSession, settings]);
 
   // Auto-close tab when shell exits (e.g. ctrl+d)
   onSessionExitRef.current = handleCloseSession;
@@ -225,6 +230,20 @@ export function App() {
       return next;
     });
   }, [sessions]);
+
+  // When the window is reopened (e.g. dock icon click after close), create a tab if empty
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
+
+  useEffect(() => {
+    const unlisten = listen('app-reopen', () => {
+      if (sessionsRef.current.length === 0) {
+        createSession({ shell: settings.shellPath });
+      }
+    });
+
+    return () => { unlisten.then((fn) => fn()); };
+  }, [createSession, settings.shellPath]);
 
   // Listen for Tauri menu events
   const menuHandlerRef = useRef((_menuId: string) => {});
