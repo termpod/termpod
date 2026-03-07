@@ -115,6 +115,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     promptAtBottomRef.current = promptAtBottom;
 
     const searchQueryRef = useRef(searchQuery);
+    const kittyKeyboardStackRef = useRef<number[]>([]);
     searchQueryRef.current = searchQuery;
 
     // Matches cursor-home followed by erase display/scrollback/to-end:
@@ -365,6 +366,16 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           return false;
         }
 
+        // Shift+Enter: send CSI u encoding so apps like Claude Code interpret it as newline
+        // Block all event types (keydown, keypress, keyup) to prevent xterm also sending \r
+        if (event.shiftKey && event.key === 'Enter') {
+          if (event.type === 'keydown') {
+            onDataRef.current?.('\x1b[13;2u');
+          }
+
+          return false;
+        }
+
         return true;
       });
 
@@ -387,6 +398,40 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         }
 
         return false;
+      });
+
+      // Kitty keyboard protocol support (progressive enhancement)
+      // Apps like Claude Code push this mode to get modifier info on keys like Enter.
+      // We track the mode stack and respond to queries so the app knows we support it.
+      // Ref is used so the key event handler can read the current state.
+      const kittyKeyboardStack: number[] = [];
+      kittyKeyboardStackRef.current = kittyKeyboardStack;
+
+      // CSI > flags u — push keyboard mode
+      term.parser.registerCsiHandler({ prefix: '>', final: 'u' }, (params) => {
+        const flags = params[0] ?? 0;
+        kittyKeyboardStack.push(typeof flags === 'number' ? flags : 0);
+        return true;
+      });
+
+      // CSI < count u — pop keyboard mode
+      term.parser.registerCsiHandler({ prefix: '<', final: 'u' }, (params) => {
+        const count = (typeof params[0] === 'number' && params[0] > 0) ? params[0] : 1;
+
+        for (let i = 0; i < count && kittyKeyboardStack.length > 0; i++) {
+          kittyKeyboardStack.pop();
+        }
+
+        return true;
+      });
+
+      // CSI ? u — query current keyboard mode, respond with CSI ? flags u
+      term.parser.registerCsiHandler({ prefix: '?', final: 'u' }, () => {
+        const flags = kittyKeyboardStack.length > 0
+          ? kittyKeyboardStack[kittyKeyboardStack.length - 1]
+          : 0;
+        onDataRef.current?.(`\x1b[?${flags}u`);
+        return true;
       });
 
       term.onBell(() => onBellRef.current?.());
