@@ -2,10 +2,6 @@ name = "termpod-relay"
 main = "src/worker.ts"
 compatibility_date = "2025-03-05"
 
-# DEV ONLY — in production, use: wrangler secret put JWT_SECRET
-[vars]
-JWT_SECRET = "dev-secret-change-in-production"
-
 [durable_objects]
 bindings = [
   { name = "TERMINAL_SESSION", class_name = "TerminalSession" },
