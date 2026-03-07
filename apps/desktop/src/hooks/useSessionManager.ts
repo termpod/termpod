@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
-import { spawn } from 'tauri-pty';
-import type { IPty } from 'tauri-pty';
+import { spawn } from '../pty';
+import type { IPty } from '../pty';
 import { invoke } from '@tauri-apps/api/core';
 import { DEFAULT_SHELL, DEFAULT_PTY_SIZE, getIconForProcess } from '@termpod/shared';
 import type { TabIcon } from '@termpod/shared';
@@ -16,6 +16,8 @@ export interface TerminalSession {
   shellPid: number | null;
   termRef: React.RefObject<TerminalHandle | null>;
   dataListeners: Set<PtyDataListener>;
+  pendingData: (Uint8Array | number[])[];
+  termReady: boolean;
   createdAt: number;
   exited: boolean;
   closing: boolean;
@@ -37,9 +39,10 @@ function generateSessionId(): string {
 
 let cachedHomeDir: string | null = null;
 
-invoke<string>('get_home_dir').then((dir) => {
+const homeDirPromise = invoke<string>('get_home_dir').then((dir) => {
   cachedHomeDir = dir;
-}).catch(() => {});
+  return dir;
+}).catch(() => null);
 
 export function nameFromCwd(cwd: string): string {
   if (cachedHomeDir && (cwd === cachedHomeDir || cwd === cachedHomeDir + '/')) {
@@ -167,7 +170,7 @@ export function useSessionManager() {
   const createSession = useCallback(
     async (options?: { cwd?: string; shell?: string }) => {
       const id = generateSessionId();
-      const sessionCwd = options?.cwd || await invoke<string>('get_home_dir');
+      const sessionCwd = options?.cwd || cachedHomeDir || await homeDirPromise || '/Users';
       const shell = options?.shell || DEFAULT_SHELL;
 
       const pty = spawn(shell, ['-l'], {
@@ -189,6 +192,8 @@ export function useSessionManager() {
         shellPid: null,
         termRef,
         dataListeners,
+        pendingData: [],
+        termReady: false,
         createdAt: Date.now(),
         exited: false,
         closing: false,
@@ -196,18 +201,16 @@ export function useSessionManager() {
         icon: null,
       };
 
-      // Guard against duplicate PTY data fires (tauri-pty IPC bug in
-      // certain launch conditions). Same reference = same read result
-      // fired twice; different reference = legitimate new data.
-      let lastData: unknown = null;
-
       pty.onData((data) => {
-        if (data === lastData || session.closing) {
+        if (session.closing) {
           return;
         }
 
-        lastData = data;
-        session.termRef.current?.write(data);
+        if (session.termReady) {
+          session.termRef.current?.write(data);
+        } else {
+          session.pendingData.push(data);
+        }
 
         for (const listener of dataListeners) {
           listener(data);
@@ -328,6 +331,23 @@ export function useSessionManager() {
     [updateStore],
   );
 
+  const markTermReady = useCallback((id: string) => {
+    const session = storeRef.current.sessions.find((s) => s.id === id);
+
+    if (!session || session.termReady) {
+      return;
+    }
+
+    session.termReady = true;
+
+    // Flush buffered PTY data that arrived before xterm was mounted
+    for (const data of session.pendingData) {
+      session.termRef.current?.write(data);
+    }
+
+    session.pendingData.length = 0;
+  }, []);
+
   const focusActive = useCallback(() => {
     const { sessions: s, activeId: id } = storeRef.current;
     const active = s.find((sess) => sess.id === id);
@@ -344,6 +364,7 @@ export function useSessionManager() {
     closeSession,
     switchSession,
     focusActive,
+    markTermReady,
     renameSession,
     reorderSessions,
     updateSessionCwd,

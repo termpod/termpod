@@ -17,6 +17,7 @@ export interface RelayInfo {
 interface TerminalPanelProps {
   session: TerminalSession;
   visible: boolean;
+  onTermReady?: (sessionId: string) => void;
   fontSize?: number;
   fontFamily?: string;
   fontWeight?: string;
@@ -39,7 +40,9 @@ interface TerminalPanelProps {
   onCwdChange?: (cwd: string) => void;
 }
 
-export function TerminalPanel({ session, visible, fontSize, fontFamily, fontWeight, fontSmoothing, fontLigatures, drawBoldInBold, windowPadding, cursorStyle, cursorBlink, lineHeight, promptAtBottom, theme, bellEnabled, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onDeleteSession, onSessionClosed, onCwdChange }: TerminalPanelProps) {
+export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFamily, fontWeight, fontSmoothing, fontLigatures, drawBoldInBold, windowPadding, cursorStyle, cursorBlink, lineHeight, promptAtBottom, theme, bellEnabled, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onDeleteSession, onSessionClosed, onCwdChange }: TerminalPanelProps) {
+  const onTermReadyRef = useRef(onTermReady);
+  onTermReadyRef.current = onTermReady;
   const onCreateSessionRequestRef = useRef(onCreateSessionRequest);
   onCreateSessionRequestRef.current = onCreateSessionRequest;
   const onDeleteSessionRef = useRef(onDeleteSession);
@@ -152,20 +155,51 @@ export function TerminalPanel({ session, visible, fontSize, fontFamily, fontWeig
     };
   }, [theme, backgroundOpacity]);
 
+  const handleReady = useCallback(() => {
+    onTermReadyRef.current?.(session.id);
+  }, [session.id]);
+
   const active = visible && !session.closing;
+
+  const focusTerminal = useCallback(() => {
+    // Blur any focused button/input so xterm can receive focus
+    if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
+      document.activeElement.blur();
+    }
+
+    session.termRef.current?.focus();
+  }, [session.termRef]);
 
   useEffect(() => {
     if (!active) {
       return;
     }
 
-    const timer = setTimeout(() => {
+    if (session.termReady) {
       session.termRef.current?.refresh();
-      session.termRef.current?.focus();
-    }, 16);
+      focusTerminal();
+      return;
+    }
 
-    return () => clearTimeout(timer);
-  }, [active, session.termRef]);
+    // Terminal not ready yet — poll until it is, then focus
+    let cancelled = false;
+
+    const check = () => {
+      if (cancelled) return;
+
+      if (session.termReady) {
+        session.termRef.current?.refresh();
+        focusTerminal();
+        return;
+      }
+
+      requestAnimationFrame(check);
+    };
+
+    requestAnimationFrame(check);
+
+    return () => { cancelled = true; };
+  }, [active, session, focusTerminal]);
 
   return (
     <div
@@ -174,12 +208,14 @@ export function TerminalPanel({ session, visible, fontSize, fontFamily, fontWeig
         visibility: active ? 'visible' : 'hidden',
         pointerEvents: active ? 'auto' : 'none',
       }}
+      onMouseDown={active ? focusTerminal : undefined}
     >
       <Terminal
         ref={session.termRef}
         onData={handleData}
         onResize={handleResize}
         onCwdChange={handleCwdChange}
+        onReady={handleReady}
         onBell={bellEnabled ? () => { /* system bell */ } : undefined}
         fontSize={fontSize}
         fontFamily={fontFamily}

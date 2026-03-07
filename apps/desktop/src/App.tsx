@@ -29,6 +29,7 @@ export function App() {
     closeSession,
     switchSession,
     focusActive,
+    markTermReady,
     reorderSessions,
     updateSessionCwd,
     onSessionExitRef,
@@ -527,6 +528,7 @@ export function App() {
             key={session.id}
             session={session}
             visible={session.id === activeId}
+            onTermReady={markTermReady}
             fontSize={settings.fontSize}
             fontFamily={settings.fontFamily}
             fontWeight={settings.fontWeight}

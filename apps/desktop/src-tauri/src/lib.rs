@@ -1,4 +1,5 @@
 mod local_server;
+mod pty;
 
 use std::ffi::CStr;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
@@ -142,7 +143,6 @@ fn open_url(url: String) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_pty::init())
         .invoke_handler(tauri::generate_handler![
             get_home_dir,
             get_pid_cwd,
@@ -150,6 +150,12 @@ pub fn run() {
             get_shell_children,
             check_full_disk_access,
             open_url,
+            pty::pty_spawn,
+            pty::pty_write,
+            pty::pty_read,
+            pty::pty_resize,
+            pty::pty_kill,
+            pty::pty_exitstatus,
             local_server::start_local_server,
             local_server::stop_local_server,
             local_server::local_server_broadcast,
@@ -157,6 +163,7 @@ pub fn run() {
             local_server::local_server_send_to_client,
             local_server::update_local_sessions,
         ])
+        .manage(pty::PtyState::default())
         .setup(|app| {
             let new_tab = MenuItemBuilder::with_id("new_tab", "New Tab")
                 .accelerator("CmdOrCtrl+T")
