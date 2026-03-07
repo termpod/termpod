@@ -13,7 +13,7 @@ struct DeviceListView: View {
             List {
                 // Registered devices
                 Section {
-                    if deviceService.loading {
+                    if deviceService.loading && deviceService.devices.isEmpty {
                         HStack {
                             Spacer()
                             ProgressView()

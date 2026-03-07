@@ -15,14 +15,12 @@ struct SessionDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Connection status banners
             statusBanner
                 .transition(.move(edge: .top).combined(with: .opacity))
+                .animation(.easeInOut(duration: 0.25), value: connection.state.isTransient)
 
-            // Terminal — handles keyboard input directly
             TerminalHostView(connection: connection)
         }
-        .animation(.easeInOut(duration: 0.25), value: connection.state.isTransient)
         .safeAreaInset(edge: .bottom) {
             specialKeysBar
         }
@@ -30,24 +28,7 @@ struct SessionDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 12) {
-                    Text(connection.activeTransport.label)
-                        .font(.caption2)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(transportColor.opacity(0.2))
-                        .foregroundColor(transportColor)
-                        .clipShape(Capsule())
-
-                    if connection.connectedViewers > 0 {
-                        Label("\(connection.connectedViewers)", systemImage: "eye")
-                            .font(.caption)
-                    }
-
-                    Circle()
-                        .fill(connection.state == .live ? Color.green : Color.orange)
-                        .frame(width: 8, height: 8)
-                }
+                connectionBadge
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .terminalTitleChanged)) { notif in
@@ -63,53 +44,40 @@ struct SessionDetailView: View {
         }
     }
 
-    // MARK: - Special Keys Bar
+    // MARK: - Connection Badge
 
-    private var specialKeysBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 0) {
-                // Modifier keys
-                Group {
-                    specialKey("Esc", bytes: [0x1B])
-                    specialKey("Tab", bytes: [0x09])
-                    specialKey("^C", bytes: [0x03])
-                    specialKey("^D", bytes: [0x04])
-                    specialKey("^Z", bytes: [0x1A])
-                    specialKey("^L", bytes: [0x0C])
+    private var connectionBadge: some View {
+        HStack(spacing: 6) {
+            if connection.connectedViewers > 0 {
+                HStack(spacing: 3) {
+                    Image(systemName: "eye")
+                        .font(.system(size: 9))
+                    Text("\(connection.connectedViewers)")
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
                 }
-
-                keyDivider
-
-                // Arrow keys
-                Group {
-                    specialKey("↑", bytes: [0x1B, 0x5B, 0x41])
-                    specialKey("↓", bytes: [0x1B, 0x5B, 0x42])
-                    specialKey("←", bytes: [0x1B, 0x5B, 0x44])
-                    specialKey("→", bytes: [0x1B, 0x5B, 0x43])
-                }
-
-                keyDivider
-
-                // Symbols
-                Group {
-                    specialKey("|", bytes: [0x7C])
-                    specialKey("~", bytes: [0x7E])
-                }
+                .foregroundStyle(.white.opacity(0.5))
+                .padding(.trailing, 4)
             }
+
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 6, height: 6)
+
+                Text(connection.activeTransport.label)
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            .foregroundStyle(statusColor)
             .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .padding(.vertical, 4)
+            .background(statusColor.opacity(0.15))
+            .clipShape(Capsule())
         }
-        .background(Color(UIColor.secondarySystemBackground))
     }
 
-    private var keyDivider: some View {
-        Rectangle()
-            .fill(Color(UIColor.separator))
-            .frame(width: 1, height: 20)
-            .padding(.horizontal, 4)
-    }
+    private var statusColor: Color {
+        guard connection.state == .live else { return .orange }
 
-    private var transportColor: Color {
         switch connection.activeTransport {
         case .local: return .green
         case .webrtc: return .blue
@@ -117,27 +85,72 @@ struct SessionDetailView: View {
         }
     }
 
-    private func specialKey(_ label: String, bytes: [UInt8]) -> some View {
+    // MARK: - Special Keys Bar
+
+    private var specialKeysBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                keyGroup {
+                    specialKey("esc", bytes: [0x1B], wide: true)
+                    specialKey("tab", bytes: [0x09], wide: true)
+                }
+
+                keyGroup {
+                    specialKey("^C", bytes: [0x03])
+                    specialKey("^D", bytes: [0x04])
+                    specialKey("^Z", bytes: [0x1A])
+                    specialKey("^L", bytes: [0x0C])
+                }
+
+                keyGroup {
+                    specialKey("↑", bytes: [0x1B, 0x5B, 0x41])
+                    specialKey("↓", bytes: [0x1B, 0x5B, 0x42])
+                    specialKey("←", bytes: [0x1B, 0x5B, 0x44])
+                    specialKey("→", bytes: [0x1B, 0x5B, 0x43])
+                }
+
+                keyGroup {
+                    specialKey("|", bytes: [0x7C])
+                    specialKey("~", bytes: [0x7E])
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+        }
+        .background(Color(UIColor.secondarySystemBackground))
+    }
+
+    private func keyGroup(@ViewBuilder content: () -> some View) -> some View {
+        HStack(spacing: 4) {
+            content()
+        }
+    }
+
+    private func specialKey(_ label: String, bytes: [UInt8], wide: Bool = false) -> some View {
         Button {
             HapticService.shared.playTap()
             connection.sendInput(Data(bytes))
         } label: {
             Text(label)
-                .font(.system(size: 14, weight: .medium, design: .monospaced))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundStyle(.primary)
+                .frame(minWidth: wide ? 40 : 30, minHeight: 28)
                 .background(
-                    RoundedRectangle(cornerRadius: 6)
+                    RoundedRectangle(cornerRadius: 5)
                         .fill(Color(UIColor.systemBackground))
                 )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .strokeBorder(Color(UIColor.separator).opacity(0.5), lineWidth: 0.5)
+                )
         }
-        .padding(.horizontal, 2)
         .accessibilityLabel(accessibilityName(for: label))
     }
 
     private func accessibilityName(for key: String) -> String {
         switch key {
-        case "Esc": return "Escape"
+        case "esc": return "Escape"
+        case "tab": return "Tab"
         case "^C": return "Control C"
         case "^D": return "Control D"
         case "^Z": return "Control Z"
@@ -152,49 +165,60 @@ struct SessionDetailView: View {
         }
     }
 
+    // MARK: - Status Banner
+
     @ViewBuilder
     private var statusBanner: some View {
         switch connection.state {
         case .reconnecting(let attempt):
-            HStack {
-                ProgressView()
-                    .tint(.white)
-                Text(attempt > 5
-                     ? "Reconnecting..."
-                     : "Reconnecting (attempt \(attempt))...")
-                    .font(.caption)
-                    .foregroundColor(.white)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
-            .background(Color.orange)
+            bannerView(
+                icon: nil,
+                text: attempt > 5
+                    ? "Reconnecting..."
+                    : "Reconnecting (attempt \(attempt))...",
+                color: .orange,
+                showSpinner: true
+            )
 
         case .loadingScrollback:
-            HStack {
-                ProgressView()
-                    .tint(.white)
-                Text("Loading session history...")
-                    .font(.caption)
-                    .foregroundColor(.white)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
-            .background(Color.blue)
+            bannerView(
+                icon: nil,
+                text: "Loading session history...",
+                color: .blue,
+                showSpinner: true
+            )
 
         case .disconnected:
-            HStack {
-                Image(systemName: "wifi.slash")
-                    .foregroundColor(.white)
-                Text("Disconnected")
-                    .font(.caption)
-                    .foregroundColor(.white)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
-            .background(Color.red)
+            bannerView(
+                icon: "bolt.slash.fill",
+                text: "Disconnected",
+                color: .red,
+                showSpinner: false
+            )
 
         default:
             EmptyView()
         }
+    }
+
+    private func bannerView(icon: String?, text: String, color: Color, showSpinner: Bool) -> some View {
+        HStack(spacing: 6) {
+            if showSpinner {
+                ProgressView()
+                    .tint(color)
+                    .scaleEffect(0.7)
+            } else if let icon {
+                Image(systemName: icon)
+                    .font(.caption2)
+                    .foregroundStyle(color)
+            }
+
+            Text(text)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(color)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 5)
+        .background(color.opacity(0.12))
     }
 }

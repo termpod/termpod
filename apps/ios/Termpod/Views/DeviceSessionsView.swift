@@ -13,9 +13,14 @@ struct DeviceSessionsView: View {
     @State private var joinedSession: Session?
     @State private var requestingSession = false
 
+    private let columns = [
+        GridItem(.flexible(), spacing: 16),
+        GridItem(.flexible(), spacing: 16),
+    ]
+
     var body: some View {
         Group {
-            if loading {
+            if loading && sessions.isEmpty {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if sessions.isEmpty {
@@ -33,61 +38,29 @@ struct DeviceSessionsView: View {
                     .disabled(requestingSession)
                 }
             } else {
-                List {
-                    ForEach(sessions) { session in
-                        Button {
-                            joinSession(session)
-                        } label: {
-                            HStack(spacing: 12) {
-                                ProcessIconView(processName: session.processName, size: 22)
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(session.name)
-                                        .font(.headline)
-                                        .foregroundStyle(.primary)
-
-                                    Text(session.cwd)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                }
-
-                                Spacer()
-
-                                Text("\(session.ptyCols)x\(session.ptyRows)")
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
-                                    .monospacedDigit()
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    }
-                    .onDelete { indexSet in
-                        let toDelete = indexSet.map { sessions[$0] }
-
-                        for session in toDelete {
-                            sessions.removeAll { $0.id == session.id }
-
-                            // Disconnect and remove from appState if joined
-                            if let joined = appState.sessions.first(where: { $0.id == session.id }) {
-                                joined.connection.disconnect()
-                                appState.removeSession(joined)
-                            }
-
-                            // Delete via local WS if available, otherwise relay
-                            if localDiscovery.isDiscovered {
-                                localDiscovery.sendDeleteSession(sessionId: session.id)
-                            } else {
-                                Task {
-                                    await deviceService.deleteSession(auth: auth, sessionId: session.id)
+                ScrollView {
+                    LazyVGrid(columns: columns, spacing: 16) {
+                        ForEach(sessions) { session in
+                            SessionCard(
+                                session: session,
+                                isActive: appState.sessions.contains { $0.id == session.id }
+                            )
+                            .transition(.scale.combined(with: .opacity))
+                            .onTapGesture { joinSession(session) }
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    deleteSession(session)
+                                } label: {
+                                    Label("Close Session", systemImage: "xmark.circle")
                                 }
                             }
                         }
                     }
+                    .animation(.default, value: sessions.map(\.id))
+                    .padding(16)
                 }
             }
         }
-        .animation(.default, value: sessions.count)
         .navigationTitle(device.displayName)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -109,9 +82,12 @@ struct DeviceSessionsView: View {
         }
         .task {
             localDiscovery.start()
-            // Give Bonjour a moment to discover
-            try? await Task.sleep(for: .milliseconds(500))
+
+            // Start loading from relay immediately
             await loadSessions()
+
+            // If Bonjour discovers the device, it will update sessions
+            // reactively via .onChange(of: localDiscovery.sessions)
         }
         .onDisappear {
             localDiscovery.stop()
@@ -136,12 +112,110 @@ struct DeviceSessionsView: View {
 
             for session in sessions where !newIds.contains(session.id) {
                 if let joined = appState.sessions.first(where: { $0.id == session.id }) {
-                    joined.connection.disconnect()
                     appState.removeSession(joined)
                 }
             }
 
             sessions = updated
+        }
+    }
+
+    // MARK: - Session Card
+
+    private struct SessionCard: View {
+
+        let session: DeviceService.DeviceSession
+        let isActive: Bool
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 0) {
+                // Terminal preview area
+                ZStack(alignment: .bottomLeading) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color(hex: "1A1B26"))
+                        .frame(height: 100)
+
+                    // Fake terminal lines
+                    VStack(alignment: .leading, spacing: 3) {
+                        terminalLine("$", command: shortenedCwd, color: Color(hex: "7AA2F7"))
+                        if let processName = session.processName, processName != "zsh" && processName != "bash" {
+                            terminalLine(">", command: processName, color: Color(hex: "9ECE6A"))
+                        } else {
+                            terminalLine("$", command: "█", color: Color(hex: "565F89"))
+                        }
+                    }
+                    .padding(10)
+                }
+                .clipShape(UnevenRoundedRectangle(topLeadingRadius: 10, topTrailingRadius: 10))
+
+                // Info area
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        ProcessIconView(processName: session.processName, size: 14)
+
+                        Text(session.name)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .lineLimit(1)
+                    }
+
+                    Text(shortenedCwd)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+            }
+            .background(Color(UIColor.secondarySystemGroupedBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(
+                        isActive ? Color.accentColor : Color(UIColor.separator).opacity(0.5),
+                        lineWidth: isActive ? 2 : 0.5
+                    )
+            )
+            .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+        }
+
+        private var shortenedCwd: String {
+            let cwd = session.cwd
+            guard let homeRange = cwd.range(of: "/Users/") else { return cwd }
+            let afterUsers = cwd[homeRange.upperBound...]
+            if let slashIndex = afterUsers.firstIndex(of: "/") {
+                return "~" + String(afterUsers[slashIndex...])
+            }
+
+            return "~"
+        }
+
+        private func terminalLine(_ prompt: String, command: String, color: Color) -> some View {
+            HStack(spacing: 4) {
+                Text(prompt)
+                    .foregroundStyle(Color(hex: "BB9AF7"))
+                Text(command)
+                    .foregroundStyle(color)
+            }
+            .font(.system(size: 10, weight: .regular, design: .monospaced))
+        }
+    }
+
+    // MARK: - Actions
+
+    private func deleteSession(_ session: DeviceService.DeviceSession) {
+        sessions.removeAll { $0.id == session.id }
+
+        if let joined = appState.sessions.first(where: { $0.id == session.id }) {
+            appState.removeSession(joined)
+        }
+
+        if localDiscovery.isDiscovered {
+            localDiscovery.sendDeleteSession(sessionId: session.id)
+        } else {
+            Task {
+                await deviceService.deleteSession(auth: auth, sessionId: session.id)
+            }
         }
     }
 
