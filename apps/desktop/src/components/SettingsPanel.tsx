@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Settings, CursorStyle, NewTabCwd, TerminalTheme, FontSmoothing, FontWeight } from '../hooks/useSettings';
+import type { Settings, CursorStyle, NewTabCwd, TerminalTheme, BlurStyle, FontSmoothing, FontWeight } from '../hooks/useSettings';
 import { THEMES } from '../hooks/useSettings';
 
 type SettingsTab = 'appearance' | 'terminal' | 'behavior' | 'account';
@@ -26,6 +26,13 @@ const FONT_OPTIONS = [
   'IBM Plex Mono, monospace',
   'Hack, monospace',
   'Inconsolata, monospace',
+];
+
+const BLUR_OPTIONS: { value: BlurStyle; label: string }[] = [
+  { value: 'none', label: 'Off' },
+  { value: 'subtle', label: 'Subtle' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'full', label: 'Full' },
 ];
 
 const CURSOR_OPTIONS: { value: CursorStyle; label: string }[] = [
@@ -206,6 +213,26 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                       step={2}
                       value={settings.windowPadding}
                       onChange={(e) => onUpdate({ windowPadding: Number(e.target.value) })}
+                    />
+                  </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Background Blur">
+                    <SegmentedControl
+                      options={BLUR_OPTIONS}
+                      value={settings.backgroundBlur}
+                      onChange={(v) => onUpdate({ backgroundBlur: v })}
+                    />
+                  </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Opacity" badge={`${Math.round(settings.backgroundOpacity * 100)}%`}>
+                    <input
+                      className="sp-range"
+                      type="range"
+                      min={0.3}
+                      max={1.0}
+                      step={0.05}
+                      value={settings.backgroundOpacity}
+                      onChange={(e) => onUpdate({ backgroundOpacity: Number(e.target.value) })}
                     />
                   </SettingRow>
                 </div>
