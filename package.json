@@ -11,7 +11,9 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,json,md}\""
+    "format:check": "prettier --check \"**/*.{ts,tsx,json,md}\"",
+    "ios:config": "apps/ios/generate-config.sh",
+    "ios:generate": "pnpm ios:config && cd apps/ios && xcodegen generate"
   },
   "devDependencies": {
     "turbo": "^2.8.13",

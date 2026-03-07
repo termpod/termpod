@@ -34,6 +34,8 @@
 	<array>
 		<string>_termpod._tcp</string>
 	</array>
+	<key>RelayBaseURL</key>
+	<string>$(RELAY_BASE_URL)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UILaunchScreen</key>

@@ -20,8 +20,11 @@ final class AuthService: ObservableObject {
         KeychainService.load(key: Self.accessTokenKey)
     }
 
+    private static let defaultRelayURL = "https://relay.termpod.dev"
+
     init() {
-        let base = "https://relay.termpod.dev"
+        let plistURL = Bundle.main.object(forInfoDictionaryKey: "RelayBaseURL") as? String
+        let base = (plistURL?.isEmpty == false) ? plistURL! : Self.defaultRelayURL
         self.relayHTTP = base
 
         // Restore session from keychain
@@ -185,7 +188,9 @@ final class AuthService: ObservableObject {
 
     /// Build a WebSocket URL with auth token. Returns nil if not authenticated.
     func authenticatedWSURL(sessionId: String) -> URL? {
-        let wsBase = "wss://relay.termpod.dev"
+        let wsBase = relayHTTP
+            .replacingOccurrences(of: "https://", with: "wss://")
+            .replacingOccurrences(of: "http://", with: "ws://")
 
         guard let token = accessToken, !token.isEmpty else {
             return nil

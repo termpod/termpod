@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
-    "build:release": "source ../../.env && tauri build",
+    "build:release": "source ../../.env && APPLE_SIGNING_IDENTITY=\"$APPLE_SIGNING_IDENTITY\" tauri build",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

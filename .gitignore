@@ -24,6 +24,7 @@ Thumbs.db
 # Xcode
 *.xcuserstate
 xcuserdata/
+apps/ios/Config.xcconfig
 
 # Tauri
 apps/desktop/src-tauri/target/
