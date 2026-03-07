@@ -9,11 +9,11 @@ No SSH. No tmux hacks. No VPN. Just open the app.
 ## How It Works
 
 ```
-┌─────────┐         ┌───────────────┐         ┌─────────┐
-│   Mac   │◄──ws──►│  TermPod Relay │◄──ws──►│  iPhone  │
-│ (PTY +  │         │  (Cloudflare   │         │ (viewer  │
-│  viewer)│         │   Durable Obj) │         │ + input) │
-└─────────┘         └───────────────┘         └─────────┘
+┌─────────┐         ┌────────────────┐         ┌─────────┐
+│   Mac   │◄──ws───►│  TermPod Relay │◄───ws──►│  iPhone │
+│ (PTY +  │         │  (Cloudflare   │         │ (viewer │
+│  viewer)│         │   Durable Obj) │         │ + input)│
+└─────────┘         └────────────────┘         └─────────┘
 ```
 
 Your Mac runs the actual shell. The relay streams output to all connected devices and forwards input back. Sessions survive disconnects — close the app, reopen it, and you're right where you left off.
