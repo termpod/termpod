@@ -74,6 +74,10 @@ export interface TerminalProps {
   lineHeight?: number;
   padding?: number;
   promptAtBottom?: boolean;
+  copyOnSelect?: boolean;
+  macOptionIsMeta?: boolean;
+  altClickMoveCursor?: boolean;
+  wordSeparators?: string;
   theme?: TerminalThemeColors;
   onOpenUrl?: (url: string) => void;
 }
@@ -88,7 +92,7 @@ const SEARCH_DECORATIONS = {
 };
 
 export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
-  ({ onData, onResize, onTitleChange, onCwdChange, onBell, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', fontWeight = 'normal', fontSmoothing = 'antialiased', fontLigatures = false, drawBoldInBold = true, scrollbackLines = 5000, cursorStyle = 'block', cursorBlink = true, lineHeight = 1.0, padding = 0, promptAtBottom = false, theme, onOpenUrl }, ref) => {
+  ({ onData, onResize, onTitleChange, onCwdChange, onBell, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', fontWeight = 'normal', fontSmoothing = 'antialiased', fontLigatures = false, drawBoldInBold = true, scrollbackLines = 5000, cursorStyle = 'block', cursorBlink = true, lineHeight = 1.0, padding = 0, promptAtBottom = false, copyOnSelect = false, macOptionIsMeta = false, altClickMoveCursor = true, wordSeparators, theme, onOpenUrl }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const terminalRef = useRef<XTerm | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -116,6 +120,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     onOpenUrlRef.current = onOpenUrl;
     const promptAtBottomRef = useRef(promptAtBottom);
     promptAtBottomRef.current = promptAtBottom;
+    const copyOnSelectRef = useRef(copyOnSelect);
+    copyOnSelectRef.current = copyOnSelect;
 
     const searchQueryRef = useRef(searchQuery);
     const kittyKeyboardStackRef = useRef<number[]>([]);
@@ -371,6 +377,9 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         cursorBlink,
         cursorStyle,
         lineHeight,
+        macOptionIsMeta,
+        altClickMovesCursor: altClickMoveCursor,
+        wordSeparator: wordSeparators,
         allowProposedApi: true,
         theme: baseTheme,
       });
@@ -460,6 +469,15 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       // Use refs for callbacks so they always call the latest version
       term.onData((data) => onDataRef.current?.(data));
       term.onTitleChange((title) => onTitleChangeRef.current?.(title));
+
+      // Copy on select: auto-copy to clipboard when text is selected
+      term.onSelectionChange(() => {
+        if (!copyOnSelectRef.current) return;
+        const selection = term.getSelection();
+        if (selection) {
+          navigator.clipboard.writeText(selection);
+        }
+      });
 
       // OSC 7: shell reports current working directory (emitted by zsh on macOS by default)
       // Format: file://hostname/path/to/dir
@@ -553,11 +571,16 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       term.options.cursorBlink = cursorBlink;
       term.options.cursorStyle = cursorStyle;
       term.options.lineHeight = lineHeight;
+      term.options.macOptionIsMeta = macOptionIsMeta;
+      term.options.altClickMovesCursor = altClickMoveCursor;
+      if (wordSeparators !== undefined) {
+        term.options.wordSeparator = wordSeparators;
+      }
 
       if (theme) {
         term.options.theme = theme;
       }
-    }, [cursorBlink, cursorStyle, lineHeight, theme]);
+    }, [cursorBlink, cursorStyle, lineHeight, macOptionIsMeta, altClickMoveCursor, wordSeparators, theme]);
 
     // Apply padding to xterm's scrollable element and re-fit
     useEffect(() => {

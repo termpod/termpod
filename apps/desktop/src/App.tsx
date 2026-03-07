@@ -15,6 +15,7 @@ import { FullDiskAccessBanner } from './components/FullDiskAccessBanner';
 import { KeybindingsPanel } from './components/KeybindingsPanel';
 import { CommandPalette } from './components/CommandPalette';
 import { useKeybindings, matchesShortcut } from './hooks/useKeybindings';
+import { enable as enableAutostart, disable as disableAutostart } from '@tauri-apps/plugin-autostart';
 
 export function App() {
   const auth = useAuth();
@@ -126,7 +127,18 @@ export function App() {
   const relayMapRef = useRef(relayMap);
   relayMapRef.current = relayMap;
 
-  const handleCloseSession = useCallback((id: string) => {
+  const handleCloseSession = useCallback((id: string, skipConfirm = false) => {
+    // Confirm before closing a tab with a running process
+    if (!skipConfirm && settings.confirmCloseRunningProcess) {
+      const session = sessions.find((s) => s.id === id);
+      if (session && !session.exited && session.processName) {
+        const confirmed = window.confirm(
+          `"${session.processName}" is still running. Close this tab?`,
+        );
+        if (!confirmed) return;
+      }
+    }
+
     // Unregister session from relay before closing
     const relayInfo = relayMapRef.current.get(id);
 
@@ -147,10 +159,27 @@ export function App() {
     }
 
     setTimeout(focusActive, 50);
-  }, [closeSession, focusActive, device, createSession, settings]);
+  }, [closeSession, focusActive, device, createSession, settings, sessions]);
 
   // Auto-close tab when shell exits (e.g. ctrl+d)
-  onSessionExitRef.current = handleCloseSession;
+  onSessionExitRef.current = (id: string) => {
+    if (settings.notifyOnProcessExit && !document.hasFocus()) {
+      const session = sessions.find((s) => s.id === id);
+      new Notification('Process Exited', {
+        body: session?.processName || session?.name || 'Terminal',
+      });
+    }
+    handleCloseSession(id);
+  };
+
+  // Sync launch-at-login with system autostart
+  useEffect(() => {
+    if (settings.launchAtLogin) {
+      enableAutostart().catch(() => {});
+    } else {
+      disableAutostart().catch(() => {});
+    }
+  }, [settings.launchAtLogin]);
 
   // Sync processName changes (from polling) to the relay
   const prevProcessRef = useRef<Map<string, string | null>>(new Map());
@@ -540,8 +569,13 @@ export function App() {
             cursorBlink={settings.cursorBlink}
             lineHeight={settings.lineHeight}
             promptAtBottom={settings.promptAtBottom}
+            copyOnSelect={settings.copyOnSelect}
+            macOptionIsMeta={settings.macOptionIsMeta}
+            altClickMoveCursor={settings.altClickMoveCursor}
+            wordSeparators={settings.wordSeparators}
             theme={terminalTheme}
             bellEnabled={settings.bellEnabled}
+            notifyOnBell={settings.notifyOnBell}
             backgroundOpacity={settings.backgroundOpacity}
             onRelayChange={(info) => handleRelayChange(session.id, info)}
             onSessionRegistered={(relaySessionId) => {

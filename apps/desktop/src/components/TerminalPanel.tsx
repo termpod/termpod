@@ -30,8 +30,13 @@ interface TerminalPanelProps {
   cursorBlink?: boolean;
   lineHeight?: number;
   promptAtBottom?: boolean;
+  copyOnSelect?: boolean;
+  macOptionIsMeta?: boolean;
+  altClickMoveCursor?: boolean;
+  wordSeparators?: string;
   theme?: TerminalThemeColors;
   bellEnabled?: boolean;
+  notifyOnBell?: boolean;
   backgroundOpacity?: number;
   onRelayChange?: (info: RelayInfo) => void;
   onSessionRegistered?: (relaySessionId: string) => void;
@@ -41,7 +46,7 @@ interface TerminalPanelProps {
   onCwdChange?: (cwd: string) => void;
 }
 
-export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFamily, fontWeight, fontSmoothing, fontLigatures, drawBoldInBold, windowPadding, cursorStyle, cursorBlink, lineHeight, promptAtBottom, theme, bellEnabled, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onDeleteSession, onSessionClosed, onCwdChange }: TerminalPanelProps) {
+export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFamily, fontWeight, fontSmoothing, fontLigatures, drawBoldInBold, windowPadding, cursorStyle, cursorBlink, lineHeight, promptAtBottom, copyOnSelect, macOptionIsMeta, altClickMoveCursor, wordSeparators, theme, bellEnabled, notifyOnBell, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onDeleteSession, onSessionClosed, onCwdChange }: TerminalPanelProps) {
   const onTermReadyRef = useRef(onTermReady);
   onTermReadyRef.current = onTermReady;
   const onCreateSessionRequestRef = useRef(onCreateSessionRequest);
@@ -217,7 +222,11 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
         onResize={handleResize}
         onCwdChange={handleCwdChange}
         onReady={handleReady}
-        onBell={bellEnabled ? () => { /* system bell */ } : undefined}
+        onBell={bellEnabled ? () => {
+          if (notifyOnBell && !document.hasFocus()) {
+            new Notification('Terminal Bell', { body: session.name || 'Terminal' });
+          }
+        } : undefined}
         fontSize={fontSize}
         fontFamily={fontFamily}
         fontWeight={fontWeight}
@@ -229,6 +238,10 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
         lineHeight={lineHeight}
         padding={windowPadding}
         promptAtBottom={promptAtBottom}
+        copyOnSelect={copyOnSelect}
+        macOptionIsMeta={macOptionIsMeta}
+        altClickMoveCursor={altClickMoveCursor}
+        wordSeparators={wordSeparators}
         theme={adjustedTheme}
         onOpenUrl={(url) => invoke('open_url', { url })}
       />

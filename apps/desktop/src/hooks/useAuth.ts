@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { RELAY_URL } from '@termpod/shared';
+import { getSettingsSnapshot } from './useSettings';
 
-const RELAY_BASE = import.meta.env.VITE_RELAY_URL || RELAY_URL.production;
-const RELAY_HTTP = RELAY_BASE.replace('ws://', 'http://').replace('wss://', 'https://');
+function getRelayBase(): string {
+  const custom = getSettingsSnapshot().relayUrl?.trim();
+  return custom || import.meta.env.VITE_RELAY_URL || RELAY_URL.production;
+}
+
+function wsToHttp(url: string): string {
+  return url.replace('ws://', 'http://').replace('wss://', 'https://');
+}
 const STORAGE_KEY = 'termpod-auth';
 
 interface AuthState {
@@ -64,7 +71,7 @@ async function apiFetch(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  return fetch(`${RELAY_HTTP}${path}`, { ...fetchOptions, headers });
+  return fetch(`${wsToHttp(getRelayBase())}${path}`, { ...fetchOptions, headers });
 }
 
 export function useAuth() {
@@ -229,5 +236,5 @@ export function getAccessToken(): string | null {
 }
 
 export function getRelayHttp(): string {
-  return RELAY_HTTP;
+  return wsToHttp(getRelayBase());
 }

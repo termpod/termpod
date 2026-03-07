@@ -3,7 +3,7 @@ import type { Settings, CursorStyle, NewTabCwd, FontSmoothing, FontWeight } from
 import { THEMES } from '../hooks/useSettings';
 import { ThemePicker } from './ThemePicker';
 
-type SettingsTab = 'appearance' | 'terminal' | 'behavior' | 'account';
+type SettingsTab = 'appearance' | 'terminal' | 'behavior' | 'connection' | 'account';
 
 interface SettingsPanelProps {
   settings: Settings;
@@ -73,6 +73,15 @@ const TAB_ICONS: Record<SettingsTab, React.ReactNode> = {
       <defs><linearGradient id="behavior-grad" x1="2" y1="2" x2="16" y2="16"><stop stopColor="#8E8E93" /><stop offset="1" stopColor="#636366" /></linearGradient></defs>
     </svg>
   ),
+  connection: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect x="2" y="2" width="14" height="14" rx="3" fill="url(#connection-grad)" />
+      <circle cx="6.5" cy="9" r="2" stroke="#fff" strokeWidth="1.2" />
+      <circle cx="11.5" cy="9" r="2" stroke="#fff" strokeWidth="1.2" />
+      <path d="M8.5 9h1" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" />
+      <defs><linearGradient id="connection-grad" x1="2" y1="2" x2="16" y2="16"><stop stopColor="#FF9500" /><stop offset="1" stopColor="#FF6B00" /></linearGradient></defs>
+    </svg>
+  ),
   account: (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
       <rect x="2" y="2" width="14" height="14" rx="3" fill="url(#account-grad)" />
@@ -87,6 +96,7 @@ const TABS: { id: SettingsTab; label: string }[] = [
   { id: 'appearance', label: 'Appearance' },
   { id: 'terminal', label: 'Terminal' },
   { id: 'behavior', label: 'Behavior' },
+  { id: 'connection', label: 'Connection' },
   { id: 'account', label: 'Account' },
 ];
 
@@ -301,24 +311,7 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                 </div>
 
                 {/* Font preview */}
-                <div
-                  className="sp-font-preview"
-                  style={{
-                    fontFamily: settings.fontFamily,
-                    fontSize: `${settings.fontSize}px`,
-                    fontWeight: settings.fontWeight === 'normal' ? 400 : Number(settings.fontWeight),
-                    lineHeight: settings.lineHeight,
-                    WebkitFontSmoothing: settings.fontSmoothing === 'antialiased' ? 'antialiased' : settings.fontSmoothing === 'none' ? 'none' : 'auto',
-                    background: THEMES[settings.theme]?.background ?? '#1a1b26',
-                    color: THEMES[settings.theme]?.foreground ?? '#c0caf5',
-                  }}
-                >
-                  <div>
-                    <span style={{ color: THEMES[settings.theme]?.green }}>~/termpod</span>
-                    <span style={{ color: THEMES[settings.theme]?.foreground }}> $ echo &quot;Hello, world!&quot;</span>
-                  </div>
-                  <div style={{ color: THEMES[settings.theme]?.foreground }}>Hello, world!</div>
-                </div>
+                <FontPreview settings={settings} />
 
                 <div className="sp-group-label">Shell</div>
                 <div className="sp-group">
@@ -364,6 +357,41 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                     />
                   </SettingRow>
                 </div>
+
+                <div className="sp-group-label">Input</div>
+                <div className="sp-group">
+                  <SettingRow label="Option as Meta Key">
+                    <NativeToggle
+                      value={settings.macOptionIsMeta}
+                      onChange={(v) => onUpdate({ macOptionIsMeta: v })}
+                    />
+                  </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Copy on Select">
+                    <NativeToggle
+                      value={settings.copyOnSelect}
+                      onChange={(v) => onUpdate({ copyOnSelect: v })}
+                    />
+                  </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Alt-Click Moves Cursor">
+                    <NativeToggle
+                      value={settings.altClickMoveCursor}
+                      onChange={(v) => onUpdate({ altClickMoveCursor: v })}
+                    />
+                  </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Word Separators">
+                    <input
+                      className="sp-input"
+                      type="text"
+                      value={settings.wordSeparators}
+                      onChange={(e) => onUpdate({ wordSeparators: e.target.value })}
+                      spellCheck={false}
+                      style={{ fontFamily: 'monospace', fontSize: '12px' }}
+                    />
+                  </SettingRow>
+                </div>
               </>
             )}
 
@@ -405,10 +433,44 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                     />
                   </SettingRow>
                   <div className="sp-separator" />
+                  <SettingRow label="Confirm Close Running Process">
+                    <NativeToggle
+                      value={settings.confirmCloseRunningProcess}
+                      onChange={(v) => onUpdate({ confirmCloseRunningProcess: v })}
+                    />
+                  </SettingRow>
+                  <div className="sp-separator" />
                   <SettingRow label="Pin Prompt to Bottom">
                     <NativeToggle
                       value={settings.promptAtBottom}
                       onChange={(v) => onUpdate({ promptAtBottom: v })}
+                    />
+                  </SettingRow>
+                </div>
+
+                <div className="sp-group-label">Notifications</div>
+                <div className="sp-group">
+                  <SettingRow label="Notify on Bell">
+                    <NativeToggle
+                      value={settings.notifyOnBell}
+                      onChange={(v) => onUpdate({ notifyOnBell: v })}
+                    />
+                  </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Notify on Process Exit">
+                    <NativeToggle
+                      value={settings.notifyOnProcessExit}
+                      onChange={(v) => onUpdate({ notifyOnProcessExit: v })}
+                    />
+                  </SettingRow>
+                </div>
+
+                <div className="sp-group-label">System</div>
+                <div className="sp-group">
+                  <SettingRow label="Launch at Login">
+                    <NativeToggle
+                      value={settings.launchAtLogin}
+                      onChange={(v) => onUpdate({ launchAtLogin: v })}
                     />
                   </SettingRow>
                 </div>
@@ -432,6 +494,27 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                     </div>
                   </>
                 )}
+              </>
+            )}
+
+            {activeTab === 'connection' && (
+              <>
+                <div className="sp-group-label">Relay Server</div>
+                <div className="sp-group">
+                  <SettingRow label="Custom URL">
+                    <input
+                      className="sp-input"
+                      type="text"
+                      value={settings.relayUrl}
+                      onChange={(e) => onUpdate({ relayUrl: e.target.value })}
+                      placeholder="wss://relay.termpod.dev"
+                      spellCheck={false}
+                    />
+                  </SettingRow>
+                </div>
+                <div className="sp-hint">
+                  Leave empty to use the default relay server. Changes take effect on next connection.
+                </div>
               </>
             )}
 
@@ -699,6 +782,41 @@ function FontPicker({ value, options, onChange }: {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function FontPreview({ settings }: { settings: Settings }) {
+  const theme = THEMES[settings.theme] ?? THEMES['tokyo-night'];
+  const fg = theme.foreground;
+  const smoothingMap: Record<string, string> = {
+    auto: 'auto',
+    antialiased: 'antialiased',
+    none: 'none',
+  };
+
+  return (
+    <div
+      className="sp-font-preview"
+      style={{
+        fontFamily: settings.fontFamily,
+        fontSize: `${settings.fontSize}px`,
+        fontWeight: settings.fontWeight === 'normal' ? 400 : Number(settings.fontWeight),
+        lineHeight: settings.lineHeight,
+        WebkitFontSmoothing: smoothingMap[settings.fontSmoothing] ?? 'auto',
+        fontVariantLigatures: settings.fontLigatures ? 'normal' : 'none',
+        background: theme.background,
+        color: fg,
+      } as React.CSSProperties}
+    >
+      <div><span style={{ color: theme.blue }}>~/termpod</span> <span style={{ color: theme.brightBlack }}>on</span> <span style={{ color: theme.magenta }}>main</span></div>
+      <div><span style={{ color: theme.green }}>❯</span> git log --oneline -3</div>
+      <div><span style={{ color: theme.yellow }}>15cd883</span> Add theme picker with live preview</div>
+      <div><span style={{ color: theme.yellow }}>670d45b</span> Add Cmd+click to open links</div>
+      <div><span style={{ color: theme.yellow }}>9e4c212</span> Refine context menu to match macOS</div>
+      <div>&nbsp;</div>
+      <div><span style={{ color: theme.green }}>❯</span> <span style={{ color: theme.cyan }}>echo</span> {settings.fontLigatures ? '<=> != ===' : '"Hello, world!"'}</div>
+      <div>{settings.fontLigatures ? '<=> != ===' : 'Hello, world!'}</div>
     </div>
   );
 }

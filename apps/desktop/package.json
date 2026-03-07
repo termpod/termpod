@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/plugin-autostart": "^2.5.1",
     "@termpod/protocol": "workspace:*",
     "@termpod/shared": "workspace:*",
     "@termpod/ui": "workspace:*",

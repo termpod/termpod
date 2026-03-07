@@ -999,6 +999,17 @@ export interface Settings {
   customTabCwdPath: string;
   closeWindowOnLastTab: boolean;
   promptAtBottom: boolean;
+  copyOnSelect: boolean;
+  macOptionIsMeta: boolean;
+  altClickMoveCursor: boolean;
+  wordSeparators: string;
+  confirmCloseRunningProcess: boolean;
+  launchAtLogin: boolean;
+  notifyOnBell: boolean;
+  notifyOnProcessExit: boolean;
+
+  // Connection
+  relayUrl: string;
 }
 
 const STORAGE_KEY = 'termpod-settings';
@@ -1026,7 +1037,21 @@ const DEFAULTS: Settings = {
   customTabCwdPath: '',
   closeWindowOnLastTab: true,
   promptAtBottom: false,
+  copyOnSelect: false,
+  macOptionIsMeta: false,
+  altClickMoveCursor: true,
+  wordSeparators: ' ()[]{}\',:;"',
+  confirmCloseRunningProcess: true,
+  launchAtLogin: false,
+  notifyOnBell: false,
+  notifyOnProcessExit: true,
+
+  relayUrl: '',
 };
+
+export function getSettingsSnapshot(): Settings {
+  return current;
+}
 
 function loadSettings(): Settings {
   try {

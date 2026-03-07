@@ -672,6 +672,14 @@ body,
   padding-top: 4px;
 }
 
+.sp-hint {
+  font-size: 11px;
+  font-family: var(--font-sans);
+  color: var(--text-muted);
+  padding: 4px 2px 0;
+  line-height: 1.4;
+}
+
 /* ── Grouped Container (macOS inset style) ── */
 .sp-group {
   background: color-mix(in srgb, var(--bg-elevated) 60%, transparent);
@@ -1215,13 +1223,18 @@ body,
 
 /* ── Font Preview ── */
 .sp-font-preview {
-  padding: 10px 12px;
+  padding: 12px 14px;
   border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  border-radius: 8px;
-  overflow: hidden;
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sp-font-preview > div {
+  line-height: inherit;
 }
 
 /* ── Font Picker ── */

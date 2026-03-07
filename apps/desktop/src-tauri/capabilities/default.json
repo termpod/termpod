@@ -7,6 +7,9 @@
     "core:window:allow-close",
     "core:window:allow-destroy",
     "core:window:allow-start-dragging",
-    "core:window:allow-set-effects"
+    "core:window:allow-set-effects",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled"
   ]
 }

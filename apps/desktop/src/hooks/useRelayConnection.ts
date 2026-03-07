@@ -9,6 +9,7 @@ import {
 import type { RelayMessage } from '@termpod/protocol';
 import { RELAY_URL, RECONNECT } from '@termpod/shared';
 import { getAccessToken } from './useAuth';
+import { getSettingsSnapshot } from './useSettings';
 
 export type RelayStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 
@@ -27,7 +28,10 @@ interface UseRelayConnectionOptions {
   onSessionClosed?: () => void;
 }
 
-const RELAY_BASE = import.meta.env.VITE_RELAY_URL || RELAY_URL.production;
+function getRelayBase(): string {
+  const custom = getSettingsSnapshot().relayUrl?.trim();
+  return custom || import.meta.env.VITE_RELAY_URL || RELAY_URL.production;
+}
 const PING_INTERVAL = 30_000;
 
 export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
@@ -73,7 +77,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
 
     const token = getAccessToken();
     const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
-    const wsUrl = `${RELAY_BASE}/sessions/${session.sessionId}/ws${tokenParam}`;
+    const wsUrl = `${getRelayBase()}/sessions/${session.sessionId}/ws${tokenParam}`;
     const ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
     wsRef.current = ws;
