@@ -21,6 +21,7 @@ export interface TerminalHandle {
   closeSearch: () => void;
   findNext: () => void;
   findPrevious: () => void;
+  refresh: () => void;
   scrollToTop: () => void;
   scrollToBottom: () => void;
   selectAll: () => void;
@@ -189,6 +190,16 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       findPrevious: () => {
         if (searchQueryRef.current && searchAddonRef.current) {
           searchAddonRef.current.findPrevious(searchQueryRef.current, { decorations: SEARCH_DECORATIONS });
+        }
+      },
+      refresh: () => {
+        const term = terminalRef.current;
+        if (!term) return;
+        term.clearTextureAtlas();
+        try {
+          fitAddonRef.current?.fit();
+        } catch {
+          // ignore
         }
       },
       scrollToTop: () => {
@@ -425,8 +436,13 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       }
     }, [cursorBlink, cursorStyle, lineHeight, theme]);
 
-    // Re-fit when padding changes so FitAddon picks up the new container size
+    // Apply padding to xterm's scrollable element and re-fit
     useEffect(() => {
+      const el = containerRef.current?.querySelector<HTMLElement>('.xterm-scrollable-element');
+      if (el) {
+        el.style.padding = padding ? `${padding}px` : '';
+      }
+
       if (fitAddonRef.current && terminalRef.current && !sizeLockedRef.current) {
         try {
           fitAddonRef.current.fit();
@@ -486,7 +502,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         )}
         <div ref={containerRef} style={{
           position: 'absolute',
-          inset: padding ? `${padding}px` : 0,
+          inset: 0,
         }} />
       </div>
     );

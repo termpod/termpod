@@ -1,7 +1,7 @@
 import { useCallback, useSyncExternalStore } from 'react';
 
 export type CursorStyle = 'block' | 'underline' | 'bar';
-export type NewTabCwd = 'home' | 'current';
+export type NewTabCwd = 'home' | 'current' | 'custom';
 export type BlurStyle = 'none' | 'subtle' | 'medium' | 'full';
 export type FontSmoothing = 'auto' | 'antialiased' | 'none';
 export type FontWeight = 'normal' | '100' | '200' | '300' | '400' | '500' | '600' | '700' | '800' | '900';
@@ -445,6 +445,7 @@ export interface Settings {
 
   // Behavior
   newTabCwd: NewTabCwd;
+  customTabCwdPath: string;
   closeWindowOnLastTab: boolean;
   promptAtBottom: boolean;
 }
@@ -471,6 +472,7 @@ const DEFAULTS: Settings = {
   bellEnabled: false,
 
   newTabCwd: 'home',
+  customTabCwdPath: '',
   closeWindowOnLastTab: true,
   promptAtBottom: false,
 };

@@ -337,11 +337,27 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                       options={[
                         { value: 'home' as NewTabCwd, label: 'Home' },
                         { value: 'current' as NewTabCwd, label: 'Current' },
+                        { value: 'custom' as NewTabCwd, label: 'Custom' },
                       ]}
                       value={settings.newTabCwd}
                       onChange={(v) => onUpdate({ newTabCwd: v })}
                     />
                   </SettingRow>
+                  {settings.newTabCwd === 'custom' && (
+                    <>
+                      <div className="sp-separator" />
+                      <SettingRow label="Custom Path">
+                        <input
+                          className="sp-input"
+                          type="text"
+                          value={settings.customTabCwdPath}
+                          onChange={(e) => onUpdate({ customTabCwdPath: e.target.value })}
+                          placeholder="/path/to/directory"
+                          spellCheck={false}
+                        />
+                      </SettingRow>
+                    </>
+                  )}
                   <div className="sp-separator" />
                   <SettingRow label="Close Window on Last Tab">
                     <NativeToggle

@@ -254,6 +254,12 @@ export function App() {
     return () => { unlisten.then((fn) => fn()); };
   }, [createSession, settings.shellPath]);
 
+  const resolveNewTabCwd = useCallback(() => {
+    if (settings.newTabCwd === 'current') return activeSession?.cwd;
+    if (settings.newTabCwd === 'custom' && settings.customTabCwdPath) return settings.customTabCwdPath;
+    return undefined; // home (default in createSession)
+  }, [settings.newTabCwd, settings.customTabCwdPath, activeSession?.cwd]);
+
   // Global listener for local (Bonjour) session creation requests when no sessions exist.
   // When sessions exist, the per-panel useLocalServer listener handles these instead.
   useEffect(() => {
@@ -274,7 +280,7 @@ export function App() {
       case 'new_tab':
         createSession({
           shell: settings.shellPath,
-          cwd: settings.newTabCwd === 'current' ? activeSession?.cwd : undefined,
+          cwd: resolveNewTabCwd(),
         });
         break;
 
@@ -513,7 +519,7 @@ export function App() {
         onClose={handleCloseSession}
         onCreate={() => createSession({
           shell: settings.shellPath,
-          cwd: settings.newTabCwd === 'current' ? activeSession?.cwd : undefined,
+          cwd: resolveNewTabCwd(),
         })}
       />
       <FullDiskAccessBanner />

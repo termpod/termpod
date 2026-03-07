@@ -160,6 +160,7 @@ export function TerminalPanel({ session, visible, fontSize, fontFamily, fontWeig
     }
 
     const timer = setTimeout(() => {
+      session.termRef.current?.refresh();
       session.termRef.current?.focus();
     }, 16);
 
