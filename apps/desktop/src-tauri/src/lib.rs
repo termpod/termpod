@@ -280,7 +280,7 @@ pub fn run() {
 
             let session_menu = session_menu.build()?;
 
-            let menu = MenuBuilder::new(app)
+            let mut menu_builder = MenuBuilder::new(app)
                 .item(&SubmenuBuilder::new(app, "TermPod")
                     .about(None)
                     .separator()
@@ -293,13 +293,40 @@ pub fn run() {
                     .build()?)
                 .item(&edit_menu)
                 .item(&view_menu)
-                .item(&session_menu)
-                .build()?;
+                .item(&session_menu);
+
+            #[cfg(debug_assertions)]
+            {
+                let toggle_inspector = MenuItemBuilder::with_id("toggle_inspector", "Toggle Web Inspector")
+                    .accelerator("CmdOrCtrl+Alt+I")
+                    .build(app)?;
+
+                let develop_menu = SubmenuBuilder::new(app, "Develop")
+                    .item(&toggle_inspector)
+                    .build()?;
+
+                menu_builder = menu_builder.item(&develop_menu);
+            }
+
+            let menu = menu_builder.build()?;
 
             app.set_menu(menu)?;
 
             app.on_menu_event(move |app_handle, event| {
                 let id = event.id().0.as_str();
+
+                #[cfg(debug_assertions)]
+                if id == "toggle_inspector" {
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        if window.is_devtools_open() {
+                            window.close_devtools();
+                        } else {
+                            window.open_devtools();
+                        }
+                    }
+                    return;
+                }
+
                 if let Some(window) = app_handle.get_webview_window("main") {
                     let _ = window.emit("menu-event", id);
                 }
