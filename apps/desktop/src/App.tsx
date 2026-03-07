@@ -38,11 +38,20 @@ export function App() {
   const { settings, update: updateSettings, reset: resetSettings, defaults: settingsDefaults } = useSettings();
 
   // Wire up remote session creation callback (legacy polling fallback)
-  createSessionRef.current = () => createSession({ shell: settings.shellPath });
+  createSessionRef.current = () => {
+    const win = getCurrentWindow();
+    win.show();
+    win.setFocus();
+    createSession({ shell: settings.shellPath });
+  };
 
   // Handle push-based session creation requests from mobile
   const handleCreateSessionRequest = useCallback(
     async (requestId: string, source: 'relay' | 'local', localClientId?: string) => {
+      const win = getCurrentWindow();
+      win.show();
+      win.setFocus();
+
       const newSession = await createSession({ shell: settings.shellPath });
 
       if (!newSession) {
@@ -244,6 +253,18 @@ export function App() {
 
     return () => { unlisten.then((fn) => fn()); };
   }, [createSession, settings.shellPath]);
+
+  // Global listener for local (Bonjour) session creation requests when no sessions exist.
+  // When sessions exist, the per-panel useLocalServer listener handles these instead.
+  useEffect(() => {
+    const unlisten = listen<{ requestId: string; clientId: string }>('local-ws-create-session', (event) => {
+      if (sessionsRef.current.length === 0) {
+        handleCreateSessionRequest(event.payload.requestId, 'local', event.payload.clientId);
+      }
+    });
+
+    return () => { unlisten.then((fn) => fn()); };
+  }, [handleCreateSessionRequest]);
 
   // Listen for Tauri menu events
   const menuHandlerRef = useRef((_menuId: string) => {});
