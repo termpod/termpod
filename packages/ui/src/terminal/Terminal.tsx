@@ -72,6 +72,7 @@ export interface TerminalProps {
   cursorBlink?: boolean;
   lineHeight?: number;
   padding?: number;
+  promptAtBottom?: boolean;
   theme?: TerminalThemeColors;
 }
 
@@ -85,7 +86,7 @@ const SEARCH_DECORATIONS = {
 };
 
 export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
-  ({ onData, onResize, onTitleChange, onCwdChange, onBell, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', fontWeight = 'normal', fontSmoothing = 'antialiased', fontLigatures = false, drawBoldInBold = true, scrollbackLines = 5000, cursorStyle = 'block', cursorBlink = true, lineHeight = 1.0, padding = 0, theme }, ref) => {
+  ({ onData, onResize, onTitleChange, onCwdChange, onBell, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', fontWeight = 'normal', fontSmoothing = 'antialiased', fontLigatures = false, drawBoldInBold = true, scrollbackLines = 5000, cursorStyle = 'block', cursorBlink = true, lineHeight = 1.0, padding = 0, promptAtBottom = false, theme }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const terminalRef = useRef<XTerm | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -109,13 +110,39 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     onBellRef.current = onBell;
     const onReadyRef = useRef(onReady);
     onReadyRef.current = onReady;
+    const promptAtBottomRef = useRef(promptAtBottom);
+    promptAtBottomRef.current = promptAtBottom;
 
     const searchQueryRef = useRef(searchQuery);
     searchQueryRef.current = searchQuery;
 
+    // Matches cursor-home followed by erase display/scrollback/to-end:
+    //   \x1b[H\x1b[J  — zsh Ctrl+L (cursor home + erase to end)
+    //   \x1b[H\x1b[2J — clear command (cursor home + erase display)
+    //   \x1b[H\x1b[3J — erase scrollback
+    const CLEAR_RE = /\x1b\[H\x1b\[[023]?J/g;
+
     useImperativeHandle(ref, () => ({
       write: (data: string | Uint8Array) => {
-        terminalRef.current?.write(data);
+        const term = terminalRef.current;
+        if (!term) return;
+
+        if (promptAtBottomRef.current && term.rows > 1) {
+          const str = typeof data === 'string'
+            ? data
+            : new TextDecoder().decode(data instanceof Uint8Array ? data : new Uint8Array(data));
+
+          CLEAR_RE.lastIndex = 0;
+
+          if (CLEAR_RE.test(str)) {
+            CLEAR_RE.lastIndex = 0;
+            const padding = '\n'.repeat(term.rows - 1);
+            term.write(str.replace(CLEAR_RE, `$&${padding}`));
+            return;
+          }
+        }
+
+        term.write(data);
       },
       clear: () => {
         terminalRef.current?.clear();
@@ -299,6 +326,12 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       }, 500);
 
       fitAddon.fit();
+
+      // Push the initial prompt to the bottom of the viewport (Warp-style)
+      if (promptAtBottom && term.rows > 1) {
+        term.write('\n'.repeat(term.rows - 1));
+      }
+
       terminalRef.current = term;
       fitAddonRef.current = fitAddon;
       searchAddonRef.current = searchAddon;
@@ -376,7 +409,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         fitAddonRef.current = null;
         searchAddonRef.current = null;
       };
-    }, [fontSize, fontFamily, fontWeight, drawBoldInBold, scrollbackLines]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [fontSize, fontFamily, fontWeight, drawBoldInBold, scrollbackLines, promptAtBottom]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Apply appearance changes dynamically without recreating the terminal
     useEffect(() => {

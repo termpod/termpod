@@ -446,6 +446,7 @@ export interface Settings {
   // Behavior
   newTabCwd: NewTabCwd;
   closeWindowOnLastTab: boolean;
+  promptAtBottom: boolean;
 }
 
 const STORAGE_KEY = 'termpod-settings';
@@ -471,6 +472,7 @@ const DEFAULTS: Settings = {
 
   newTabCwd: 'home',
   closeWindowOnLastTab: true,
+  promptAtBottom: false,
 };
 
 function loadSettings(): Settings {

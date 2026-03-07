@@ -263,6 +263,10 @@ export function App() {
       case 'clear':
         if (activeSession) {
           activeSession.termRef.current?.clear();
+
+          if (settings.promptAtBottom) {
+            activeSession.pty.write('\x0c');
+          }
         }
         break;
 
@@ -490,6 +494,7 @@ export function App() {
             cursorStyle={settings.cursorStyle}
             cursorBlink={settings.cursorBlink}
             lineHeight={settings.lineHeight}
+            promptAtBottom={settings.promptAtBottom}
             theme={terminalTheme}
             bellEnabled={settings.bellEnabled}
             backgroundOpacity={settings.backgroundOpacity}

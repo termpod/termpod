@@ -343,6 +343,13 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                       onChange={(v) => onUpdate({ closeWindowOnLastTab: v })}
                     />
                   </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Pin Prompt to Bottom">
+                    <NativeToggle
+                      value={settings.promptAtBottom}
+                      onChange={(v) => onUpdate({ promptAtBottom: v })}
+                    />
+                  </SettingRow>
                 </div>
 
                 {onOpenKeybindings && (

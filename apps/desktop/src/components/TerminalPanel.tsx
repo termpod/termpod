@@ -27,6 +27,7 @@ interface TerminalPanelProps {
   cursorStyle?: 'block' | 'underline' | 'bar';
   cursorBlink?: boolean;
   lineHeight?: number;
+  promptAtBottom?: boolean;
   theme?: TerminalThemeColors;
   bellEnabled?: boolean;
   backgroundOpacity?: number;
@@ -38,7 +39,7 @@ interface TerminalPanelProps {
   onCwdChange?: (cwd: string) => void;
 }
 
-export function TerminalPanel({ session, visible, fontSize, fontFamily, fontWeight, fontSmoothing, fontLigatures, drawBoldInBold, windowPadding, cursorStyle, cursorBlink, lineHeight, theme, bellEnabled, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onDeleteSession, onSessionClosed, onCwdChange }: TerminalPanelProps) {
+export function TerminalPanel({ session, visible, fontSize, fontFamily, fontWeight, fontSmoothing, fontLigatures, drawBoldInBold, windowPadding, cursorStyle, cursorBlink, lineHeight, promptAtBottom, theme, bellEnabled, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onDeleteSession, onSessionClosed, onCwdChange }: TerminalPanelProps) {
   const onCreateSessionRequestRef = useRef(onCreateSessionRequest);
   onCreateSessionRequestRef.current = onCreateSessionRequest;
   const onDeleteSessionRef = useRef(onDeleteSession);
@@ -189,6 +190,7 @@ export function TerminalPanel({ session, visible, fontSize, fontFamily, fontWeig
         cursorBlink={cursorBlink}
         lineHeight={lineHeight}
         padding={windowPadding}
+        promptAtBottom={promptAtBottom}
         theme={adjustedTheme}
       />
     </div>
