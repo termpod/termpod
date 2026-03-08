@@ -148,6 +148,7 @@ fn open_url(url: String) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             get_home_dir,
             get_pid_cwd,
@@ -285,10 +286,15 @@ pub fn run() {
 
             let session_menu = session_menu.build()?;
 
+            let check_updates = MenuItemBuilder::with_id("check_updates", "Check for Updates…")
+                .build(app)?;
+
             #[allow(unused_mut)]
             let mut menu_builder = MenuBuilder::new(app)
                 .item(&SubmenuBuilder::new(app, "TermPod")
                     .about(None)
+                    .separator()
+                    .item(&check_updates)
                     .separator()
                     .item(&settings)
                     .item(&keybindings)

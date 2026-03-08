@@ -13,6 +13,8 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { ConnectedDevicesPanel } from './components/ConnectedDevicesPanel';
 import { LoginScreen } from './components/LoginScreen';
 import { FullDiskAccessBanner } from './components/FullDiskAccessBanner';
+import { UpdateBanner } from './components/UpdateBanner';
+import { useUpdater } from './hooks/useUpdater';
 import { KeybindingsPanel } from './components/KeybindingsPanel';
 import { CommandPalette } from './components/CommandPalette';
 import { useKeybindings, matchesShortcut } from './hooks/useKeybindings';
@@ -39,6 +41,7 @@ export function App() {
   } = useSessionManager();
 
   const { settings, update: updateSettings, reset: resetSettings, defaults: settingsDefaults } = useSettings();
+  const updater = useUpdater();
 
   // Wire up remote session creation callback (legacy polling fallback)
   createSessionRef.current = () => {
@@ -565,6 +568,10 @@ export function App() {
         break;
       }
 
+      case 'check_updates':
+        updater.checkForUpdate();
+        break;
+
       default:
         if (menuId.startsWith('tab_')) {
           const tabIdx = parseInt(menuId.slice(4), 10) - 1;
@@ -684,6 +691,7 @@ export function App() {
         onToggleDevices={() => setShowDevicesPanel((v) => !v)}
         devicesPanelOpen={showDevicesPanel}
       />
+      <UpdateBanner {...updater} />
       <FullDiskAccessBanner />
       <div className="terminal-area">
         {sessions.map((session) => (
