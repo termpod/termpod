@@ -37,7 +37,7 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
   const wsRef = useRef<WebSocket | null>(null);
   const intentionalCloseRef = useRef(false);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const reconnectDelayRef = useRef(RECONNECT.initialDelay);
+  const reconnectDelayRef = useRef<number>(RECONNECT.initialDelay);
   const pingIntervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
   const clientIdRef = useRef(crypto.randomUUID());
   const optionsRef = useRef(options);
