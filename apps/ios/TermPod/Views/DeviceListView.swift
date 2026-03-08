@@ -32,6 +32,7 @@ struct DeviceListView: View {
                                 DeviceRow(
                                     device: device,
                                     transport: transportForDevice(device),
+                                    webrtcMode: deviceTransport.webrtcMode,
                                     isConnecting: isConnectingDevice(device)
                                 )
                             }
@@ -140,16 +141,24 @@ struct DeviceRow: View {
 
     let device: DeviceService.Device
     var transport: TransportType?
+    var webrtcMode: WebRTCConnectionMode?
     var isConnecting: Bool = false
 
     private var transportColor: Color {
-        if isConnecting { return .secondary }
-        guard let transport else { return .secondary }
+        guard let transport, !isConnecting else { return .secondary }
         return switch transport {
         case .local: .green
         case .webrtc: .blue
         case .relay: .orange
         }
+    }
+
+    private var transportLabel: String {
+        guard let transport else { return "" }
+        if transport == .webrtc, let mode = webrtcMode {
+            return "P2P · \(mode.rawValue)"
+        }
+        return transport.label
     }
 
     var body: some View {
@@ -164,18 +173,18 @@ struct DeviceRow: View {
                     .font(.headline)
 
                 HStack(spacing: 4) {
-                    if isConnecting {
-                        ProgressView()
-                            .controlSize(.mini)
-                        Text("Connecting…")
-                            .font(.caption)
-                    } else if device.isOnline {
-                        Circle()
-                            .fill(transportColor)
-                            .frame(width: 6, height: 6)
+                    if device.isOnline {
+                        if isConnecting {
+                            ProgressView()
+                                .controlSize(.mini)
+                        } else {
+                            Circle()
+                                .fill(transportColor)
+                                .frame(width: 6, height: 6)
+                        }
 
                         if let transport {
-                            Text(transport.label)
+                            Text(transportLabel)
                                 .font(.caption)
                         }
                     } else {
@@ -192,6 +201,6 @@ struct DeviceRow: View {
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(device.displayName), \(isConnecting ? "connecting" : device.isOnline ? (transport?.label ?? "online") : "offline")")
+        .accessibilityLabel("\(device.displayName), \(isConnecting ? "connecting \(transportLabel)" : device.isOnline ? transportLabel : "offline")")
     }
 }

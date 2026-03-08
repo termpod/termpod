@@ -1,5 +1,12 @@
 import Foundation
 
+/// How the WebRTC connection is routed.
+enum WebRTCConnectionMode: String {
+    case direct = "Direct"   // host candidate — same LAN
+    case stun = "STUN"       // srflx — NAT traversal, no relay
+    case turn = "TURN"       // relay — traffic routed through TURN server
+}
+
 #if canImport(LiveKitWebRTC)
 import LiveKitWebRTC
 
@@ -33,6 +40,9 @@ final class WebRTCTransport: NSObject, Transport {
 
     /// Debug logging callback (pipes to DeviceTransportManager's debug log).
     var debugLog: ((String) -> Void)?
+
+    /// The ICE connection mode after WebRTC connects (host/srflx/relay).
+    var onConnectionMode: ((WebRTCConnectionMode) -> Void)?
 
     private static let factory: LKRTCPeerConnectionFactory = {
         LKRTCInitializeSSL()
@@ -209,6 +219,45 @@ final class WebRTCTransport: NSObject, Transport {
         connectionTimeout = nil
     }
 
+    /// Query WebRTC stats to determine the connection mode (Direct/STUN/TURN).
+    private func queryConnectionMode() {
+        guard let pc = peerConnection else { return }
+
+        pc.statistics { [weak self] report in
+            Task { @MainActor in
+                guard let self else { return }
+                let stats = report.statistics
+
+                // Find the nominated candidate pair
+                guard let pair = stats.values.first(where: {
+                    $0.type == "candidate-pair" && ($0.values["nominated"] as? Bool) == true
+                }) else {
+                    self.debugLog?("Stats: no nominated pair found")
+                    return
+                }
+
+                // Check both local and remote candidate types
+                let localId = pair.values["localCandidateId"] as? String ?? ""
+                let remoteId = pair.values["remoteCandidateId"] as? String ?? ""
+                let localType = stats[localId]?.values["candidateType"] as? String ?? "unknown"
+                let remoteType = stats[remoteId]?.values["candidateType"] as? String ?? "unknown"
+
+                // If either side uses relay → TURN; srflx → STUN; both host → Direct
+                let mode: WebRTCConnectionMode
+                if localType == "relay" || remoteType == "relay" {
+                    mode = .turn
+                } else if localType == "srflx" || localType == "prflx" || remoteType == "srflx" || remoteType == "prflx" {
+                    mode = .stun
+                } else {
+                    mode = .direct
+                }
+
+                self.debugLog?("Connection mode: \(mode.rawValue) (local=\(localType) remote=\(remoteType))")
+                self.onConnectionMode?(mode)
+            }
+        }
+    }
+
     // MARK: - Control Messages
 
     func sendControlMessage(_ msg: [String: Any]) {
@@ -328,6 +377,7 @@ extension WebRTCTransport: LKRTCDataChannelDelegate {
             case .open:
                 self.cancelConnectionTimeout()
                 self.onConnected?()
+                self.queryConnectionMode()
             case .closed:
                 self.onDisconnected?()
             default: break

@@ -29,6 +29,7 @@ final class DeviceTransportManager: ObservableObject {
     @Published var sessions: [DeviceSessionInfo] = []
     @Published var isConnected = false
     @Published var isConnecting = false
+    @Published var webrtcMode: WebRTCConnectionMode?
     @Published var debugLog: [String] = []
 
     private func log(_ message: String) {
@@ -143,6 +144,7 @@ final class DeviceTransportManager: ObservableObject {
 
         isConnected = false
         isConnecting = false
+        webrtcMode = nil
         sessions = []
         sessionDataHandlers.removeAll()
         sessionResizeHandlers.removeAll()
@@ -185,7 +187,13 @@ final class DeviceTransportManager: ObservableObject {
 
         transport.onDisconnected = { [weak self] in
             self?.log("WebRTC DISCONNECTED")
+            self?.webrtcMode = nil
             self?.updateActiveTransport()
+        }
+
+        transport.onConnectionMode = { [weak self] mode in
+            self?.log("WebRTC mode: \(mode.rawValue)")
+            self?.webrtcMode = mode
         }
 
         transport.onTerminalData = { [weak self] data in

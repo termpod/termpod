@@ -235,6 +235,14 @@ struct DeviceSessionsView: View {
         deviceTransport.activeTransport
     }
 
+    private var transportLabel: String {
+        let transport = currentTransport
+        if transport == .webrtc, let mode = deviceTransport.webrtcMode {
+            return "P2P · \(mode.rawValue)"
+        }
+        return transport.label
+    }
+
     private var transportBadge: some View {
         let transport = currentTransport
         let color: Color = switch transport {
@@ -243,17 +251,17 @@ struct DeviceSessionsView: View {
         case .relay: .orange
         }
 
-        return HStack(spacing: 4) {
+        return HStack(spacing: 3) {
             Circle()
                 .fill(color)
-                .frame(width: 6, height: 6)
+                .frame(width: 5, height: 5)
 
-            Text(transport.label)
-                .font(.system(size: 10, weight: .semibold))
+            Text(transportLabel)
+                .font(.system(size: 9, weight: .semibold))
         }
         .foregroundStyle(color)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
         .background(color.opacity(0.15))
         .clipShape(Capsule())
         .onTapGesture { showDebugLog = true }

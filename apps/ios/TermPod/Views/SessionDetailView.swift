@@ -8,6 +8,7 @@ struct SessionDetailView: View {
     let onSwitchSession: ((Session) -> Void)?
 
     @ObservedObject var connection: ConnectionManager
+    @EnvironmentObject private var deviceTransport: DeviceTransportManager
     @EnvironmentObject private var settings: TerminalSettings
     @State private var terminalTitle: String
     @State private var showSearch = false
@@ -150,20 +151,28 @@ struct SessionDetailView: View {
                 .padding(.trailing, 4)
             }
 
-            HStack(spacing: 4) {
+            HStack(spacing: 3) {
                 Circle()
                     .fill(statusColor)
-                    .frame(width: 6, height: 6)
+                    .frame(width: 5, height: 5)
 
-                Text(connection.activeTransport.label)
-                    .font(.system(size: 10, weight: .semibold))
+                Text(sessionTransportLabel)
+                    .font(.system(size: 9, weight: .semibold))
             }
             .foregroundStyle(statusColor)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
             .background(statusColor.opacity(0.15))
             .clipShape(Capsule())
         }
+    }
+
+    private var sessionTransportLabel: String {
+        let transport = connection.activeTransport
+        if transport == .webrtc, let mode = deviceTransport.webrtcMode {
+            return "P2P · \(mode.rawValue)"
+        }
+        return transport.label
     }
 
     private var statusColor: Color {
