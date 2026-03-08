@@ -34,9 +34,9 @@
 		B71016EB1E13D185478B1E5F /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D653DE01157D8934F0943A9 /* Session.swift */; };
 		BCF5A627D61A119A0AA54D1B /* SearchBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0847EF1E05138048DA864079 /* SearchBarView.swift */; };
 		BFB001DEE3F8416678778971 /* DeviceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDAA21D4EF7A351D890F412 /* DeviceService.swift */; };
+		C0C2A6D3B69F7EDD87BF8798 /* DeviceTransportManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202B47557E63F150562A1D4B /* DeviceTransportManager.swift */; };
 		C721A1302A6AB28278F6F5D5 /* RelayClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88D42769FD28AA23E4D775DD /* RelayClient.swift */; };
 		C82094DBDCDB97DB8EDD7BED /* SessionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70D9AAC4418354C463392FA /* SessionDetailView.swift */; };
-		CCBCDF730E235A1E2642035A /* LocalDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B1A555ECF2049C3DBF3579F /* LocalDiscoveryService.swift */; };
 		CDF95D66D906C9D17E56F859 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA835A2D44DCC88387B48449 /* AuthService.swift */; };
 		D64DEB2D9CC93AE91A5813A0 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85FC2E09AA694551F2E70116 /* OnboardingView.swift */; };
 		D83FBCA10AD10B036876AC68 /* WebRTCTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B74C0D47AE677EA73D9F1EA /* WebRTCTransport.swift */; };
@@ -59,6 +59,7 @@
 		012D6D7CF30481F06B4F7465 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		0847EF1E05138048DA864079 /* SearchBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchBarView.swift; sourceTree = "<group>"; };
 		13D3C957F435FC17208E7AD2 /* DeviceSessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSessionsView.swift; sourceTree = "<group>"; };
+		202B47557E63F150562A1D4B /* DeviceTransportManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceTransportManager.swift; sourceTree = "<group>"; };
 		308996CBB5A1661B87904400 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		3324D183A1853C7DBBB1E145 /* Transport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transport.swift; sourceTree = "<group>"; };
 		37D41903B18EFF8D1562741B /* Clip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clip.swift; sourceTree = "<group>"; };
@@ -77,7 +78,6 @@
 		841A266B269D03CB688C05B3 /* RemoteTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteTerminalView.swift; sourceTree = "<group>"; };
 		85FC2E09AA694551F2E70116 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		88D42769FD28AA23E4D775DD /* RelayClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayClient.swift; sourceTree = "<group>"; };
-		8B1A555ECF2049C3DBF3579F /* LocalDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDiscoveryService.swift; sourceTree = "<group>"; };
 		90250A199EE661EEBEB629EA /* ProcessIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessIcon.swift; sourceTree = "<group>"; };
 		99DAF0CE05725E8242B9B9EA /* TerminalTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalTheme.swift; sourceTree = "<group>"; };
 		9B74C0D47AE677EA73D9F1EA /* WebRTCTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebRTCTransport.swift; sourceTree = "<group>"; };
@@ -129,6 +129,7 @@
 			isa = PBXGroup;
 			children = (
 				EB034420FF46809865A261D9 /* ConnectionManager.swift */,
+				202B47557E63F150562A1D4B /* DeviceTransportManager.swift */,
 				B5FD9C0B964B0BAD2D902C42 /* LocalTransport.swift */,
 				7A9F879B9B2B12FA50E3F15B /* ReconnectionManager.swift */,
 				88D42769FD28AA23E4D775DD /* RelayClient.swift */,
@@ -157,7 +158,6 @@
 				EEDAA21D4EF7A351D890F412 /* DeviceService.swift */,
 				C1658B6D700C3D56AAE7874A /* HapticService.swift */,
 				D86531B4E3A2CC88842E91CC /* KeychainService.swift */,
-				8B1A555ECF2049C3DBF3579F /* LocalDiscoveryService.swift */,
 				DC0A87B98F1799C534F7F892 /* NotificationService.swift */,
 			);
 			path = Services;
@@ -355,9 +355,9 @@
 				AB30547F26E32CC6654EB911 /* DeviceListView.swift in Sources */,
 				BFB001DEE3F8416678778971 /* DeviceService.swift in Sources */,
 				513D2673309F500F453AA617 /* DeviceSessionsView.swift in Sources */,
+				C0C2A6D3B69F7EDD87BF8798 /* DeviceTransportManager.swift in Sources */,
 				48D101ABCF03ED278C97276E /* HapticService.swift in Sources */,
 				91B5BA0BB8E26314408A96E0 /* KeychainService.swift in Sources */,
-				CCBCDF730E235A1E2642035A /* LocalDiscoveryService.swift in Sources */,
 				37246D9D68447270D01D92FD /* LocalTransport.swift in Sources */,
 				169B3E48F91D8B0A314439D6 /* LockScreenView.swift in Sources */,
 				904FBB734AD25523C8DA75B0 /* LoginView.swift in Sources */,

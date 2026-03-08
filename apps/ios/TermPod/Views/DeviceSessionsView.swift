@@ -7,7 +7,6 @@ struct DeviceSessionsView: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var auth: AuthService
     @EnvironmentObject private var deviceService: DeviceService
-    @StateObject private var localDiscovery = LocalDiscoveryService()
     @State private var sessions: [DeviceService.DeviceSession] = []
     @State private var loading = true
     @State private var joinedSession: Session?
@@ -16,6 +15,10 @@ struct DeviceSessionsView: View {
     /// Static cache so session cards survive view recreation (NavigationStack
     /// creates a fresh view every time the user pushes back into this screen).
     private static var sessionsCache: [String: [DeviceService.DeviceSession]] = [:]
+
+    private var deviceTransport: DeviceTransportManager {
+        appState.deviceTransport
+    }
 
     init(device: DeviceService.Device) {
         self.device = device
@@ -59,14 +62,13 @@ struct DeviceSessionsView: View {
             await loadSessions()
         }
         .task {
-            localDiscovery.start()
             await loadSessions()
         }
         .onChange(of: sessions) { _, newValue in
             Self.sessionsCache[device.id] = newValue
         }
-        .onChange(of: localDiscovery.sessions) { _, newSessions in
-            handleLocalSessionsUpdate(newSessions)
+        .onChange(of: deviceTransport.sessions) { _, newSessions in
+            handleDeviceTransportSessionsUpdate(newSessions)
         }
     }
 
@@ -201,19 +203,19 @@ struct DeviceSessionsView: View {
         }
     }
 
-    // MARK: - Local Discovery Sync
+    // MARK: - Device Transport Sync
 
-    private func handleLocalSessionsUpdate(_ newSessions: [LocalDiscoveryService.LocalSession]) {
-        guard localDiscovery.isDiscovered, !newSessions.isEmpty else { return }
+    private func handleDeviceTransportSessionsUpdate(_ newSessions: [DeviceSessionInfo]) {
+        guard !newSessions.isEmpty else { return }
 
-        let updated = newSessions.map { local in
+        let updated = newSessions.map { info in
             DeviceService.DeviceSession(
-                id: local.id,
-                name: local.name,
-                cwd: local.cwd,
-                processName: local.processName,
-                ptyCols: local.ptyCols,
-                ptyRows: local.ptyRows
+                id: info.id,
+                name: info.name,
+                cwd: info.cwd,
+                processName: info.processName,
+                ptyCols: info.ptyCols,
+                ptyRows: info.ptyRows
             )
         }
 
@@ -232,9 +234,7 @@ struct DeviceSessionsView: View {
     // MARK: - Transport Badge
 
     private var currentTransport: TransportType {
-        if localDiscovery.isDiscovered { return .local }
-        if activeP2PConnection != nil { return .webrtc }
-        return .relay
+        deviceTransport.activeTransport
     }
 
     private var transportBadge: some View {
@@ -262,15 +262,6 @@ struct DeviceSessionsView: View {
 
     // MARK: - Actions
 
-    /// Find an active P2P connection (local or WebRTC) to route control messages through.
-    /// Only considers sessions that belong to this device (matched by session ID).
-    private var activeP2PConnection: ConnectionManager? {
-        let deviceSessionIds = Set(sessions.map(\.id))
-        return appState.sessions
-            .first(where: { deviceSessionIds.contains($0.id) && $0.connection.hasP2PTransport })?
-            .connection
-    }
-
     private func deleteSession(_ session: DeviceService.DeviceSession) {
         sessions.removeAll { $0.id == session.id }
 
@@ -278,89 +269,77 @@ struct DeviceSessionsView: View {
             appState.removeSession(joined)
         }
 
-        if localDiscovery.isDiscovered {
-            localDiscovery.sendDeleteSession(sessionId: session.id)
-        } else if let webrtc = activeP2PConnection {
-            webrtc.sendDeleteSession(sessionId: session.id)
-        } else {
-            Task {
-                await deviceService.deleteSession(auth: auth, sessionId: session.id)
-            }
-        }
+        deviceTransport.sendDeleteSession(sessionId: session.id)
     }
 
     private func loadSessions() async {
         loading = true
 
-        var fetched: [DeviceService.DeviceSession] = []
-
-        // Try local discovery first
-        if localDiscovery.isDiscovered {
-            await localDiscovery.refresh()
-
-            if !localDiscovery.sessions.isEmpty {
-                fetched = localDiscovery.sessions.map { local in
-                    DeviceService.DeviceSession(
-                        id: local.id,
-                        name: local.name,
-                        cwd: local.cwd,
-                        processName: local.processName,
-                        ptyCols: local.ptyCols,
-                        ptyRows: local.ptyRows
-                    )
-                }
+        // Use deviceTransport's sessions if already populated (live-updated)
+        if !deviceTransport.sessions.isEmpty {
+            let fetched = deviceTransport.sessions.map { info in
+                DeviceService.DeviceSession(
+                    id: info.id,
+                    name: info.name,
+                    cwd: info.cwd,
+                    processName: info.processName,
+                    ptyCols: info.ptyCols,
+                    ptyRows: info.ptyRows
+                )
             }
-        }
 
-        // Try P2P (WebRTC/local via existing session) if local discovery didn't return anything
-        if fetched.isEmpty, let p2p = activeP2PConnection {
-            let handlerId = UUID().uuidString
-
-            fetched = await withCheckedContinuation { (continuation: CheckedContinuation<[DeviceService.DeviceSession], Never>) in
-                var resumed = false
-
-                p2p.addSessionsListHandler(id: handlerId) { sessionsJson in
-                    guard !resumed else { return }
-                    resumed = true
-
-                    let parsed = sessionsJson.compactMap { json -> DeviceService.DeviceSession? in
-                        guard let id = json["id"] as? String,
-                              let name = json["name"] as? String
-                        else { return nil }
-                        return DeviceService.DeviceSession(
-                            id: id,
-                            name: name,
-                            cwd: json["cwd"] as? String ?? "~",
-                            processName: json["processName"] as? String,
-                            ptyCols: json["ptyCols"] as? Int ?? 80,
-                            ptyRows: json["ptyRows"] as? Int ?? 24
-                        )
-                    }
-                    continuation.resume(returning: parsed)
-                }
-
-                p2p.sendListSessions()
-
-                Task {
-                    try? await Task.sleep(for: .seconds(3))
-                    guard !resumed else { return }
-                    resumed = true
-                    p2p.removeSessionsListHandler(id: handlerId)
-                    continuation.resume(returning: [])
-                }
-            }
-        }
-
-        // Fall back to relay if local and WebRTC didn't return anything
-        if fetched.isEmpty {
-            fetched = await deviceService.fetchSessions(auth: auth, deviceId: device.id)
-        }
-
-        // Merge: never drop sessions that are actively joined
-        if fetched.isEmpty {
+            mergeSessions(fetched)
             loading = false
             return
         }
+
+        // Request via deviceTransport (handles failover: Local → WebRTC → Device WS)
+        let handlerId = UUID().uuidString
+
+        let fetched: [DeviceService.DeviceSession] = await withCheckedContinuation { (continuation: CheckedContinuation<[DeviceService.DeviceSession], Never>) in
+            var resumed = false
+
+            deviceTransport.addSessionsListHandler(id: handlerId) { sessionInfos in
+                guard !resumed else { return }
+                resumed = true
+
+                let parsed = sessionInfos.map { info in
+                    DeviceService.DeviceSession(
+                        id: info.id,
+                        name: info.name,
+                        cwd: info.cwd,
+                        processName: info.processName,
+                        ptyCols: info.ptyCols,
+                        ptyRows: info.ptyRows
+                    )
+                }
+                continuation.resume(returning: parsed)
+            }
+
+            deviceTransport.sendListSessions()
+
+            Task {
+                try? await Task.sleep(for: .seconds(3))
+                guard !resumed else { return }
+                resumed = true
+                deviceTransport.removeSessionsListHandler(id: handlerId)
+                continuation.resume(returning: [])
+            }
+        }
+
+        // Fall back to HTTP API if transport didn't return anything
+        if fetched.isEmpty {
+            let httpFetched = await deviceService.fetchSessions(auth: auth, deviceId: device.id)
+            mergeSessions(httpFetched)
+        } else {
+            mergeSessions(fetched)
+        }
+
+        loading = false
+    }
+
+    private func mergeSessions(_ fetched: [DeviceService.DeviceSession]) {
+        guard !fetched.isEmpty else { return }
 
         let fetchedIds = Set(fetched.map(\.id))
         var merged = fetched
@@ -372,87 +351,47 @@ struct DeviceSessionsView: View {
         }
 
         sessions = merged
-        loading = false
     }
 
     private func requestNewSession() async {
         requestingSession = true
         HapticService.shared.playTap()
 
-        // Try local discovery WebSocket first (no active session needed)
-        if localDiscovery.isDiscovered {
-            let requestId = UUID().uuidString
+        let requestId = UUID().uuidString
 
-            let result = await withCheckedContinuation { (continuation: CheckedContinuation<(String, String, String, Int, Int)?, Never>) in
-                var resumed = false
+        // Use deviceTransport — handles failover (Local → WebRTC → Device WS)
+        let result = await withCheckedContinuation { (continuation: CheckedContinuation<(String, String, String, Int, Int)?, Never>) in
+            var resumed = false
 
-                localDiscovery.onSessionCreated = { rId, sessionId, name, cwd, ptyCols, ptyRows in
-                    guard rId == requestId, !resumed else { return }
-                    resumed = true
-                    localDiscovery.onSessionCreated = nil
-                    continuation.resume(returning: (sessionId, name, cwd, ptyCols, ptyRows))
-                }
-
-                localDiscovery.sendCreateSessionRequest(requestId: requestId)
-
-                Task {
-                    try? await Task.sleep(for: .seconds(5))
-                    guard !resumed else { return }
-                    resumed = true
-                    localDiscovery.onSessionCreated = nil
-                    continuation.resume(returning: nil)
-                }
+            deviceTransport.addSessionCreatedHandler(id: requestId) { rId, sessionId, name, cwd, ptyCols, ptyRows in
+                guard rId == requestId, !resumed else { return }
+                resumed = true
+                continuation.resume(returning: (sessionId, name, cwd, ptyCols, ptyRows))
             }
 
-            if let (sessionId, name, _, _, _) = result {
-                guard let ws = await auth.authenticatedWSURL(sessionId: sessionId) else {
-                    requestingSession = false
-                    return
-                }
+            deviceTransport.sendCreateSessionRequest(requestId: requestId)
 
-                createAndJoinSession(id: sessionId, name: name, wsURL: ws.url, token: ws.token)
-                requestingSession = false
-                return
+            Task {
+                try? await Task.sleep(for: .seconds(5))
+                guard !resumed else { return }
+                resumed = true
+                deviceTransport.removeSessionCreatedHandler(id: requestId)
+                continuation.resume(returning: nil)
             }
         }
 
-        // Try push-based creation through an existing session's connection
-        if let activeSession = appState.sessions.first(where: { $0.isConnected }) {
-            let requestId = UUID().uuidString
-
-            let result = await withCheckedContinuation { (continuation: CheckedContinuation<(String, String, String, Int, Int)?, Never>) in
-                var resumed = false
-
-                activeSession.connection.addSessionCreatedHandler(id: requestId) { rId, sessionId, name, cwd, ptyCols, ptyRows in
-                    guard rId == requestId, !resumed else { return }
-                    resumed = true
-                    continuation.resume(returning: (sessionId, name, cwd, ptyCols, ptyRows))
-                }
-
-                activeSession.connection.sendCreateSessionRequest(requestId: requestId)
-
-                Task {
-                    try? await Task.sleep(for: .seconds(5))
-                    guard !resumed else { return }
-                    resumed = true
-                    activeSession.connection.removeSessionCreatedHandler(id: requestId)
-                    continuation.resume(returning: nil)
-                }
-            }
-
-            if let (sessionId, name, _, _, _) = result {
-                guard let ws = await auth.authenticatedWSURL(sessionId: sessionId) else {
-                    requestingSession = false
-                    return
-                }
-
-                createAndJoinSession(id: sessionId, name: name, wsURL: ws.url, token: ws.token)
+        if let (sessionId, name, _, _, _) = result {
+            guard let ws = await auth.authenticatedWSURL(sessionId: sessionId) else {
                 requestingSession = false
                 return
             }
+
+            createAndJoinSession(id: sessionId, name: name, wsURL: ws.url, token: ws.token)
+            requestingSession = false
+            return
         }
 
-        // Fallback: HTTP request + poll (no active session or push timed out)
+        // Fallback: HTTP request + poll (push timed out)
         await deviceService.requestSession(auth: auth, deviceId: device.id)
         try? await Task.sleep(for: .seconds(2))
         await loadSessions()
@@ -478,6 +417,7 @@ struct DeviceSessionsView: View {
     private func createAndJoinSession(id: String, name: String, wsURL: URL, token: String? = nil) {
         let connection = ConnectionManager(sessionId: id)
         connection.sessionName = name
+        connection.deviceTransport = deviceTransport
         let newSession = Session(id: id, name: name, connection: connection)
 
         appState.sessions.append(newSession)

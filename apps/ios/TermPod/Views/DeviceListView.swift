@@ -1,14 +1,15 @@
 import SwiftUI
-import Network
 
 struct DeviceListView: View {
 
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var auth: AuthService
     @EnvironmentObject private var deviceService: DeviceService
-    @State private var localDesktopFound = false
-    @State private var bonjourBrowser: NWBrowser?
     @State private var showSettings = false
+
+    private var deviceTransport: DeviceTransportManager {
+        appState.deviceTransport
+    }
 
     var body: some View {
         NavigationStack {
@@ -29,7 +30,7 @@ struct DeviceListView: View {
                         }
                         .listRowBackground(Color.clear)
                     } else {
-                        ForEach(devicesWithLocalStatus) { device in
+                        ForEach(deviceService.devices) { device in
                             NavigationLink(value: device.id) {
                                 DeviceRow(
                                     device: device,
@@ -56,6 +57,7 @@ struct DeviceListView: View {
                         Button(role: .destructive) {
                             Task {
                                 await deviceService.markOffline(auth: auth)
+                                deviceTransport.stop()
                                 auth.logout()
                             }
                         } label: {
@@ -82,83 +84,40 @@ struct DeviceListView: View {
             .navigationDestination(for: String.self) { deviceId in
                 if let device = deviceService.devices.first(where: { $0.id == deviceId }) {
                     DeviceSessionsView(device: device)
+                        .onAppear {
+                            startTransportForDevice(deviceId)
+                        }
                 }
             }
             .refreshable {
                 await deviceService.fetchDevices(auth: auth)
             }
             .task {
-                startBonjourBrowse()
                 await deviceService.registerThisDevice(auth: auth)
                 await deviceService.fetchDevices(auth: auth)
             }
-            .onDisappear {
-                bonjourBrowser?.cancel()
-                bonjourBrowser = nil
-            }
-        }
-    }
-
-    private var devicesWithLocalStatus: [DeviceService.Device] {
-        deviceService.devices.map { device in
-            // Override online status for desktop devices when Bonjour detects them
-            if device.platform == "macos" && localDesktopFound {
-                return DeviceService.Device(
-                    id: device.id,
-                    name: device.name,
-                    deviceType: device.deviceType,
-                    platform: device.platform,
-                    isOnline: true,
-                    lastSeenAt: device.lastSeenAt
-                )
-            }
-
-            // Mark desktop offline if Bonjour doesn't see it
-            if device.platform == "macos" && !localDesktopFound && device.isOnline {
-                return DeviceService.Device(
-                    id: device.id,
-                    name: device.name,
-                    deviceType: device.deviceType,
-                    platform: device.platform,
-                    isOnline: false,
-                    lastSeenAt: device.lastSeenAt
-                )
-            }
-
-            return device
         }
     }
 
     private func transportForDevice(_ device: DeviceService.Device) -> TransportType? {
-        guard device.isOnline else { return nil }
+        guard device.isOnline || deviceTransport.isConnected else { return nil }
 
-        if device.platform == "macos" && localDesktopFound { return .local }
+        // If deviceTransport is active for this device, use its transport info
+        if deviceTransport.isConnected {
+            return deviceTransport.activeTransport
+        }
 
-        // Check if any active session to this device has a P2P transport.
-        // We match by checking active WebRTC connections — these are always
-        // to the single desktop device in the current architecture.
-        let hasP2P = appState.sessions.contains { $0.connection.hasP2PTransport }
-        if hasP2P { return .webrtc }
+        if deviceTransport.hasP2PTransport { return .webrtc }
 
         // Device is online per relay API
         return .relay
     }
 
-    private func startBonjourBrowse() {
-        let params = NWParameters()
-        params.includePeerToPeer = true
-
-        let browser = NWBrowser(for: .bonjour(type: "_termpod._tcp", domain: "local."), using: params)
-
-        browser.browseResultsChangedHandler = { results, _ in
-            Task { @MainActor in
-                localDesktopFound = !results.isEmpty
-            }
+    private func startTransportForDevice(_ deviceId: String) {
+        Task {
+            guard let token = await auth.validAccessToken() else { return }
+            deviceTransport.start(deviceId: deviceId, relayBaseURL: auth.relayHTTP, token: token)
         }
-
-        browser.stateUpdateHandler = { _ in }
-        browser.start(queue: .main)
-        bonjourBrowser = browser
     }
 }
 

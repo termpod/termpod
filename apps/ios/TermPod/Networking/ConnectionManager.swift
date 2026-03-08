@@ -51,6 +51,9 @@ final class ConnectionManager: ObservableObject {
     private let sessionId: String
     private var cancellables: Set<AnyCancellable> = []
 
+    /// Reference to the device-level transport manager for WebRTC registration.
+    weak var deviceTransport: DeviceTransportManager?
+
     /// Circular buffer of recent terminal output so we can replay it
     /// when a new terminal view is attached (e.g. after navigation).
     private var scrollbackBuffer = Data()
@@ -72,6 +75,7 @@ final class ConnectionManager: ObservableObject {
     }
 
     func disconnect() {
+        deviceTransport?.unregisterWebRTC(webrtcTransport)
         relay.disconnect()
         localTransport.disconnect()
         webrtcTransport.disconnect()
@@ -328,10 +332,13 @@ final class ConnectionManager: ObservableObject {
             guard let self else { return }
             self.updateActiveTransport()
             self.resendSizeAfterDelay()
+            self.deviceTransport?.registerWebRTC(self.webrtcTransport)
         }
 
         webrtcTransport.onDisconnected = { [weak self] in
-            self?.updateActiveTransport()
+            guard let self else { return }
+            self.deviceTransport?.unregisterWebRTC(self.webrtcTransport)
+            self.updateActiveTransport()
         }
 
         webrtcTransport.onControlMessage = { [weak self] json in

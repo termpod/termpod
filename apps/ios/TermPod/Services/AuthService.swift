@@ -13,7 +13,7 @@ final class AuthService: ObservableObject {
     private static let refreshTokenKey = "termpod-refresh-token"
     private static let emailKey = "termpod-email"
 
-    private let relayHTTP: String
+    private(set) var relayHTTP: String
     private var refreshTimer: Timer?
 
     var accessToken: String? {
