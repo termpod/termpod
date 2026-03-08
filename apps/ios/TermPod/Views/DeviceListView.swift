@@ -91,11 +91,15 @@ struct DeviceListView: View {
             }
             .refreshable {
                 await deviceService.fetchDevices(auth: auth)
+                autoConnectFirstDevice()
             }
             .task {
                 deviceTransport.startDiscovery()
                 await deviceService.registerThisDevice(auth: auth)
                 await deviceService.fetchDevices(auth: auth)
+                // Auto-connect to the first online device so P2P is
+                // established before the user navigates to a session.
+                autoConnectFirstDevice()
             }
         }
     }
@@ -117,6 +121,16 @@ struct DeviceListView: View {
             guard let token = await auth.validAccessToken() else { return }
             deviceTransport.start(deviceId: deviceId, relayBaseURL: auth.relayHTTP, token: token)
         }
+    }
+
+    /// Connect device WS to the first online desktop so P2P can
+    /// establish before the user taps into a session.
+    private func autoConnectFirstDevice() {
+        guard !deviceTransport.isConnected,
+              let device = deviceService.devices.first(where: { $0.isOnline })
+        else { return }
+
+        startTransportForDevice(device.id)
     }
 }
 
