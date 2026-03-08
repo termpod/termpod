@@ -490,7 +490,7 @@ WebRTC signaling is routed through the Device WS (User DO) with a `toClientId` f
 }
 ```
 
-STUN servers: Google (`stun:stun.l.google.com:19302`) and Cloudflare (`stun:stun.cloudflare.com:3478`). No TURN — the relay WebSocket is the fallback transport.
+ICE servers: Google STUN (`stun:stun.l.google.com:19302`, `stun:stun1.l.google.com:19302`) and Cloudflare STUN (`stun:stun.cloudflare.com:3478`). Optional Cloudflare TURN credentials are fetched from `GET /turn-credentials` (authenticated) before each WebRTC connection attempt. If TURN is not configured on the relay, clients fall back to STUN-only with the relay WebSocket as the final fallback transport.
 
 ### Local WS Control Messages (Bonjour P2P)
 
@@ -608,12 +608,28 @@ Returns latest release metadata from GitHub. Download URLs are rewritten to prox
 
 Proxies release artifact downloads from GitHub.
 
+### TURN Credentials (Authenticated)
+
+#### `GET /turn-credentials`
+
+Returns ICE server configuration including TURN credentials (if configured on the relay). Used by both desktop and mobile before establishing WebRTC connections.
+
+```
+Authorization: Bearer <token>
+
+→ 200 OK
+{ "iceServers": [{ "urls": ["turn:..."], "username": "...", "credential": "..." }] }
+
+→ 503 Service Unavailable (if TURN not configured)
+{ "error": "TURN not configured" }
+```
+
 ## Transport Priority
 
 TermPod uses three transports in order of preference:
 
 1. **Local WebSocket (Bonjour)** — Same LAN, ~1-5ms. Desktop advertises `_termpod._tcp` via mDNS. Single multiplexed connection per device.
-2. **WebRTC DataChannel** — Different networks, ~10-30ms. STUN-based P2P. Signaling routed through Device WS.
+2. **WebRTC DataChannel** — Different networks, ~10-30ms. STUN/TURN-based P2P. Signaling routed through Device WS.
 3. **Relay Device WS** — Fallback, ~30-80ms. Always connected for signaling, session management, and as fallback data path.
 
 All transports use the same multiplexed binary frame format (`[channel][sid_len][sid][payload]`). The mobile app receives data from ALL connected transports but sends only through the best available one (priority order above).

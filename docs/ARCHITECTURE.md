@@ -29,7 +29,7 @@ Desktop App
 ├── WebRTC (TypeScript)
 │   ├── DataChannel for P2P terminal data + control messages
 │   ├── Signaling via relay (offer/answer/ICE)
-│   └── STUN servers: Google + Cloudflare (no TURN)
+│   └── ICE servers: Google + Cloudflare STUN, optional Cloudflare TURN
 └── Relay Connection (TypeScript)
     ├── WebSocket client to relay
     ├── Reconnection with exponential backoff
@@ -132,9 +132,9 @@ When devices are on different networks, a WebRTC DataChannel provides a peer-to-
 Desktop creates WebRTC offer
  → Offer sent to mobile via Device WS (toClientId targeting)
  → Mobile creates answer, sent back via Device WS
- → ICE candidates exchanged (STUN: Google + Cloudflare)
+ → ICE candidates exchanged (STUN: Google + Cloudflare, optional TURN)
  → DataChannel opens → multiplexed binary data + JSON control messages
- → ~10-30ms latency (no TURN — relay is the fallback if STUN fails)
+ → ~10-30ms latency (TURN used when STUN fails, relay WS as final fallback)
 ```
 
 WebRTC signaling flows through the Device WS (User DO), not the per-session WS. A 30-second connection timeout automatically falls back to relay if negotiation fails.
@@ -193,5 +193,9 @@ All sensitive values are configured via environment variables. See `.env.example
 - `JWT_SECRET` — Relay server signing key (Cloudflare Worker secret)
 - `APPLE_TEAM_ID` — Apple Developer Team ID (iOS + macOS signing)
 - `APPLE_SIGNING_IDENTITY` — macOS code signing identity
+- `TURN_KEY_ID` — Cloudflare TURN key ID (optional, for WebRTC across symmetric NATs)
+- `TURN_KEY_API_TOKEN` — Cloudflare TURN API token (optional)
 
 The iOS app reads relay URL and team ID from `Config.xcconfig`, generated from `.env` by `apps/ios/generate-config.sh`.
+
+TURN is optional — if not configured, the relay returns 503 and clients fall back to STUN-only with the relay WebSocket as the final fallback transport.

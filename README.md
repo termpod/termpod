@@ -27,7 +27,7 @@ No SSH. No tmux hacks. No VPN. Just open the app.
 Your Mac runs the actual shell. Devices connect in the fastest way available:
 
 1. **Local WebSocket** — Same LAN? Direct connection via Bonjour (~1-5ms)
-2. **WebRTC P2P** — Different networks? Peer-to-peer data channel via STUN (~10-30ms)
+2. **WebRTC P2P** — Different networks? Peer-to-peer data channel via STUN/TURN (~10-30ms)
 3. **Relay** — Fallback through Cloudflare (~30-80ms)
 
 Sessions survive disconnects — close the app, reopen it, and you're right where you left off.
@@ -38,7 +38,7 @@ Sessions survive disconnects — close the app, reopen it, and you're right wher
 - **Scrollback sync** — Connect your phone mid-session, see everything that happened
 - **Quick actions** — Accept/deny prompts, Ctrl+C, Enter — one tap on mobile
 - **Local P2P** — Direct connection over LAN via Bonjour (no relay needed)
-- **WebRTC P2P** — Peer-to-peer across networks via STUN, relay as fallback
+- **WebRTC P2P** — Peer-to-peer across networks via STUN/TURN, relay as fallback
 - **Multi-session tabs** — Multiple terminal sessions, each in its own tab
 - **Session management** — Named by project directory, device-aware
 - **Auto-updates** — Desktop app updates automatically via relay proxy
@@ -130,6 +130,11 @@ APPLE_SIGNING_IDENTITY=Developer ID Application: Your Name (YOUR_TEAM_ID)
 # Apple notarization (only needed for distribution builds)
 APPLE_ID=your-apple-id@example.com
 APPLE_PASSWORD=your-app-specific-password
+
+# Cloudflare TURN (optional, for WebRTC P2P across restrictive NATs)
+# Create at: https://dash.cloudflare.com → Calls → TURN Keys
+# TURN_KEY_ID=your-turn-key-id
+# TURN_KEY_API_TOKEN=your-turn-api-token
 ```
 
 ### 3. Run in development
@@ -167,6 +172,8 @@ pnpm build:release
 # Relay (deploy to Cloudflare)
 cd relay
 wrangler secret put JWT_SECRET  # set your production secret
+wrangler secret put TURN_KEY_ID  # optional, for TURN support
+wrangler secret put TURN_KEY_API_TOKEN
 wrangler deploy
 ```
 
