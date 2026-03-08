@@ -28,6 +28,7 @@ final class DeviceTransportManager: ObservableObject {
     @Published var activeTransport: TransportType = .relay
     @Published var sessions: [DeviceSessionInfo] = []
     @Published var isConnected = false
+    @Published var isConnecting = false
     @Published var debugLog: [String] = []
 
     private func log(_ message: String) {
@@ -141,6 +142,7 @@ final class DeviceTransportManager: ObservableObject {
         webrtcTransport = nil
 
         isConnected = false
+        isConnecting = false
         sessions = []
         sessionDataHandlers.removeAll()
         sessionResizeHandlers.removeAll()
@@ -712,6 +714,7 @@ final class DeviceTransportManager: ObservableObject {
         }
 
         log("connectDeviceWS: \(url.host ?? "?")/devices/\(deviceId)/ws")
+        isConnecting = true
 
         deviceWSGeneration &+= 1
         let generation = deviceWSGeneration
@@ -900,6 +903,7 @@ final class DeviceTransportManager: ObservableObject {
         }
 
         isConnected = localConnected || (webrtcTransport?.isConnected ?? false) || deviceWSConnected
+        if isConnected { isConnecting = false }
 
         if activeTransport != previous {
             log("Transport: \(previous) → \(activeTransport) (local=\(localConnected) webrtc=\(webrtcTransport?.isConnected ?? false) relay=\(deviceWSConnected))")

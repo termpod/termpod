@@ -307,9 +307,11 @@ final class ConnectionManager: ObservableObject {
             self?.onSessionClosed?()
         }
 
-        // Forward WebRTC signaling from relay (always needed)
+        // Forward WebRTC signaling from relay — only when device-level
+        // transport isn't handling WebRTC (avoids duplicate connections).
         relay.onSignaling = { [weak self] json in
-            self?.webrtcTransport.handleSignaling(json)
+            guard let self, self.deviceTransport == nil else { return }
+            self.webrtcTransport.handleSignaling(json)
         }
 
         // Local transport callbacks — accepted when local is active

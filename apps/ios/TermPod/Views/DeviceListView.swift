@@ -5,11 +5,8 @@ struct DeviceListView: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var auth: AuthService
     @EnvironmentObject private var deviceService: DeviceService
+    @EnvironmentObject private var deviceTransport: DeviceTransportManager
     @State private var showSettings = false
-
-    private var deviceTransport: DeviceTransportManager {
-        appState.deviceTransport
-    }
 
     var body: some View {
         NavigationStack {
@@ -34,7 +31,8 @@ struct DeviceListView: View {
                             NavigationLink(value: device.id) {
                                 DeviceRow(
                                     device: device,
-                                    transport: transportForDevice(device)
+                                    transport: transportForDevice(device),
+                                    isConnecting: isConnectingDevice(device)
                                 )
                             }
                         }
@@ -107,13 +105,15 @@ struct DeviceListView: View {
     private func transportForDevice(_ device: DeviceService.Device) -> TransportType? {
         guard device.isOnline || deviceTransport.isConnected else { return nil }
 
-        // activeTransport is @Published and already reflects Local > WebRTC > Relay priority
         if deviceTransport.isConnected {
             return deviceTransport.activeTransport
         }
 
-        // Device is online per relay API but no transport connected yet
         return .relay
+    }
+
+    private func isConnectingDevice(_ device: DeviceService.Device) -> Bool {
+        device.isOnline && deviceTransport.isConnecting && !deviceTransport.isConnected
     }
 
     private func startTransportForDevice(_ deviceId: String) {
@@ -140,8 +140,10 @@ struct DeviceRow: View {
 
     let device: DeviceService.Device
     var transport: TransportType?
+    var isConnecting: Bool = false
 
     private var transportColor: Color {
+        if isConnecting { return .secondary }
         guard let transport else { return .secondary }
         return switch transport {
         case .local: .green
@@ -162,7 +164,12 @@ struct DeviceRow: View {
                     .font(.headline)
 
                 HStack(spacing: 4) {
-                    if device.isOnline {
+                    if isConnecting {
+                        ProgressView()
+                            .controlSize(.mini)
+                        Text("Connecting…")
+                            .font(.caption)
+                    } else if device.isOnline {
                         Circle()
                             .fill(transportColor)
                             .frame(width: 6, height: 6)
@@ -185,6 +192,6 @@ struct DeviceRow: View {
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(device.displayName), \(device.isOnline ? (transport?.label ?? "online") : "offline")")
+        .accessibilityLabel("\(device.displayName), \(isConnecting ? "connecting" : device.isOnline ? (transport?.label ?? "online") : "offline")")
     }
 }

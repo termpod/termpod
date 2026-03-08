@@ -7,6 +7,7 @@ struct DeviceSessionsView: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var auth: AuthService
     @EnvironmentObject private var deviceService: DeviceService
+    @EnvironmentObject private var deviceTransport: DeviceTransportManager
     @State private var sessions: [DeviceService.DeviceSession] = []
     @State private var loading = true
     @State private var joinedSession: Session?
@@ -16,10 +17,6 @@ struct DeviceSessionsView: View {
     /// Static cache so session cards survive view recreation (NavigationStack
     /// creates a fresh view every time the user pushes back into this screen).
     private static var sessionsCache: [String: [DeviceService.DeviceSession]] = [:]
-
-    private var deviceTransport: DeviceTransportManager {
-        appState.deviceTransport
-    }
 
     init(device: DeviceService.Device) {
         self.device = device

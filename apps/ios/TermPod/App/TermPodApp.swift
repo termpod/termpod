@@ -32,6 +32,7 @@ struct TermPodApp: App {
                 }
                 .environmentObject(auth)
                 .environmentObject(appState)
+                .environmentObject(appState.deviceTransport)
                 .environmentObject(settings)
 
                 if isLocked {

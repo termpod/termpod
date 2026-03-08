@@ -146,7 +146,7 @@ export function useWebRTC(options: UseWebRTCOptions) {
   const initiateOffer = useCallback(
     async (remoteClientId: string) => {
       // Don't tear down an in-progress or established connection to the SAME client
-      if (pcRef.current && pcRef.current.connectionState !== 'closed' && pcRef.current.connectionState !== 'failed') {
+      if (pcRef.current && pcRef.current.connectionState !== 'closed' && pcRef.current.connectionState !== 'failed' && pcRef.current.connectionState !== 'disconnected') {
         if (remoteClientRef.current === remoteClientId) {
           console.log('[WebRTC] Skipping offer — connection already', pcRef.current.connectionState);
           return;
