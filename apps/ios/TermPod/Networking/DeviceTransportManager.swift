@@ -47,6 +47,10 @@ final class DeviceTransportManager: ObservableObject {
     private var resolvedPort: UInt16?
     private var localConnected = false
 
+    /// Detect WiFi ↔ cellular transitions to immediately update local transport state.
+    private let networkMonitor = NWPathMonitor()
+    private var isOnWiFi = false
+
     /// Device-level relay WebSocket
     private var deviceWS: URLSessionWebSocketTask?
     private var deviceWSConnected = false
@@ -73,12 +77,15 @@ final class DeviceTransportManager: ObservableObject {
         self.authToken = token
         intentionalClose = false
 
+        startNetworkMonitor()
         startBonjourDiscovery()
         connectDeviceWS()
     }
 
     func stop() {
         intentionalClose = true
+
+        networkMonitor.cancel()
 
         browser?.cancel()
         browser = nil
@@ -97,6 +104,8 @@ final class DeviceTransportManager: ObservableObject {
 
         isConnected = false
         sessions = []
+        sessionDataHandlers.removeAll()
+        sessionResizeHandlers.removeAll()
         updateActiveTransport()
     }
 
@@ -241,6 +250,41 @@ final class DeviceTransportManager: ObservableObject {
         frame.append(UInt8(rows & 0xFF))
 
         ws.send(.data(frame)) { _ in }
+    }
+
+    // MARK: - Network Monitor
+
+    private func startNetworkMonitor() {
+        networkMonitor.pathUpdateHandler = { [weak self] path in
+            let wifi = path.usesInterfaceType(.wifi)
+
+            Task { @MainActor in
+                guard let self, !self.intentionalClose else { return }
+                let wasOnWiFi = self.isOnWiFi
+                self.isOnWiFi = wifi
+
+                if wifi && !wasOnWiFi {
+                    // Regained WiFi — restart Bonjour discovery
+                    self.browser?.cancel()
+                    self.browser = nil
+                    self.startBonjourDiscovery()
+                } else if !wifi && wasOnWiFi {
+                    // Lost WiFi — immediately tear down local connection
+                    self.browser?.cancel()
+                    self.browser = nil
+                    self.localWS?.cancel(with: .goingAway, reason: nil)
+                    self.localWS = nil
+                    self.localConnected = false
+                    self.resolvedHost = nil
+                    self.resolvedPort = nil
+                    self.sessionDataHandlers.removeAll()
+                    self.sessionResizeHandlers.removeAll()
+                    self.updateActiveTransport()
+                }
+            }
+        }
+
+        networkMonitor.start(queue: .main)
     }
 
     // MARK: - Bonjour Discovery + Local WebSocket
