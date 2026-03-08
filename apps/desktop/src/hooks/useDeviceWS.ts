@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { RECONNECT } from '@termpod/shared';
+import { RECONNECT, RELAY_URL } from '@termpod/shared';
 import { getAccessToken, getValidAccessToken } from './useAuth';
 import { getSettingsSnapshot } from './useSettings';
 
-const RELAY_URL_KEY = 'VITE_RELAY_URL';
 const PING_INTERVAL = 30_000;
 
 function getRelayBase(): string {
   const custom = getSettingsSnapshot().relayUrl?.trim();
-  return custom || import.meta.env[RELAY_URL_KEY] || 'ws://localhost:8787';
+  return custom || import.meta.env.VITE_RELAY_URL || RELAY_URL.production;
 }
 
 export type DeviceWSStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
