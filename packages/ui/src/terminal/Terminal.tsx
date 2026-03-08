@@ -463,6 +463,39 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           return false;
         }
 
+        // macOS-native cursor navigation (works without macOptionIsMeta)
+        if (event.type === 'keydown') {
+          // Cmd+Left → Home (start of line)
+          if (event.metaKey && event.key === 'ArrowLeft') {
+            onDataRef.current?.('\x1b[H');
+            return false;
+          }
+
+          // Cmd+Right → End (end of line)
+          if (event.metaKey && event.key === 'ArrowRight') {
+            onDataRef.current?.('\x1b[F');
+            return false;
+          }
+
+          // Option+Left → word back (Alt+B)
+          if (event.altKey && event.key === 'ArrowLeft') {
+            onDataRef.current?.('\x1bb');
+            return false;
+          }
+
+          // Option+Right → word forward (Alt+F)
+          if (event.altKey && event.key === 'ArrowRight') {
+            onDataRef.current?.('\x1bf');
+            return false;
+          }
+
+          // Option+Delete → delete word back
+          if (event.altKey && event.key === 'Backspace') {
+            onDataRef.current?.('\x1b\x7f');
+            return false;
+          }
+        }
+
         return true;
       });
 
