@@ -67,6 +67,7 @@ export function ThemePicker({ selected, onSelect, onClose }: ThemePickerProps) {
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
+      e.stopPropagation();
       if (query) {
         setQuery('');
       } else {
