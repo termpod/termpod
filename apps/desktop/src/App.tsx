@@ -126,12 +126,20 @@ export function App() {
     onClientJoined: (clientId, clientDevice) => {
       // When a mobile viewer connects via device WS, initiate WebRTC offer
       // through the first active session's relay bridge
+      console.log('[DeviceWS] client_joined:', clientId, clientDevice);
       if (clientDevice === 'macos') return; // Don't offer to other desktops
+      console.log('[DeviceWS] Initiating WebRTC offer to', clientId);
+      let offered = false;
       for (const info of relayMapRef.current.values()) {
         if (info.sessionId && info.initiateWebRTCOffer) {
-          info.initiateWebRTCOffer(clientId).catch(() => {});
+          console.log('[DeviceWS] Using session', info.sessionId, 'for WebRTC offer');
+          info.initiateWebRTCOffer(clientId).catch((e) => console.error('[DeviceWS] WebRTC offer failed:', e));
+          offered = true;
           break; // Only need one WebRTC connection
         }
+      }
+      if (!offered) {
+        console.warn('[DeviceWS] No active session found for WebRTC offer');
       }
     },
   });
@@ -759,6 +767,7 @@ export function App() {
             }}
             onSessionClosed={() => handleCloseSession(session.id)}
             deviceSendSignaling={deviceWS.sendSignaling}
+            deviceClientId={deviceWS.clientId}
             onCwdChange={(cwd) => {
               updateSessionCwd(session.id, cwd);
               const relayInfo = relayMapRef.current.get(session.id);

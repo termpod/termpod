@@ -8,6 +8,8 @@ interface Env {
   USER: DurableObjectNamespace;
   JWT_SECRET: string;
   GITHUB_TOKEN: string;
+  TURN_KEY_ID: string;
+  TURN_KEY_API_TOKEN: string;
 }
 
 // Origin: * is acceptable here — auth uses Bearer tokens (not cookies),
@@ -156,6 +158,11 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 
     if (pendingRequestsMatch) {
       return handlePendingRequests(request, env, pendingRequestsMatch[1]);
+    }
+
+    // TURN credentials for WebRTC
+    if (url.pathname === '/turn-credentials' && request.method === 'GET') {
+      return handleTurnCredentials(request, env);
     }
 
     // Device WebSocket (control plane + signaling)
@@ -585,6 +592,45 @@ async function handleUpdateDownload(env: Env, filename: string): Promise<Respons
   headers.set('Cache-Control', 'public, max-age=3600');
 
   return new Response(assetRes.body, { headers });
+}
+
+// --- TURN credentials handler ---
+
+async function handleTurnCredentials(request: Request, env: Env): Promise<Response> {
+  const userId = await requireAuth(request, env);
+
+  if (userId instanceof Response) {
+    return userId;
+  }
+
+  if (!env.TURN_KEY_ID || !env.TURN_KEY_API_TOKEN) {
+    return corsJson({ error: 'TURN not configured' }, { status: 503 });
+  }
+
+  const res = await fetch(
+    `https://rtc.live.cloudflare.com/v1/turn/keys/${env.TURN_KEY_ID}/credentials/generate-ice-servers`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.TURN_KEY_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ttl: 86400 }),
+    },
+  );
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.error('TURN credential generation failed:', res.status, body);
+    return corsJson(
+      { error: 'Failed to generate TURN credentials', upstream: res.status, detail: body },
+      { status: 502 },
+    );
+  }
+
+  const data = await res.json() as { iceServers: unknown };
+
+  return corsJson({ iceServers: data.iceServers });
 }
 
 // --- Device WebSocket handler ---

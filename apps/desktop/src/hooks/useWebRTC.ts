@@ -1,5 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
-const WEBRTC_CONFIG: RTCConfiguration = {
+import { authFetch } from './useAuth';
+
+const STUN_ONLY_CONFIG: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
@@ -18,10 +20,29 @@ interface UseWebRTCOptions {
   localClientId: string;
 }
 
+/** Fetch TURN credentials from relay, falling back to STUN-only. */
+async function fetchIceServers(): Promise<RTCConfiguration> {
+  try {
+    const res = await authFetch('/turn-credentials');
+
+    if (res.ok) {
+      const { iceServers } = await res.json() as { iceServers: RTCIceServer[] };
+      console.log('[WebRTC] Got TURN credentials:', iceServers.length, 'servers');
+      return { iceServers };
+    }
+  } catch (err) {
+    console.warn('[WebRTC] Failed to fetch TURN credentials, using STUN only:', err);
+  }
+
+  return STUN_ONLY_CONFIG;
+}
+
 export function useWebRTC(options: UseWebRTCOptions) {
   const [status, setStatus] = useState<WebRTCStatus>('idle');
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<RTCDataChannel | null>(null);
+  const remoteClientRef = useRef<string | null>(null);
+  const iceConfigRef = useRef<RTCConfiguration>(STUN_ONLY_CONFIG);
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
@@ -36,11 +57,14 @@ export function useWebRTC(options: UseWebRTCOptions) {
         pcRef.current.close();
       }
 
-      const pc = new RTCPeerConnection(WEBRTC_CONFIG);
+      console.log('[WebRTC] createPeerConnection for', remoteClientId, 'iceServers:', iceConfigRef.current.iceServers?.length);
+      const pc = new RTCPeerConnection(iceConfigRef.current);
       pcRef.current = pc;
 
       pc.onicecandidate = (event) => {
         if (event.candidate) {
+          const typ = event.candidate.candidate.match(/typ (\w+)/)?.[1] ?? '?';
+          console.log('[WebRTC] local candidate:', typ);
           optionsRef.current.sendSignaling({
             type: 'webrtc_ice',
             candidate: event.candidate.candidate,
@@ -49,10 +73,17 @@ export function useWebRTC(options: UseWebRTCOptions) {
             fromClientId: optionsRef.current.localClientId,
             toClientId: remoteClientId,
           });
+        } else {
+          console.log('[WebRTC] ICE gathering complete');
         }
       };
 
+      pc.oniceconnectionstatechange = () => {
+        console.log('[WebRTC] ICE state:', pc.iceConnectionState);
+      };
+
       pc.onconnectionstatechange = () => {
+        console.log('[WebRTC] connection state:', pc.connectionState);
         switch (pc.connectionState) {
           case 'connected':
             updateStatus('connected');
@@ -114,7 +145,24 @@ export function useWebRTC(options: UseWebRTCOptions) {
 
   const initiateOffer = useCallback(
     async (remoteClientId: string) => {
+      // Don't tear down an in-progress or established connection to the SAME client
+      if (pcRef.current && pcRef.current.connectionState !== 'closed' && pcRef.current.connectionState !== 'failed') {
+        if (remoteClientRef.current === remoteClientId) {
+          console.log('[WebRTC] Skipping offer — connection already', pcRef.current.connectionState);
+          return;
+        }
+        // Different client — close the stale connection
+        console.log('[WebRTC] New client', remoteClientId, '— closing stale PC for', remoteClientRef.current);
+        pcRef.current.close();
+        pcRef.current = null;
+        channelRef.current = null;
+      }
+      remoteClientRef.current = remoteClientId;
+
       updateStatus('connecting');
+
+      // Fetch TURN credentials before creating the connection
+      iceConfigRef.current = await fetchIceServers();
       const pc = createPeerConnection(remoteClientId);
 
       const offer = await pc.createOffer();
@@ -157,6 +205,7 @@ export function useWebRTC(options: UseWebRTCOptions) {
       } else if (type === 'webrtc_offer') {
         // Desktop received an offer (shouldn't normally happen, but handle it)
         updateStatus('connecting');
+        iceConfigRef.current = await fetchIceServers();
         const pc = createPeerConnection(fromClientId);
         await pc.setRemoteDescription({ type: 'offer', sdp: msg.sdp as string });
 

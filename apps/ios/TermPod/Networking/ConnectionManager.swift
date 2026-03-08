@@ -67,9 +67,27 @@ final class ConnectionManager: ObservableObject {
         setupCallbacks()
     }
 
-    /// Wire up the device transport to the local transport for multiplexing.
+    /// Wire up the device transport for local WS multiplexing and WebRTC terminal data.
     func configureLocalTransport(with transport: DeviceTransportManager) {
         localTransport.deviceTransport = transport
+
+        // Route device-level WebRTC terminal data to this session
+        transport.onWebRTCTerminalData = { [weak self] data in
+            guard let self, self.shouldAcceptData(from: .webrtc) else { return }
+            self.bufferAndDeliver(data)
+        }
+
+        transport.onWebRTCResize = { [weak self] cols, rows in
+            self?.ptySize = (cols, rows)
+            self?.onResize?(cols, rows)
+        }
+
+        // Observe device transport changes to update active transport
+        transport.objectWillChange.sink { [weak self] _ in
+            Task { @MainActor in
+                self?.updateActiveTransport()
+            }
+        }.store(in: &cancellables)
     }
 
     // MARK: - Connection
@@ -80,7 +98,6 @@ final class ConnectionManager: ObservableObject {
     }
 
     func disconnect() {
-        deviceTransport?.unregisterWebRTC(webrtcTransport)
         relay.disconnect()
         localTransport.disconnect()
         webrtcTransport.disconnect()
@@ -134,7 +151,7 @@ final class ConnectionManager: ObservableObject {
 
     /// Returns true if a P2P transport (local or WebRTC) is available for control messages.
     var hasP2PTransport: Bool {
-        localTransport.isConnected || webrtcTransport.isConnected
+        localTransport.isConnected || (deviceTransport?.isWebRTCConnected ?? false) || webrtcTransport.isConnected
     }
 
     func sendListSessions() {
@@ -192,9 +209,13 @@ final class ConnectionManager: ObservableObject {
 
     private var bestTransport: Transport {
         if localTransport.isConnected { return localTransport }
+        if deviceTransport?.isWebRTCConnected ?? false { return deviceWebRTCProxy }
         if webrtcTransport.isConnected { return webrtcTransport }
         return relay
     }
+
+    /// Lightweight proxy that routes send calls through device-level WebRTC.
+    private lazy var deviceWebRTCProxy: DeviceWebRTCProxy = DeviceWebRTCProxy(manager: self)
 
     /// Re-send mobile dimensions after a short delay, guarding against
     /// the transport having changed during the wait.
@@ -228,6 +249,8 @@ final class ConnectionManager: ObservableObject {
     private func updateActiveTransport() {
         if localTransport.isConnected {
             activeTransport = .local
+        } else if deviceTransport?.isWebRTCConnected ?? false {
+            activeTransport = .webrtc
         } else if webrtcTransport.isConnected {
             activeTransport = .webrtc
         } else {
@@ -337,13 +360,10 @@ final class ConnectionManager: ObservableObject {
             guard let self else { return }
             self.updateActiveTransport()
             self.resendSizeAfterDelay()
-            self.deviceTransport?.registerWebRTC(self.webrtcTransport)
         }
 
         webrtcTransport.onDisconnected = { [weak self] in
-            guard let self else { return }
-            self.deviceTransport?.unregisterWebRTC(self.webrtcTransport)
-            self.updateActiveTransport()
+            self?.updateActiveTransport()
         }
 
         webrtcTransport.onControlMessage = { [weak self] json in
@@ -379,6 +399,9 @@ final class ConnectionManager: ObservableObject {
             }
         }
 
+        // Also update active transport when device-level WebRTC connects/disconnects
+        // (handled via configureLocalTransport's objectWillChange subscriber)
+
         // Propagate relay state changes to this object
         relay.objectWillChange.sink { [weak self] _ in
             guard let self else { return }
@@ -398,4 +421,34 @@ final class ConnectionManager: ObservableObject {
             }
         }.store(in: &cancellables)
     }
+}
+
+/// Lightweight proxy that implements Transport by forwarding send calls
+/// to the device-level WebRTC transport in DeviceTransportManager.
+@MainActor
+private final class DeviceWebRTCProxy: Transport {
+    let transportType: TransportType = .webrtc
+    var isConnected: Bool { manager?.deviceTransport?.isWebRTCConnected ?? false }
+
+    // Callbacks unused — data routing is handled by DeviceTransportManager callbacks
+    var onTerminalData: ((Data) -> Void)?
+    var onResize: ((Int, Int) -> Void)?
+    var onConnected: (() -> Void)?
+    var onDisconnected: (() -> Void)?
+
+    private weak var manager: ConnectionManager?
+
+    init(manager: ConnectionManager) {
+        self.manager = manager
+    }
+
+    func sendInput(_ data: Data) {
+        manager?.deviceTransport?.sendWebRTCInput(data)
+    }
+
+    func sendResize(cols: Int, rows: Int) {
+        manager?.deviceTransport?.sendWebRTCResize(cols: cols, rows: rows)
+    }
+
+    func disconnect() {}
 }

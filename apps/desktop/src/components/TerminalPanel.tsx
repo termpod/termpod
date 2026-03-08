@@ -51,9 +51,10 @@ interface TerminalPanelProps {
   onCwdChange?: (cwd: string) => void;
   getSessionsList?: () => Record<string, unknown>[];
   deviceSendSignaling?: (msg: Record<string, unknown>) => void;
+  deviceClientId?: string;
 }
 
-export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFamily, fontWeight, fontSmoothing, fontLigatures, drawBoldInBold, windowPadding, cursorStyle, cursorBlink, lineHeight, promptAtBottom, copyOnSelect, macOptionIsMeta, altClickMoveCursor, wordSeparators, theme, bellEnabled, notifyOnBell, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onDeleteSession, onSessionClosed, onCwdChange, getSessionsList, deviceSendSignaling }: TerminalPanelProps) {
+export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFamily, fontWeight, fontSmoothing, fontLigatures, drawBoldInBold, windowPadding, cursorStyle, cursorBlink, lineHeight, promptAtBottom, copyOnSelect, macOptionIsMeta, altClickMoveCursor, wordSeparators, theme, bellEnabled, notifyOnBell, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onDeleteSession, onSessionClosed, onCwdChange, getSessionsList, deviceSendSignaling, deviceClientId }: TerminalPanelProps) {
   const onTermReadyRef = useRef(onTermReady);
   onTermReadyRef.current = onTermReady;
   const onCreateSessionRequestRef = useRef(onCreateSessionRequest);
@@ -83,6 +84,7 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
     },
     getSessionsList: () => getSessionsListRef.current?.() ?? [],
     deviceSendSignaling: deviceSendSignaling ? (msg) => deviceSendSignalingRef.current?.(msg) : undefined,
+    deviceClientId,
   });
   const onRelayChangeRef = useRef(onRelayChange);
   onRelayChangeRef.current = onRelayChange;

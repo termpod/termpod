@@ -93,6 +93,7 @@ struct DeviceListView: View {
                 await deviceService.fetchDevices(auth: auth)
             }
             .task {
+                deviceTransport.startDiscovery()
                 await deviceService.registerThisDevice(auth: auth)
                 await deviceService.fetchDevices(auth: auth)
             }
@@ -102,14 +103,12 @@ struct DeviceListView: View {
     private func transportForDevice(_ device: DeviceService.Device) -> TransportType? {
         guard device.isOnline || deviceTransport.isConnected else { return nil }
 
-        // If deviceTransport is active for this device, use its transport info
+        // activeTransport is @Published and already reflects Local > WebRTC > Relay priority
         if deviceTransport.isConnected {
             return deviceTransport.activeTransport
         }
 
-        if deviceTransport.hasP2PTransport { return .webrtc }
-
-        // Device is online per relay API
+        // Device is online per relay API but no transport connected yet
         return .relay
     }
 

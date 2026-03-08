@@ -11,6 +11,8 @@ interface UseRelayBridgeOptions {
   getSessionsList?: () => Record<string, unknown>[];
   /** Send WebRTC signaling via device WS instead of per-session relay WS. */
   deviceSendSignaling?: (msg: Record<string, unknown>) => void;
+  /** Device WS clientId — used as fromClientId in WebRTC signaling so replies route correctly. */
+  deviceClientId?: string;
 }
 
 export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: UseRelayBridgeOptions) {
@@ -47,8 +49,9 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
         }, 50);
       }
 
-      // Initiate WebRTC offer to the new viewer
-      if (clientId) {
+      // Initiate WebRTC offer to the new viewer — but only if device-level
+      // signaling isn't handling it (device WS triggers its own offer via App.tsx)
+      if (clientId && !bridgeOptionsRef.current?.deviceSendSignaling) {
         webrtc.initiateOffer(clientId).catch(() => {});
       }
     },
@@ -208,7 +211,7 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
       }
     },
     sendSignaling: bridgeOptionsRef.current?.deviceSendSignaling ?? sendSignaling,
-    localClientId: relay.clientId,
+    localClientId: bridgeOptionsRef.current?.deviceClientId ?? relay.clientId,
   });
 
   // Keep refs in sync on every render so the PTY listener reads fresh values

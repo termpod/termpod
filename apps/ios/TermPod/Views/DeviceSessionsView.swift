@@ -11,6 +11,7 @@ struct DeviceSessionsView: View {
     @State private var loading = true
     @State private var joinedSession: Session?
     @State private var requestingSession = false
+    @State private var showDebugLog = false
 
     /// Static cache so session cards survive view recreation (NavigationStack
     /// creates a fresh view every time the user pushes back into this screen).
@@ -258,6 +259,32 @@ struct DeviceSessionsView: View {
         .padding(.vertical, 4)
         .background(color.opacity(0.15))
         .clipShape(Capsule())
+        .onTapGesture { showDebugLog = true }
+        .sheet(isPresented: $showDebugLog) {
+            NavigationStack {
+                List(deviceTransport.debugLog.reversed(), id: \.self) { entry in
+                    Text(entry)
+                        .font(.system(size: 11, design: .monospaced))
+                        .listRowInsets(EdgeInsets(top: 2, leading: 8, bottom: 2, trailing: 8))
+                        .textSelection(.enabled)
+                }
+                .navigationTitle("Transport Log")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            UIPasteboard.general.string = deviceTransport.debugLog.joined(separator: "\n")
+                        } label: {
+                            Label("Copy All", systemImage: "doc.on.doc")
+                        }
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") { showDebugLog = false }
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+        }
     }
 
     // MARK: - Actions

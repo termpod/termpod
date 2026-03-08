@@ -28,6 +28,20 @@ final class DeviceTransportManager: ObservableObject {
     @Published var activeTransport: TransportType = .relay
     @Published var sessions: [DeviceSessionInfo] = []
     @Published var isConnected = false
+    @Published var debugLog: [String] = []
+
+    private func log(_ message: String) {
+        let entry = "\(Self.logFormatter.string(from: Date())) \(message)"
+        print("[DeviceTransport] \(message)")
+        debugLog.append(entry)
+        if debugLog.count > 100 { debugLog.removeFirst() }
+    }
+
+    private static let logFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss"
+        return f
+    }()
 
     /// Keyed completion handlers for request/response patterns.
     private var sessionCreatedHandlers: [String: (_ requestId: String, _ sessionId: String, _ name: String, _ cwd: String, _ ptyCols: Int, _ ptyRows: Int) -> Void] = [:]
@@ -36,6 +50,10 @@ final class DeviceTransportManager: ObservableObject {
     /// Per-session data/resize handlers for multiplexed local WS.
     private var sessionDataHandlers: [String: (Data) -> Void] = [:]
     private var sessionResizeHandlers: [String: (Int, Int) -> Void] = [:]
+
+    /// WebRTC terminal data handler (single session — desktop WebRTC is not multiplexed).
+    var onWebRTCTerminalData: ((Data) -> Void)?
+    var onWebRTCResize: ((Int, Int) -> Void)?
 
     // MARK: - Transports
 
@@ -48,17 +66,19 @@ final class DeviceTransportManager: ObservableObject {
     private var localConnected = false
 
     /// Detect WiFi ↔ cellular transitions to immediately update local transport state.
-    private let networkMonitor = NWPathMonitor()
+    private var networkMonitor = NWPathMonitor()
+    private var networkMonitorStarted = false
     private var isOnWiFi = false
 
     /// Device-level relay WebSocket
     private var deviceWS: URLSessionWebSocketTask?
     private var deviceWSConnected = false
+    private var deviceWSGeneration: UInt64 = 0
     private var deviceWSReconnect = ReconnectionManager()
     private var deviceWSReconnectTask: Task<Void, Never>?
 
-    /// WebRTC transport borrowed from an active session's ConnectionManager
-    private weak var registeredWebRTC: WebRTCTransport?
+    /// Device-level WebRTC transport — owned, created on first signaling offer.
+    private var webrtcTransport: WebRTCTransport?
 
     // MARK: - Configuration
 
@@ -70,22 +90,39 @@ final class DeviceTransportManager: ObservableObject {
 
     // MARK: - Lifecycle
 
-    /// Start the transport manager for a specific desktop device.
+    /// Start local network discovery (Bonjour + WiFi monitoring).
+    /// Safe to call early (e.g. when device list appears) — no deviceId needed.
+    func startDiscovery() {
+        log("startDiscovery()")
+        intentionalClose = false
+        startNetworkMonitor()
+        startBonjourDiscovery()
+    }
+
+    /// Start the full transport manager for a specific desktop device.
+    /// Calls startDiscovery() if not already running, then connects the relay WS.
+    /// Safe to call multiple times — won't tear down an existing connection.
     func start(deviceId: String, relayBaseURL: String, token: String) {
+        let deviceChanged = self.deviceId != deviceId
         self.deviceId = deviceId
         self.relayBaseURL = relayBaseURL
         self.authToken = token
         intentionalClose = false
 
-        startNetworkMonitor()
-        startBonjourDiscovery()
-        connectDeviceWS()
+        startDiscovery()
+
+        // Only (re)connect device WS if not already connected for this device
+        if deviceChanged || (!deviceWSConnected && deviceWS == nil) {
+            connectDeviceWS()
+        }
     }
 
     func stop() {
         intentionalClose = true
 
         networkMonitor.cancel()
+        networkMonitor = NWPathMonitor()
+        networkMonitorStarted = false
 
         browser?.cancel()
         browser = nil
@@ -100,7 +137,8 @@ final class DeviceTransportManager: ObservableObject {
         deviceWSReconnectTask?.cancel()
         deviceWSReconnectTask = nil
 
-        registeredWebRTC = nil
+        webrtcTransport?.disconnect()
+        webrtcTransport = nil
 
         isConnected = false
         sessions = []
@@ -114,20 +152,136 @@ final class DeviceTransportManager: ObservableObject {
         authToken = token
     }
 
-    // MARK: - WebRTC Registration
+    // MARK: - WebRTC
 
-    /// Register a WebRTC transport from an active session for control message fallback.
-    func registerWebRTC(_ transport: WebRTCTransport) {
-        registeredWebRTC = transport
-        updateActiveTransport()
+    /// Whether WebRTC transport is connected.
+    var isWebRTCConnected: Bool { webrtcTransport?.isConnected ?? false }
+
+    /// Cached ICE server configs from relay (includes TURN credentials).
+    private var cachedIceServerConfigs: [[String: Any]]?
+    private var fetchingIceServers = false
+
+    /// Create the device-level WebRTC transport on demand (e.g. when first offer arrives).
+    private func ensureWebRTCTransport() -> WebRTCTransport {
+        if let existing = webrtcTransport { return existing }
+
+        log("Creating WebRTCTransport for clientId=\(clientId)")
+        let transport = WebRTCTransport(clientId: clientId)
+        transport.iceServerConfigs = cachedIceServerConfigs
+        transport.debugLog = { [weak self] msg in self?.log("WebRTC: \(msg)") }
+
+        transport.sendSignaling = { [weak self] msg in
+            let type = msg["type"] as? String ?? "?"
+            self?.log("WebRTC sendSignaling: \(type)")
+            self?.sendSignaling(msg)
+        }
+
+        transport.onConnected = { [weak self] in
+            self?.log("WebRTC CONNECTED")
+            self?.updateActiveTransport()
+        }
+
+        transport.onDisconnected = { [weak self] in
+            self?.log("WebRTC DISCONNECTED")
+            self?.updateActiveTransport()
+        }
+
+        transport.onTerminalData = { [weak self] data in
+            self?.onWebRTCTerminalData?(data)
+        }
+
+        transport.onResize = { [weak self] cols, rows in
+            self?.onWebRTCResize?(cols, rows)
+        }
+
+        transport.onControlMessage = { [weak self] json in
+            self?.log("WebRTC control: \(json["type"] as? String ?? "?")")
+            self?.handleWebRTCControlMessage(json)
+        }
+
+        webrtcTransport = transport
+        return transport
     }
 
-    /// Unregister the WebRTC transport (e.g. when session disconnects).
-    func unregisterWebRTC(_ transport: WebRTCTransport) {
-        if registeredWebRTC === transport {
-            registeredWebRTC = nil
-            updateActiveTransport()
+    /// Fetch TURN credentials and call completion when done (or immediately on failure).
+    private func fetchTurnCredentialsSync(completion: @escaping () -> Void) {
+        guard cachedIceServerConfigs == nil,
+              let relayBase = relayBaseURL, let token = authToken
+        else {
+            completion()
+            return
         }
+
+        let httpBase = relayBase
+            .replacingOccurrences(of: "wss://", with: "https://")
+            .replacingOccurrences(of: "ws://", with: "http://")
+
+        guard let url = URL(string: "\(httpBase)/turn-credentials") else {
+            completion()
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
+            Task { @MainActor in
+                if let self, let data,
+                   let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let iceServersArray = json["iceServers"] as? [[String: Any]] {
+                    self.log("TURN credentials (sync): got \(iceServersArray.count) ICE servers")
+                    self.cachedIceServerConfigs = iceServersArray
+                    self.webrtcTransport?.iceServerConfigs = iceServersArray
+                }
+                completion()
+            }
+        }.resume()
+    }
+
+    /// Fetch TURN credentials from the relay and cache them.
+    private func fetchTurnCredentials() {
+        guard !fetchingIceServers, cachedIceServerConfigs == nil,
+              let relayBase = relayBaseURL, let token = authToken
+        else { return }
+
+        fetchingIceServers = true
+        let httpBase = relayBase
+            .replacingOccurrences(of: "wss://", with: "https://")
+            .replacingOccurrences(of: "ws://", with: "http://")
+
+        guard let url = URL(string: "\(httpBase)/turn-credentials") else {
+            fetchingIceServers = false
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            Task { @MainActor in
+                defer { self?.fetchingIceServers = false }
+                guard let self else { return }
+                let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+
+                guard let data, statusCode == 200 else {
+                    let body = data.flatMap { String(data: $0, encoding: .utf8) } ?? "nil"
+                    self.log("TURN credentials failed: HTTP \(statusCode) \(error?.localizedDescription ?? body)")
+                    return
+                }
+
+                guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let iceServersArray = json["iceServers"] as? [[String: Any]]
+                else {
+                    self.log("TURN credentials: bad response format")
+                    return
+                }
+
+                self.log("TURN credentials: got \(iceServersArray.count) ICE servers")
+                self.cachedIceServerConfigs = iceServersArray
+                self.webrtcTransport?.iceServerConfigs = iceServersArray
+            }
+        }.resume()
     }
 
     // MARK: - Control API
@@ -154,7 +308,7 @@ final class DeviceTransportManager: ObservableObject {
 
         if localConnected {
             sendLocalControl(msg)
-        } else if let webrtc = registeredWebRTC, webrtc.isConnected {
+        } else if let webrtc = webrtcTransport, webrtc.isConnected {
             webrtc.sendControlMessage(msg)
         } else if deviceWSConnected {
             sendDeviceWSControl(msg)
@@ -170,7 +324,7 @@ final class DeviceTransportManager: ObservableObject {
 
         if localConnected {
             sendLocalControl(msg)
-        } else if let webrtc = registeredWebRTC, webrtc.isConnected {
+        } else if let webrtc = webrtcTransport, webrtc.isConnected {
             webrtc.sendControlMessage(msg)
         } else if deviceWSConnected {
             sendDeviceWSControl(msg)
@@ -186,16 +340,26 @@ final class DeviceTransportManager: ObservableObject {
 
         if localConnected {
             sendLocalControl(msg)
-        } else if let webrtc = registeredWebRTC, webrtc.isConnected {
+        } else if let webrtc = webrtcTransport, webrtc.isConnected {
             webrtc.sendControlMessage(msg)
         } else if deviceWSConnected {
             sendDeviceWSControl(msg)
         }
     }
 
+    /// Send terminal input through the device-level WebRTC data channel.
+    func sendWebRTCInput(_ data: Data) {
+        webrtcTransport?.sendInput(data)
+    }
+
+    /// Send resize through the device-level WebRTC data channel.
+    func sendWebRTCResize(cols: Int, rows: Int) {
+        webrtcTransport?.sendResize(cols: cols, rows: rows)
+    }
+
     /// Whether any P2P transport (local or WebRTC) is available.
     var hasP2PTransport: Bool {
-        localConnected || (registeredWebRTC?.isConnected ?? false)
+        localConnected || (webrtcTransport?.isConnected ?? false)
     }
 
     /// Whether the local WS transport is connected.
@@ -255,6 +419,9 @@ final class DeviceTransportManager: ObservableObject {
     // MARK: - Network Monitor
 
     private func startNetworkMonitor() {
+        guard !networkMonitorStarted else { return }
+        networkMonitorStarted = true
+
         networkMonitor.pathUpdateHandler = { [weak self] path in
             let wifi = path.usesInterfaceType(.wifi)
 
@@ -264,12 +431,12 @@ final class DeviceTransportManager: ObservableObject {
                 self.isOnWiFi = wifi
 
                 if wifi && !wasOnWiFi {
-                    // Regained WiFi — restart Bonjour discovery
+                    self.log("WiFi regained — restarting Bonjour")
                     self.browser?.cancel()
                     self.browser = nil
                     self.startBonjourDiscovery()
                 } else if !wifi && wasOnWiFi {
-                    // Lost WiFi — immediately tear down local connection
+                    self.log("WiFi lost — tearing down local")
                     self.browser?.cancel()
                     self.browser = nil
                     self.localWS?.cancel(with: .goingAway, reason: nil)
@@ -518,37 +685,67 @@ final class DeviceTransportManager: ObservableObject {
     // MARK: - Device WebSocket (Relay)
 
     private func connectDeviceWS() {
-        guard let deviceId, let relayBase = relayBaseURL, let token = authToken else { return }
+        // Don't tear down an active or in-flight connection
+        if deviceWSConnected || deviceWS != nil {
+            log("connectDeviceWS: skipped (connected=\(deviceWSConnected) ws=\(deviceWS != nil))")
+            return
+        }
+
+        guard let deviceId, let relayBase = relayBaseURL, let token = authToken else {
+            log("connectDeviceWS: missing config (deviceId=\(deviceId != nil) relay=\(relayBaseURL != nil) token=\(authToken != nil))")
+            return
+        }
 
         let wsBase = relayBase
             .replacingOccurrences(of: "https://", with: "wss://")
             .replacingOccurrences(of: "http://", with: "ws://")
 
-        guard let url = URL(string: "\(wsBase)/devices/\(deviceId)/ws") else { return }
+        guard var components = URLComponents(string: "\(wsBase)/devices/\(deviceId)/ws") else {
+            log("connectDeviceWS: bad URL")
+            return
+        }
+        components.queryItems = [URLQueryItem(name: "token", value: token)]
 
-        deviceWS?.cancel(with: .goingAway, reason: nil)
+        guard let url = components.url else {
+            log("connectDeviceWS: bad URL after adding token")
+            return
+        }
+
+        log("connectDeviceWS: \(url.host ?? "?")/devices/\(deviceId)/ws")
+
+        deviceWSGeneration &+= 1
+        let generation = deviceWSGeneration
 
         let ws = urlSession.webSocketTask(with: url)
         deviceWS = ws
         ws.resume()
 
-        // Send auth as first message
-        sendJSON(ws: ws, msg: ["type": "auth", "token": token])
-        startDeviceWSReceiving()
+        // Auth is via URL token — send hello immediately
+        let hello: [String: Any] = [
+            "type": "hello",
+            "role": "viewer",
+            "device": UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone",
+            "clientId": clientId,
+            "version": 1,
+        ]
+        sendJSON(ws: ws, msg: hello)
+        startDeviceWSReceiving(generation: generation)
     }
 
-    private func startDeviceWSReceiving() {
+    private func startDeviceWSReceiving(generation: UInt64) {
         deviceWS?.receive { [weak self] result in
             guard let self else { return }
 
-            switch result {
-            case .success(let message):
-                Task { @MainActor in
+            Task { @MainActor in
+                // Ignore callbacks from stale WS connections
+                guard self.deviceWSGeneration == generation else { return }
+
+                switch result {
+                case .success(let message):
                     self.handleDeviceWSMessage(message)
-                    self.startDeviceWSReceiving()
-                }
-            case .failure:
-                Task { @MainActor in
+                    self.startDeviceWSReceiving(generation: generation)
+                case .failure(let error):
+                    self.log("Device WS receive error: \(error.localizedDescription)")
                     self.handleDeviceWSDisconnect()
                 }
             }
@@ -562,22 +759,18 @@ final class DeviceTransportManager: ObservableObject {
               let type = json["type"] as? String
         else { return }
 
+        log("WS msg: \(type)")
+
         switch type {
         case "auth_ok":
-            // Send hello
-            let hello: [String: Any] = [
-                "type": "hello",
-                "role": "viewer",
-                "device": UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone",
-                "clientId": clientId,
-            ]
-            guard let ws = deviceWS else { return }
-            sendJSON(ws: ws, msg: hello)
+            // No-op: auth is now via URL token, hello sent on connect
+            break
 
         case "hello_ok":
             deviceWSConnected = true
             deviceWSReconnect.reset()
             updateActiveTransport()
+            fetchTurnCredentials()
             // Request session list if we don't have local
             if !localConnected {
                 sendDeviceWSControl(["type": "list_sessions"])
@@ -615,9 +808,22 @@ final class DeviceTransportManager: ObservableObject {
         case "client_left":
             break
 
-        case "webrtc_offer", "webrtc_answer", "webrtc_ice":
-            // Forward signaling to registered WebRTC transport
-            registeredWebRTC?.handleSignaling(json)
+        case "webrtc_offer":
+            log("Signaling: \(type) keys=\(json.keys.sorted())")
+            // Fetch TURN credentials synchronously if not yet cached
+            if cachedIceServerConfigs == nil {
+                log("Deferring webrtc_offer until TURN credentials fetched")
+                let deferredJson = json
+                fetchTurnCredentialsSync { [weak self] in
+                    self?.ensureWebRTCTransport().handleSignaling(deferredJson)
+                }
+            } else {
+                ensureWebRTCTransport().handleSignaling(json)
+            }
+
+        case "webrtc_answer", "webrtc_ice":
+            log("Signaling: \(type) keys=\(json.keys.sorted())")
+            ensureWebRTCTransport().handleSignaling(json)
 
         case "pong":
             break
@@ -687,15 +893,16 @@ final class DeviceTransportManager: ObservableObject {
 
         if localConnected {
             activeTransport = .local
-        } else if registeredWebRTC?.isConnected ?? false {
+        } else if webrtcTransport?.isConnected ?? false {
             activeTransport = .webrtc
         } else {
             activeTransport = .relay
         }
 
-        isConnected = localConnected || (registeredWebRTC?.isConnected ?? false) || deviceWSConnected
+        isConnected = localConnected || (webrtcTransport?.isConnected ?? false) || deviceWSConnected
 
         if activeTransport != previous {
+            log("Transport: \(previous) → \(activeTransport) (local=\(localConnected) webrtc=\(webrtcTransport?.isConnected ?? false) relay=\(deviceWSConnected))")
             objectWillChange.send()
         }
     }

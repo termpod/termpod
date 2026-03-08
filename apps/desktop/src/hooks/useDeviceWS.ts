@@ -67,7 +67,8 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
       wsRef.current = null;
     }
 
-    const wsUrl = `${getRelayBase()}/devices/${deviceId}/ws`;
+    const token = getAccessToken();
+    const wsUrl = `${getRelayBase()}/devices/${deviceId}/ws${token ? `?token=${encodeURIComponent(token)}` : ''}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
     intentionalCloseRef.current = false;
@@ -75,12 +76,14 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
     ws.onopen = () => {
       reconnectDelayRef.current = RECONNECT.initialDelay;
 
-      // Send auth as first message
-      const token = getAccessToken();
-
-      if (token) {
-        ws.send(JSON.stringify({ type: 'auth', token }));
-      }
+      // Send hello immediately — auth is via URL token
+      ws.send(JSON.stringify({
+        type: 'hello',
+        role: 'desktop',
+        device: 'macos',
+        clientId: clientIdRef.current,
+        version: 1,
+      }));
     };
 
     ws.onmessage = (event) => {
@@ -100,13 +103,7 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
 
       switch (type) {
         case 'auth_ok':
-          // Send hello
-          ws.send(JSON.stringify({
-            type: 'hello',
-            role: 'desktop',
-            device: 'macos',
-            clientId: clientIdRef.current,
-          }));
+          // No-op: auth is now via URL token, hello sent on open
           break;
 
         case 'hello_ok':

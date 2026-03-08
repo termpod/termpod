@@ -27,6 +27,13 @@ final class WebRTCTransport: NSObject, Transport {
     private var remoteClientId: String?
     private var connectionTimeout: Task<Void, Never>?
 
+    /// Raw ICE server configs (including TURN) — set before signaling starts.
+    /// Format: [["urls": [String], "username": String?, "credential": String?]]
+    var iceServerConfigs: [[String: Any]]?
+
+    /// Debug logging callback (pipes to DeviceTransportManager's debug log).
+    var debugLog: ((String) -> Void)?
+
     private static let factory: LKRTCPeerConnectionFactory = {
         LKRTCInitializeSSL()
         return LKRTCPeerConnectionFactory()
@@ -41,12 +48,16 @@ final class WebRTCTransport: NSObject, Transport {
 
     func handleSignaling(_ json: [String: Any]) {
         guard let type = json["type"] as? String else { return }
+        print("[WebRTC] handleSignaling: \(type), keys: \(json.keys.sorted())")
 
         switch type {
         case "webrtc_offer":
             guard let sdp = json["sdp"] as? String,
                   let from = json["fromClientId"] as? String
-            else { return }
+            else {
+                print("[WebRTC] webrtc_offer missing fields - sdp: \(json["sdp"] != nil), fromClientId: \(json["fromClientId"] != nil), from: \(json["from"] != nil)")
+                return
+            }
 
             remoteClientId = from
             handleOffer(sdp: sdp, from: from)
@@ -67,12 +78,14 @@ final class WebRTCTransport: NSObject, Transport {
     }
 
     private func handleOffer(sdp: String, from: String) {
+        print("[WebRTC] Handling offer from \(from), creating peer connection")
         startConnectionTimeout()
         let pc = createPeerConnection()
         let remoteSdp = LKRTCSessionDescription(type: .offer, sdp: sdp)
 
         pc.setRemoteDescription(remoteSdp) { [weak self] error in
             guard let self, error == nil else { return }
+            Task { @MainActor in self.flushPendingCandidates() }
 
             pc.answer(for: Self.defaultConstraints()) { [weak self] answer, error in
                 guard let self, let answer, error == nil else { return }
@@ -100,23 +113,43 @@ final class WebRTCTransport: NSObject, Transport {
         }
     }
 
+    private var pendingCandidates: [LKRTCIceCandidate] = []
+
     private func handleIceCandidate(candidate: String, sdpMid: String?, sdpMLineIndex: Int32) {
         let iceCandidate = LKRTCIceCandidate(sdp: candidate, sdpMLineIndex: sdpMLineIndex, sdpMid: sdpMid)
-        peerConnection?.add(iceCandidate)
+
+        if let pc = peerConnection {
+            pc.add(iceCandidate)
+        } else {
+            pendingCandidates.append(iceCandidate)
+        }
+    }
+
+    private func flushPendingCandidates() {
+        guard let pc = peerConnection, !pendingCandidates.isEmpty else { return }
+        for candidate in pendingCandidates {
+            pc.add(candidate)
+        }
+        pendingCandidates.removeAll()
     }
 
     private func createPeerConnection() -> LKRTCPeerConnection {
+        // Nil out delegate before closing to prevent stale `.closed` callback
+        // from firing onDisconnected for the old peer connection.
+        peerConnection?.delegate = nil
         peerConnection?.close()
 
         let config = LKRTCConfiguration()
-        config.iceServers = [
-            LKRTCIceServer(urlStrings: [
-                "stun:stun.l.google.com:19302",
-                "stun:stun1.l.google.com:19302",
-                "stun:stun.cloudflare.com:3478",
-            ]),
-        ]
+        let servers = Self.parseIceServers(iceServerConfigs)
+        config.iceServers = servers
         config.sdpSemantics = .unifiedPlan
+
+        let serverSummary = servers.map { s in
+            let urls = s.urlStrings.joined(separator: ", ")
+            let hasAuth = s.username != nil
+            return hasAuth ? "\(urls) (auth)" : urls
+        }
+        debugLog?("ICE servers: \(serverSummary)")
 
         let constraints = LKRTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
         let pc = Self.factory.peerConnection(with: config, constraints: constraints, delegate: self)!
@@ -127,6 +160,37 @@ final class WebRTCTransport: NSObject, Transport {
 
     private static func defaultConstraints() -> LKRTCMediaConstraints {
         LKRTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
+    }
+
+    private static func parseIceServers(_ configs: [[String: Any]]?) -> [LKRTCIceServer] {
+        guard let configs, !configs.isEmpty else {
+            return [
+                LKRTCIceServer(urlStrings: [
+                    "stun:stun.l.google.com:19302",
+                    "stun:stun1.l.google.com:19302",
+                    "stun:stun.cloudflare.com:3478",
+                ]),
+            ]
+        }
+
+        return configs.compactMap { server in
+            let urls: [String]
+
+            if let urlsArray = server["urls"] as? [String] {
+                urls = urlsArray
+            } else if let urlStr = server["urls"] as? String {
+                urls = [urlStr]
+            } else {
+                return nil
+            }
+
+            if let username = server["username"] as? String,
+               let credential = server["credential"] as? String {
+                return LKRTCIceServer(urlStrings: urls, username: username, credential: credential)
+            }
+
+            return LKRTCIceServer(urlStrings: urls)
+        }
     }
 
     private func startConnectionTimeout() {
@@ -194,20 +258,48 @@ extension WebRTCTransport: LKRTCPeerConnectionDelegate {
     nonisolated func peerConnectionShouldNegotiate(_ pc: LKRTCPeerConnection) {}
 
     nonisolated func peerConnection(_ pc: LKRTCPeerConnection, didChange newState: LKRTCIceConnectionState) {
+        let stateNames = ["new", "checking", "connected", "completed", "failed", "disconnected", "closed", "count"]
+        let name = newState.rawValue < stateNames.count ? stateNames[Int(newState.rawValue)] : "\(newState.rawValue)"
+        print("[WebRTC] ICE connection state: \(name)")
         Task { @MainActor in
+            self.debugLog?("ICE state: \(name)")
+
+            // Ignore callbacks from stale peer connections
+            guard pc === self.peerConnection else {
+                self.debugLog?("ICE state from stale PC, ignoring")
+                return
+            }
+
             switch newState {
-            case .connected: self.onConnected?()
-            case .disconnected, .failed, .closed: self.onDisconnected?()
+            case .connected:
+                self.onConnected?()
+            case .disconnected, .failed, .closed:
+                self.onDisconnected?()
             default: break
             }
         }
     }
 
-    nonisolated func peerConnection(_ pc: LKRTCPeerConnection, didChange state: LKRTCIceGatheringState) {}
+    nonisolated func peerConnection(_ pc: LKRTCPeerConnection, didChange state: LKRTCIceGatheringState) {
+        let names = ["new", "gathering", "complete"]
+        let name = state.rawValue < names.count ? names[Int(state.rawValue)] : "\(state.rawValue)"
+        Task { @MainActor in
+            self.debugLog?("ICE gathering: \(name)")
+        }
+    }
 
     nonisolated func peerConnection(_ pc: LKRTCPeerConnection, didGenerate candidate: LKRTCIceCandidate) {
         Task { @MainActor in
-            guard let remote = self.remoteClientId else { return }
+            guard pc === self.peerConnection, let remote = self.remoteClientId else { return }
+
+            // Extract candidate type (host/srflx/relay) for debugging
+            let sdp = candidate.sdp
+            let candidateType: String
+            if sdp.contains("typ relay") { candidateType = "relay(TURN)" }
+            else if sdp.contains("typ srflx") { candidateType = "srflx(STUN)" }
+            else if sdp.contains("typ host") { candidateType = "host" }
+            else { candidateType = "unknown" }
+            self.debugLog?("ICE candidate: \(candidateType)")
             self.sendSignaling?([
                 "type": "webrtc_ice",
                 "candidate": candidate.sdp,
@@ -286,6 +378,7 @@ final class WebRTCTransport: Transport {
     var onDisconnected: (() -> Void)?
     var onControlMessage: (([String: Any]) -> Void)?
     var sendSignaling: (([String: Any]) -> Void)?
+    var iceServerConfigs: [[String: Any]]?
 
     private let clientId: String
 
