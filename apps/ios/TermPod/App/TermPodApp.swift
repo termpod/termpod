@@ -65,6 +65,10 @@ struct TermPodApp: App {
             }
             NotificationService.shared.clearPendingNotifications()
 
+            // Verify all transports are alive — WS connections may have
+            // died silently while the app was suspended.
+            appState.reconnectIfNeeded()
+
             // Biometric lock check
             if wasBackgrounded && settings.biometricLockEnabled {
                 isLocked = true

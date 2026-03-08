@@ -183,7 +183,7 @@ struct DeviceRow: View {
                                 .frame(width: 6, height: 6)
                         }
 
-                        if let transport {
+                        if transport != nil {
                             Text(transportLabel)
                                 .font(.caption)
                         }

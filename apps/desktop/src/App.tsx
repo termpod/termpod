@@ -229,6 +229,52 @@ export function App() {
   const relayMapRef = useRef(relayMap);
   relayMapRef.current = relayMap;
 
+  // Shared WebRTC: find the connected WebRTC's mux send functions.
+  // Called by each session's PTY listener so all sessions can send through
+  // the single connected WebRTC DataChannel with session multiplexing.
+  const getSharedWebRTC = useCallback(() => {
+    for (const info of relayMapRef.current.values()) {
+      if (info.webrtcIsConnected && info.webrtcSendTerminalData) {
+        return {
+          sendTerminalData: info.webrtcSendTerminalData,
+          sendResize: info.webrtcSendResize!,
+          isConnected: true,
+        };
+      }
+    }
+    return null;
+  }, []);
+
+  // Route multiplexed WebRTC input from iOS to the correct session's PTY
+  const handleWebRTCMuxInput = useCallback((sessionId: string, data: string) => {
+    for (const [localId, info] of relayMapRef.current.entries()) {
+      if (info.sessionId === sessionId) {
+        const session = sessions.find((s) => s.id === localId);
+        if (session && !session.exited) {
+          session.pty.write(data);
+        }
+        break;
+      }
+    }
+  }, [sessions]);
+
+  // Route multiplexed WebRTC resize from iOS to the correct session
+  const handleWebRTCMuxResize = useCallback((sessionId: string, cols: number, rows: number) => {
+    for (const [localId, info] of relayMapRef.current.entries()) {
+      if (info.sessionId === sessionId) {
+        const session = sessions.find((s) => s.id === localId);
+        if (session && !session.exited) {
+          const term = session.termRef.current;
+          const currentRows = term?.rows ?? 40;
+          session.pty.resize(cols, currentRows);
+          term?.lockSize();
+          term?.resize(cols, currentRows);
+        }
+        break;
+      }
+    }
+  }, [sessions]);
+
   const handleCloseSession = useCallback((id: string, skipConfirm = false) => {
     // Confirm before closing a tab with a running process
     if (!skipConfirm && settings.confirmCloseRunningProcess) {
@@ -790,6 +836,9 @@ export function App() {
             onSessionClosed={() => handleCloseSession(session.id)}
             deviceSendSignaling={deviceWS.sendSignaling}
             deviceClientId={deviceWS.clientId}
+            onWebRTCMuxInput={handleWebRTCMuxInput}
+            onWebRTCMuxResize={handleWebRTCMuxResize}
+            getSharedWebRTC={getSharedWebRTC}
             onCwdChange={(cwd) => {
               updateSessionCwd(session.id, cwd);
               const relayInfo = relayMapRef.current.get(session.id);

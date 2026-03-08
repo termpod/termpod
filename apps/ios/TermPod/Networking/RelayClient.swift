@@ -31,6 +31,14 @@ final class RelayClient: ObservableObject, Transport {
     private var storedURL: URL?
     private var storedToken: String?
 
+    // Generation counter to ignore stale receive callbacks after reconnect
+    private var wsGeneration: UInt64 = 0
+
+    // Keepalive ping
+    private var pingTask: Task<Void, Never>?
+    private var pongVerifyTask: Task<Void, Never>?
+    private var awaitingPong = false
+
     enum ConnectionState: Equatable {
         case disconnected
         case connecting
@@ -56,6 +64,9 @@ final class RelayClient: ObservableObject, Transport {
         storedToken = token
         state = .connecting
 
+        wsGeneration &+= 1
+        let generation = wsGeneration
+
         webSocket = session.webSocketTask(with: wsURL)
         webSocket?.resume()
 
@@ -67,7 +78,7 @@ final class RelayClient: ObservableObject, Transport {
             sendHello()
         }
 
-        startReceiving()
+        startReceiving(generation: generation)
     }
 
     func disconnect() {
@@ -80,6 +91,7 @@ final class RelayClient: ObservableObject, Transport {
         storedURL = nil
         storedToken = nil
         reconnectionManager.reset()
+        stopPingLoop()
         webSocket?.cancel(with: .goingAway, reason: nil)
         webSocket = nil
     }
@@ -154,21 +166,101 @@ final class RelayClient: ObservableObject, Transport {
         webSocket?.send(.string(jsonString)) { _ in }
     }
 
+    // MARK: - Keepalive
+
+    /// Periodic ping every 25s to prevent carrier NAT from killing idle connections.
+    /// If the previous ping didn't receive a pong, the connection is considered dead.
+    private func startPingLoop() {
+        stopPingLoop()
+
+        pingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(25))
+                guard !Task.isCancelled, let self, self.state == .live else { return }
+
+                if self.awaitingPong {
+                    self.awaitingPong = false
+                    self.forceReconnect()
+                    return
+                }
+
+                self.awaitingPong = true
+                self.sendPing()
+            }
+        }
+    }
+
+    private func stopPingLoop() {
+        pingTask?.cancel()
+        pingTask = nil
+        pongVerifyTask?.cancel()
+        pongVerifyTask = nil
+        awaitingPong = false
+    }
+
+    /// Tear down the current socket and reconnect immediately (no backoff).
+    private func forceReconnect() {
+        stopPingLoop()
+        webSocket?.cancel(with: .goingAway, reason: nil)
+        webSocket = nil
+
+        guard let url = storedURL else {
+            state = .disconnected
+            return
+        }
+
+        reconnectionManager.reset()
+        connect(wsURL: url, token: storedToken)
+    }
+
+    // MARK: - Foreground Recovery
+
+    /// Verify the connection is still alive after returning from background.
+    /// Sends a ping with a 5s timeout; reconnects if no pong.
+    func reconnectIfNeeded() {
+        guard storedURL != nil else { return }
+        if case .reconnecting = state { return }
+        if state == .connecting { return }
+
+        if webSocket == nil {
+            forceReconnect()
+            return
+        }
+
+        // Verify with short-timeout ping
+        pongVerifyTask?.cancel()
+        awaitingPong = true
+        sendPing()
+
+        pongVerifyTask = Task {
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled, self.awaitingPong else { return }
+            self.forceReconnect()
+        }
+    }
+
+    /// Called when the network interface changes (WiFi ↔ cellular).
+    /// The old TCP connection is dead — reconnect immediately.
+    func handleNetworkChange() {
+        guard storedURL != nil else { return }
+        forceReconnect()
+    }
+
     // MARK: - Receiving
 
-    private func startReceiving() {
+    private func startReceiving(generation: UInt64) {
         webSocket?.receive { [weak self] result in
             guard let self else { return }
 
-            switch result {
-            case .success(let message):
-                Task { @MainActor in
-                    self.handleMessage(message)
-                    self.startReceiving()
-                }
+            Task { @MainActor in
+                guard self.wsGeneration == generation else { return }
 
-            case .failure(let error):
-                Task { @MainActor in
+                switch result {
+                case .success(let message):
+                    self.handleMessage(message)
+                    self.startReceiving(generation: generation)
+
+                case .failure(let error):
                     self.handleDisconnect(error: error)
                 }
             }
@@ -212,7 +304,8 @@ final class RelayClient: ObservableObject, Transport {
     private func handleControlMessage(type: String, json: [String: Any]) {
         switch type {
         case "auth_ok":
-            // Auth confirmed — now send hello
+            // Auth confirmed — now send hello. Reset backoff since handshake succeeded.
+            reconnectionManager.reset()
             sendHello()
 
         case "session_info":
@@ -226,6 +319,7 @@ final class RelayClient: ObservableObject, Transport {
         case "ready":
             state = .live
             reconnectionManager.reset()
+            startPingLoop()
             onConnected?()
 
         case "pty_resize":
@@ -248,6 +342,9 @@ final class RelayClient: ObservableObject, Transport {
         case "session_ended", "session_closed":
             tearDown()
             onSessionClosed?()
+
+        case "pong":
+            awaitingPong = false
 
         case "error":
             break
@@ -275,6 +372,7 @@ final class RelayClient: ObservableObject, Transport {
     private func handleDisconnect(error: Error) {
         guard state != .disconnected else { return }
 
+        stopPingLoop()
         webSocket?.cancel(with: .goingAway, reason: nil)
         webSocket = nil
 

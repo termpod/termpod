@@ -13,6 +13,17 @@ interface UseRelayBridgeOptions {
   deviceSendSignaling?: (msg: Record<string, unknown>) => void;
   /** Device WS clientId — used as fromClientId in WebRTC signaling so replies route correctly. */
   deviceClientId?: string;
+  /** Multiplexed WebRTC input from iOS — route to correct session's PTY. */
+  onWebRTCMuxInput?: (sessionId: string, data: string) => void;
+  /** Multiplexed WebRTC resize from iOS — route to correct session. */
+  onWebRTCMuxResize?: (sessionId: string, cols: number, rows: number) => void;
+  /** Shared callback to get the connected WebRTC's mux send functions.
+   *  Called on every PTY data event so all sessions can use the single connected WebRTC. */
+  getSharedWebRTC?: () => {
+    sendTerminalData: (sessionId: string, data: Uint8Array | number[]) => void;
+    sendResize: (sessionId: string, cols: number, rows: number) => void;
+    isConnected: boolean;
+  } | null;
 }
 
 export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: UseRelayBridgeOptions) {
@@ -155,6 +166,7 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
   });
 
   const webrtc = useWebRTC({
+    // Legacy non-multiplexed input (for backward compat with old iOS clients)
     onViewerInput: (data) => {
       const s = sessionRef.current;
 
@@ -162,6 +174,7 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
         s.pty.write(data);
       }
     },
+    // Legacy non-multiplexed resize
     onViewerResize: (cols, _rows) => {
       const s = sessionRef.current;
 
@@ -173,6 +186,14 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
         term?.lockSize();
         term?.resize(cols, currentRows);
       }
+    },
+    // Multiplexed input — route to correct session via App.tsx callback
+    onMuxViewerInput: (sessionId, data) => {
+      bridgeOptionsRef.current?.onWebRTCMuxInput?.(sessionId, data);
+    },
+    // Multiplexed resize — route to correct session via App.tsx callback
+    onMuxViewerResize: (sessionId, cols, rows) => {
+      bridgeOptionsRef.current?.onWebRTCMuxResize?.(sessionId, cols, rows);
     },
     onControlMessage: (msg) => {
       const type = msg.type as string;
@@ -231,7 +252,12 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
     connect({ cols, rows });
 
     const listener = (data: Uint8Array | number[]) => {
-      const hasP2PViewers = localViewersRef.current > 0 || webrtcConnectedRef.current;
+      const sid = relaySessionIdRef.current;
+
+      // Check both this session's own WebRTC and the shared device-level WebRTC
+      const sharedWrtc = bridgeOptionsRef.current?.getSharedWebRTC?.();
+      const isWebRTCActive = sharedWrtc?.isConnected || webrtcConnectedRef.current;
+      const hasP2PViewers = localViewersRef.current > 0 || isWebRTCActive;
 
       // Skip relay when P2P viewers are connected — they get data directly.
       // Relay WS stays open for control messages, signaling, and as a fallback.
@@ -240,14 +266,18 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
       }
 
       // Broadcast to local WS viewers
-      const sid = relaySessionIdRef.current;
       if (sid) {
         localServer.broadcastTerminalData(sid, data);
       }
 
-      // Send via WebRTC if connected
-      if (webrtcConnectedRef.current) {
-        webrtc.sendTerminalData(data);
+      // Send via WebRTC with multiplexed session framing
+      if (isWebRTCActive && sid) {
+        // Prefer shared WebRTC (device-level, always connected) over this session's own
+        if (sharedWrtc?.isConnected) {
+          sharedWrtc.sendTerminalData(sid, data);
+        } else if (webrtcConnectedRef.current) {
+          webrtc.sendTerminalData(sid, data);
+        }
       }
     };
 
@@ -306,6 +336,9 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
     localServerInfo: localServer.serverInfo,
     localViewers: localServer.localViewers,
     webrtcStatus: webrtc.status,
+    webrtcIsConnected: webrtc.isConnected,
+    webrtcSendTerminalData: webrtc.sendTerminalData,
+    webrtcSendResize: webrtc.sendResize,
     allConnectedDevices,
     sendToLocalClient: localServer.sendToClient,
     sendLocalControl: localServer.sendControl,

@@ -12,8 +12,14 @@ const STUN_ONLY_CONFIG: RTCConfiguration = {
 export type WebRTCStatus = 'idle' | 'connecting' | 'connected' | 'failed';
 
 interface UseWebRTCOptions {
+  /** Legacy non-multiplexed input (channel 0x00). */
   onViewerInput?: (data: string) => void;
+  /** Legacy non-multiplexed resize (channel 0x01). */
   onViewerResize?: (cols: number, rows: number) => void;
+  /** Multiplexed input (channel 0x10) — includes sessionId. */
+  onMuxViewerInput?: (sessionId: string, data: string) => void;
+  /** Multiplexed resize (channel 0x11) — includes sessionId. */
+  onMuxViewerResize?: (sessionId: string, cols: number, rows: number) => void;
   onControlMessage?: (msg: Record<string, unknown>) => Record<string, unknown> | void;
   onStatusChange?: (status: WebRTCStatus) => void;
   sendSignaling: (msg: Record<string, unknown>) => void;
@@ -35,6 +41,16 @@ async function fetchIceServers(): Promise<RTCConfiguration> {
   }
 
   return STUN_ONLY_CONFIG;
+}
+
+/** Parse a multiplexed binary frame: [channel][sid_len][sid_bytes][payload...] */
+function parseMuxFrame(data: Uint8Array): { sessionId: string; payload: Uint8Array } | null {
+  if (data.length < 2) return null;
+  const sidLen = data[1];
+  if (sidLen === 0 || data.length < 2 + sidLen) return null;
+  const sessionId = new TextDecoder().decode(data.subarray(2, 2 + sidLen));
+  const payload = data.subarray(2 + sidLen);
+  return { sessionId, payload };
 }
 
 export function useWebRTC(options: UseWebRTCOptions) {
@@ -111,15 +127,47 @@ export function useWebRTC(options: UseWebRTCOptions) {
       channel.onmessage = (event) => {
         if (event.data instanceof ArrayBuffer) {
           const data = new Uint8Array(event.data);
+          if (data.length === 0) return;
 
-          if (data[0] === 0x00 && data.length > 1) {
-            optionsRef.current.onViewerInput?.(
-              new TextDecoder().decode(data.subarray(1)),
-            );
-          } else if (data[0] === 0x01 && data.length >= 5) {
-            const cols = (data[1] << 8) | data[2];
-            const rows = (data[3] << 8) | data[4];
-            optionsRef.current.onViewerResize?.(cols, rows);
+          switch (data[0]) {
+            // Legacy non-multiplexed frames
+            case 0x00:
+              if (data.length > 1) {
+                optionsRef.current.onViewerInput?.(
+                  new TextDecoder().decode(data.subarray(1)),
+                );
+              }
+              break;
+
+            case 0x01:
+              if (data.length >= 5) {
+                const cols = (data[1] << 8) | data[2];
+                const rows = (data[3] << 8) | data[4];
+                optionsRef.current.onViewerResize?.(cols, rows);
+              }
+              break;
+
+            // Multiplexed frames with session ID
+            case 0x10: {
+              const mux = parseMuxFrame(data);
+              if (mux) {
+                optionsRef.current.onMuxViewerInput?.(
+                  mux.sessionId,
+                  new TextDecoder().decode(mux.payload),
+                );
+              }
+              break;
+            }
+
+            case 0x11: {
+              const mux = parseMuxFrame(data);
+              if (mux && mux.payload.length >= 4) {
+                const cols = (mux.payload[0] << 8) | mux.payload[1];
+                const rows = (mux.payload[2] << 8) | mux.payload[3];
+                optionsRef.current.onMuxViewerResize?.(mux.sessionId, cols, rows);
+              }
+              break;
+            }
           }
         } else if (typeof event.data === 'string') {
           try {
@@ -223,15 +271,37 @@ export function useWebRTC(options: UseWebRTCOptions) {
     [createPeerConnection, updateStatus],
   );
 
-  const sendTerminalData = useCallback((data: Uint8Array | number[]) => {
+  /** Send multiplexed terminal data: [0x10][sid_len][sid][payload] */
+  const sendTerminalData = useCallback((sessionId: string, data: Uint8Array | number[]) => {
     const channel = channelRef.current;
 
     if (channel?.readyState === 'open') {
       const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
-      // Prepend channel byte 0x00
-      const frame = new Uint8Array(1 + bytes.length);
-      frame[0] = 0x00;
-      frame.set(bytes, 1);
+      const sidBytes = new TextEncoder().encode(sessionId);
+      const frame = new Uint8Array(2 + sidBytes.length + bytes.length);
+      frame[0] = 0x10;
+      frame[1] = sidBytes.length;
+      frame.set(sidBytes, 2);
+      frame.set(bytes, 2 + sidBytes.length);
+      channel.send(frame.buffer);
+    }
+  }, []);
+
+  /** Send multiplexed resize: [0x11][sid_len][sid][cols_hi][cols_lo][rows_hi][rows_lo] */
+  const sendResize = useCallback((sessionId: string, cols: number, rows: number) => {
+    const channel = channelRef.current;
+
+    if (channel?.readyState === 'open') {
+      const sidBytes = new TextEncoder().encode(sessionId);
+      const frame = new Uint8Array(2 + sidBytes.length + 4);
+      frame[0] = 0x11;
+      frame[1] = sidBytes.length;
+      frame.set(sidBytes, 2);
+      const payloadStart = 2 + sidBytes.length;
+      frame[payloadStart] = (cols >> 8) & 0xFF;
+      frame[payloadStart + 1] = cols & 0xFF;
+      frame[payloadStart + 2] = (rows >> 8) & 0xFF;
+      frame[payloadStart + 3] = rows & 0xFF;
       channel.send(frame.buffer);
     }
   }, []);
@@ -257,6 +327,7 @@ export function useWebRTC(options: UseWebRTCOptions) {
     initiateOffer,
     handleSignaling,
     sendTerminalData,
+    sendResize,
     sendControlMessage,
     close,
     isConnected: status === 'connected',

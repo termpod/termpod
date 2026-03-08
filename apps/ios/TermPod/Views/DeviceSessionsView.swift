@@ -55,6 +55,9 @@ struct DeviceSessionsView: View {
                     joinedSession = newSession
                 }
             )
+            // Force full view recreation on session switch — without this,
+            // SwiftUI reuses the RemoteTerminalView and shows stale content.
+            .id(session.id)
         }
         .refreshable {
             await loadSessions()

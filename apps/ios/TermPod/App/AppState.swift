@@ -13,4 +13,13 @@ final class AppState: ObservableObject {
         session.connection.disconnect()
         sessions.removeAll { $0.id == session.id }
     }
+
+    /// Verify all transports are alive after returning from background.
+    func reconnectIfNeeded() {
+        deviceTransport.reconnectIfNeeded()
+
+        for session in sessions {
+            session.connection.reconnectIfNeeded()
+        }
+    }
 }

@@ -8,7 +8,7 @@ enum WebRTCConnectionMode: String {
 }
 
 #if canImport(LiveKitWebRTC)
-import LiveKitWebRTC
+@preconcurrency import LiveKitWebRTC
 
 /// WebRTC DataChannel transport for cross-network P2P communication.
 /// Signaling flows through the relay; data flows directly peer-to-peer.
@@ -21,6 +21,8 @@ final class WebRTCTransport: NSObject, Transport {
 
     var onTerminalData: ((Data) -> Void)?
     var onResize: ((Int, Int) -> Void)?
+    /// Multiplexed binary data (channels 0x10, 0x11) — raw frame passed to DeviceTransportManager for demuxing.
+    var onMuxData: ((Data) -> Void)?
     var onConnected: (() -> Void)?
     var onDisconnected: (() -> Void)?
     var onControlMessage: (([String: Any]) -> Void)?
@@ -129,7 +131,11 @@ final class WebRTCTransport: NSObject, Transport {
         let iceCandidate = LKRTCIceCandidate(sdp: candidate, sdpMLineIndex: sdpMLineIndex, sdpMid: sdpMid)
 
         if let pc = peerConnection {
-            pc.add(iceCandidate)
+            pc.add(iceCandidate) { error in
+                if let error {
+                    print("[WebRTC] Failed to add ICE candidate: \(error)")
+                }
+            }
         } else {
             pendingCandidates.append(iceCandidate)
         }
@@ -138,7 +144,11 @@ final class WebRTCTransport: NSObject, Transport {
     private func flushPendingCandidates() {
         guard let pc = peerConnection, !pendingCandidates.isEmpty else { return }
         for candidate in pendingCandidates {
-            pc.add(candidate)
+            pc.add(candidate) { error in
+                if let error {
+                    print("[WebRTC] Failed to add pending ICE candidate: \(error)")
+                }
+            }
         }
         pendingCandidates.removeAll()
     }
@@ -168,7 +178,7 @@ final class WebRTCTransport: NSObject, Transport {
         return pc
     }
 
-    private static func defaultConstraints() -> LKRTCMediaConstraints {
+    nonisolated private static func defaultConstraints() -> LKRTCMediaConstraints {
         LKRTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
     }
 
@@ -267,6 +277,12 @@ final class WebRTCTransport: NSObject, Transport {
         else { return }
 
         dc.sendData(LKRTCDataBuffer(data: Data(str.utf8), isBinary: false))
+    }
+
+    /// Send raw binary data through the DataChannel (used for multiplexed frames).
+    func sendRawData(_ data: Data) {
+        guard let dc = dataChannel, dc.readyState == .open else { return }
+        dc.sendData(LKRTCDataBuffer(data: data, isBinary: true))
     }
 
     // MARK: - Transport
@@ -400,12 +416,16 @@ extension WebRTCTransport: LKRTCDataChannelDelegate {
         Task { @MainActor in
             guard let channel = data.first else { return }
             switch channel {
+            // Legacy non-multiplexed frames
             case 0x00:
                 self.onTerminalData?(Data(data.dropFirst()))
             case 0x01 where data.count >= 5:
                 let cols = Int(data[1]) << 8 | Int(data[2])
                 let rows = Int(data[3]) << 8 | Int(data[4])
                 self.onResize?(cols, rows)
+            // Multiplexed frames — pass raw data to DeviceTransportManager for demuxing
+            case 0x10, 0x11:
+                self.onMuxData?(data)
             default: break
             }
         }
@@ -424,6 +444,7 @@ final class WebRTCTransport: Transport {
 
     var onTerminalData: ((Data) -> Void)?
     var onResize: ((Int, Int) -> Void)?
+    var onMuxData: ((Data) -> Void)?
     var onConnected: (() -> Void)?
     var onDisconnected: (() -> Void)?
     var onControlMessage: (([String: Any]) -> Void)?
@@ -438,6 +459,7 @@ final class WebRTCTransport: Transport {
 
     func handleSignaling(_ json: [String: Any]) {}
     func sendControlMessage(_ msg: [String: Any]) {}
+    func sendRawData(_ data: Data) {}
     func sendInput(_ data: Data) {}
     func sendResize(cols: Int, rows: Int) {}
     func disconnect() {}

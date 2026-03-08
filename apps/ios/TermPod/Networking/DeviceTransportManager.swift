@@ -3,6 +3,12 @@ import Foundation
 import Network
 import UIKit
 
+extension Notification.Name {
+    /// Posted when the network interface changes (WiFi ↔ cellular).
+    /// Session-level relays should reconnect immediately.
+    static let networkInterfaceChanged = Notification.Name("networkInterfaceChanged")
+}
+
 /// Session info returned by the device transport layer.
 struct DeviceSessionInfo: Identifiable, Equatable {
     let id: String
@@ -53,9 +59,9 @@ final class DeviceTransportManager: ObservableObject {
     private var sessionDataHandlers: [String: (Data) -> Void] = [:]
     private var sessionResizeHandlers: [String: (Int, Int) -> Void] = [:]
 
-    /// WebRTC terminal data handler (single session — desktop WebRTC is not multiplexed).
-    var onWebRTCTerminalData: ((Data) -> Void)?
-    var onWebRTCResize: ((Int, Int) -> Void)?
+    /// Per-session data/resize handlers for multiplexed WebRTC DataChannel.
+    private var webrtcSessionDataHandlers: [String: (Data) -> Void] = [:]
+    private var webrtcSessionResizeHandlers: [String: (Int, Int) -> Void] = [:]
 
     // MARK: - Transports
 
@@ -78,6 +84,11 @@ final class DeviceTransportManager: ObservableObject {
     private var deviceWSGeneration: UInt64 = 0
     private var deviceWSReconnect = ReconnectionManager()
     private var deviceWSReconnectTask: Task<Void, Never>?
+
+    /// Keepalive ping for device WS
+    private var deviceWSPingTask: Task<Void, Never>?
+    private var deviceWSPongVerifyTask: Task<Void, Never>?
+    private var deviceWSAwaitingPong = false
 
     /// Device-level WebRTC transport — owned, created on first signaling offer.
     private var webrtcTransport: WebRTCTransport?
@@ -138,6 +149,7 @@ final class DeviceTransportManager: ObservableObject {
         deviceWSConnected = false
         deviceWSReconnectTask?.cancel()
         deviceWSReconnectTask = nil
+        stopDeviceWSPingLoop()
 
         webrtcTransport?.disconnect()
         webrtcTransport = nil
@@ -148,6 +160,8 @@ final class DeviceTransportManager: ObservableObject {
         sessions = []
         sessionDataHandlers.removeAll()
         sessionResizeHandlers.removeAll()
+        webrtcSessionDataHandlers.removeAll()
+        webrtcSessionResizeHandlers.removeAll()
         updateActiveTransport()
     }
 
@@ -195,12 +209,17 @@ final class DeviceTransportManager: ObservableObject {
             self?.webrtcMode = mode
         }
 
-        transport.onTerminalData = { [weak self] data in
-            self?.onWebRTCTerminalData?(data)
+        transport.onTerminalData = { _ in
+            // Legacy non-multiplexed data (channel 0x00) — ignored for device-level WebRTC.
+            // All session data should use multiplexed frames (0x10/0x11).
         }
 
-        transport.onResize = { [weak self] cols, rows in
-            self?.onWebRTCResize?(cols, rows)
+        transport.onResize = { _, _ in
+            // Legacy non-multiplexed resize (channel 0x01) — ignored for device-level WebRTC.
+        }
+
+        transport.onMuxData = { [weak self] data in
+            self?.handleWebRTCMuxData(data)
         }
 
         transport.onControlMessage = { [weak self] json in
@@ -374,6 +393,11 @@ final class DeviceTransportManager: ObservableObject {
     /// Whether the local WS transport is connected.
     var isLocalConnected: Bool { localConnected }
 
+    /// Expose device-level WebRTC transport for control messages (JSON).
+    /// Terminal data goes through multiplexed channels (0x10/0x11) via
+    /// sendWebRTCSessionInput/sendWebRTCSessionResize instead.
+    var webrtcTransportForControl: WebRTCTransport? { webrtcTransport }
+
     // MARK: - Session Multiplexing (Local WS)
 
     /// Subscribe to session data over the multiplexed local WS connection.
@@ -425,6 +449,75 @@ final class DeviceTransportManager: ObservableObject {
         ws.send(.data(frame)) { _ in }
     }
 
+    // MARK: - WebRTC Session Multiplexing
+
+    /// Subscribe to session data over the multiplexed WebRTC DataChannel.
+    func subscribeWebRTCSession(sessionId: String, onData: @escaping (Data) -> Void, onResize: @escaping (Int, Int) -> Void) {
+        webrtcSessionDataHandlers[sessionId] = onData
+        webrtcSessionResizeHandlers[sessionId] = onResize
+    }
+
+    /// Unsubscribe from WebRTC session data.
+    func unsubscribeWebRTCSession(sessionId: String) {
+        webrtcSessionDataHandlers.removeValue(forKey: sessionId)
+        webrtcSessionResizeHandlers.removeValue(forKey: sessionId)
+    }
+
+    /// Send terminal input for a specific session over multiplexed WebRTC: [0x10][sid_len][sid][data]
+    func sendWebRTCSessionInput(sessionId: String, data: Data) {
+        let sidBytes = Array(sessionId.utf8)
+        var frame = Data(capacity: 2 + sidBytes.count + data.count)
+        frame.append(0x10)
+        frame.append(UInt8(sidBytes.count))
+        frame.append(contentsOf: sidBytes)
+        frame.append(data)
+        webrtcTransport?.sendRawData(frame)
+    }
+
+    /// Send resize for a specific session over multiplexed WebRTC: [0x11][sid_len][sid][cols][rows]
+    func sendWebRTCSessionResize(sessionId: String, cols: Int, rows: Int) {
+        let sidBytes = Array(sessionId.utf8)
+        var frame = Data(capacity: 2 + sidBytes.count + 4)
+        frame.append(0x11)
+        frame.append(UInt8(sidBytes.count))
+        frame.append(contentsOf: sidBytes)
+        frame.append(UInt8((cols >> 8) & 0xFF))
+        frame.append(UInt8(cols & 0xFF))
+        frame.append(UInt8((rows >> 8) & 0xFF))
+        frame.append(UInt8(rows & 0xFF))
+        webrtcTransport?.sendRawData(frame)
+    }
+
+    /// Parse multiplexed WebRTC binary frame: [channel][sid_len][sid][payload]
+    private func handleWebRTCMuxData(_ data: Data) {
+        guard data.count >= 2 else { return }
+
+        let channel = data[0]
+        let sidLen = Int(data[1])
+
+        guard sidLen > 0, data.count >= 2 + sidLen else { return }
+
+        let sidData = data[2..<(2 + sidLen)]
+        guard let sessionId = String(data: sidData, encoding: .utf8) else { return }
+
+        let payloadStart = 2 + sidLen
+
+        switch channel {
+        case 0x10:
+            let payload = data[payloadStart...]
+            webrtcSessionDataHandlers[sessionId]?(Data(payload))
+
+        case 0x11:
+            guard data.count >= payloadStart + 4 else { return }
+            let cols = Int(data[payloadStart]) << 8 | Int(data[payloadStart + 1])
+            let rows = Int(data[payloadStart + 2]) << 8 | Int(data[payloadStart + 3])
+            webrtcSessionResizeHandlers[sessionId]?(cols, rows)
+
+        default:
+            break
+        }
+    }
+
     // MARK: - Network Monitor
 
     private func startNetworkMonitor() {
@@ -444,8 +537,13 @@ final class DeviceTransportManager: ObservableObject {
                     self.browser?.cancel()
                     self.browser = nil
                     self.startBonjourDiscovery()
+
+                    // Device WS may need to reconnect on the new interface
+                    if !self.deviceWSConnected && self.deviceId != nil {
+                        self.connectDeviceWS()
+                    }
                 } else if !wifi && wasOnWiFi {
-                    self.log("WiFi lost — tearing down local")
+                    self.log("WiFi lost — tearing down local, reconnecting on cellular")
                     self.browser?.cancel()
                     self.browser = nil
                     self.localWS?.cancel(with: .goingAway, reason: nil)
@@ -453,9 +551,15 @@ final class DeviceTransportManager: ObservableObject {
                     self.localConnected = false
                     self.resolvedHost = nil
                     self.resolvedPort = nil
-                    self.sessionDataHandlers.removeAll()
-                    self.sessionResizeHandlers.removeAll()
                     self.updateActiveTransport()
+
+                    // Device WS was on WiFi — force reconnect on cellular
+                    if self.deviceWSConnected || self.deviceWS != nil {
+                        self.forceReconnectDeviceWS()
+                    }
+
+                    // Notify session relays to reconnect on new interface
+                    NotificationCenter.default.post(name: .networkInterfaceChanged, object: nil)
                 }
             }
         }
@@ -668,9 +772,8 @@ final class DeviceTransportManager: ObservableObject {
     private func handleLocalDisconnect() {
         localWS = nil
         localConnected = false
-        // Clear session handlers — sessions will fall back to other transports
-        sessionDataHandlers.removeAll()
-        sessionResizeHandlers.removeAll()
+        // Keep session handlers intact — on reconnect, the `ready` handler
+        // re-subscribes all sessions. Sessions fall back to relay in the meantime.
         updateActiveTransport()
 
         guard !intentionalClose else { return }
@@ -779,6 +882,7 @@ final class DeviceTransportManager: ObservableObject {
         case "hello_ok":
             deviceWSConnected = true
             deviceWSReconnect.reset()
+            startDeviceWSPingLoop()
             updateActiveTransport()
             fetchTurnCredentials()
             // Request session list if we don't have local
@@ -836,7 +940,7 @@ final class DeviceTransportManager: ObservableObject {
             ensureWebRTCTransport().handleSignaling(json)
 
         case "pong":
-            break
+            deviceWSAwaitingPong = false
 
         default:
             break
@@ -844,6 +948,7 @@ final class DeviceTransportManager: ObservableObject {
     }
 
     private func handleDeviceWSDisconnect() {
+        stopDeviceWSPingLoop()
         deviceWS = nil
         deviceWSConnected = false
         updateActiveTransport()
@@ -867,6 +972,82 @@ final class DeviceTransportManager: ObservableObject {
     /// Send WebRTC signaling through device WS.
     func sendSignaling(_ msg: [String: Any]) {
         sendDeviceWSControl(msg)
+    }
+
+    // MARK: - Device WS Keepalive
+
+    /// Periodic ping every 25s to prevent carrier NAT from killing idle connections.
+    private func startDeviceWSPingLoop() {
+        stopDeviceWSPingLoop()
+
+        deviceWSPingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(25))
+                guard !Task.isCancelled, let self, self.deviceWSConnected else { return }
+
+                if self.deviceWSAwaitingPong {
+                    self.log("Device WS ping timeout — forcing reconnect")
+                    self.deviceWSAwaitingPong = false
+                    self.forceReconnectDeviceWS()
+                    return
+                }
+
+                self.deviceWSAwaitingPong = true
+                self.sendDeviceWSControl(["type": "ping", "timestamp": Int(Date().timeIntervalSince1970 * 1000)])
+            }
+        }
+    }
+
+    private func stopDeviceWSPingLoop() {
+        deviceWSPingTask?.cancel()
+        deviceWSPingTask = nil
+        deviceWSPongVerifyTask?.cancel()
+        deviceWSPongVerifyTask = nil
+        deviceWSAwaitingPong = false
+    }
+
+    /// Tear down device WS and reconnect immediately (no backoff).
+    private func forceReconnectDeviceWS() {
+        stopDeviceWSPingLoop()
+        deviceWSReconnectTask?.cancel()
+        deviceWS?.cancel(with: .goingAway, reason: nil)
+        deviceWS = nil
+        deviceWSConnected = false
+        deviceWSReconnect.reset()
+        updateActiveTransport()
+        connectDeviceWS()
+    }
+
+    // MARK: - Foreground Recovery
+
+    /// Verify all transports are alive after returning from background.
+    func reconnectIfNeeded() {
+        guard !intentionalClose else { return }
+
+        // Verify device WS
+        if deviceWSConnected {
+            // Send ping with short timeout to verify
+            deviceWSPongVerifyTask?.cancel()
+            deviceWSAwaitingPong = true
+            sendDeviceWSControl(["type": "ping", "timestamp": Int(Date().timeIntervalSince1970 * 1000)])
+
+            deviceWSPongVerifyTask = Task {
+                try? await Task.sleep(for: .seconds(5))
+                guard !Task.isCancelled, self.deviceWSAwaitingPong else { return }
+                self.log("Device WS verification ping timeout — forcing reconnect")
+                self.forceReconnectDeviceWS()
+            }
+        } else if deviceId != nil && deviceWS == nil {
+            log("Device WS not connected — reconnecting")
+            deviceWSReconnect.reset()
+            connectDeviceWS()
+        }
+
+        // Restart Bonjour if on WiFi but not locally connected
+        if isOnWiFi && !localConnected && browser == nil {
+            log("Restarting Bonjour discovery after foreground")
+            startBonjourDiscovery()
+        }
     }
 
     // MARK: - WebRTC Control Message Handling

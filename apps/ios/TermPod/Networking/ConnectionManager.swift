@@ -47,12 +47,14 @@ final class ConnectionManager: ObservableObject {
 
     let relay: RelayClient
     private let localTransport: LocalTransport
-    private let webrtcTransport: WebRTCTransport
     private let sessionId: String
     private var cancellables: Set<AnyCancellable> = []
 
-    /// Reference to the device-level transport manager for WebRTC registration.
+    /// Reference to the device-level transport manager for WebRTC + local WS multiplexing.
     weak var deviceTransport: DeviceTransportManager?
+
+    /// Whether this session is subscribed to WebRTC session data via device transport.
+    private var webrtcSubscribed = false
 
     /// Circular buffer of recent terminal output so we can replay it
     /// when a new terminal view is attached (e.g. after navigation).
@@ -63,24 +65,30 @@ final class ConnectionManager: ObservableObject {
         self.sessionId = sessionId
         self.relay = RelayClient()
         self.localTransport = LocalTransport(sessionId: sessionId)
-        self.webrtcTransport = WebRTCTransport(clientId: UUID().uuidString)
         setupCallbacks()
     }
 
-    /// Wire up the device transport for local WS multiplexing and WebRTC terminal data.
+    /// Wire up the device transport for local WS and WebRTC multiplexing.
+    ///
+    /// Both local WS and WebRTC use device-level multiplexed connections:
+    /// - Local WS: [channel][sid_len][sid][payload] (channels 0x00/0x01/0x02)
+    /// - WebRTC: [channel][sid_len][sid][payload] (channels 0x10/0x11)
     func configureLocalTransport(with transport: DeviceTransportManager) {
         localTransport.deviceTransport = transport
 
-        // Route device-level WebRTC terminal data to this session
-        transport.onWebRTCTerminalData = { [weak self] data in
-            guard let self, self.shouldAcceptData(from: .webrtc) else { return }
-            self.bufferAndDeliver(data)
-        }
-
-        transport.onWebRTCResize = { [weak self] cols, rows in
-            self?.ptySize = (cols, rows)
-            self?.onResize?(cols, rows)
-        }
+        // Subscribe to WebRTC session data through device transport
+        transport.subscribeWebRTCSession(
+            sessionId: sessionId,
+            onData: { [weak self] data in
+                guard let self, self.shouldAcceptData(from: .webrtc) else { return }
+                self.bufferAndDeliver(data)
+            },
+            onResize: { [weak self] cols, rows in
+                self?.ptySize = (cols, rows)
+                self?.onResize?(cols, rows)
+            }
+        )
+        webrtcSubscribed = true
 
         // Observe device transport changes to update active transport
         transport.objectWillChange.sink { [weak self] _ in
@@ -103,19 +111,31 @@ final class ConnectionManager: ObservableObject {
     func disconnect() {
         relay.disconnect()
         localTransport.disconnect()
-        webrtcTransport.disconnect()
+        if webrtcSubscribed {
+            deviceTransport?.unsubscribeWebRTCSession(sessionId: sessionId)
+            webrtcSubscribed = false
+        }
         activeTransport = .relay
+    }
+
+    /// Verify session relay is alive after returning from background.
+    func reconnectIfNeeded() {
+        relay.reconnectIfNeeded()
     }
 
     // MARK: - Sending (through best transport only)
 
-    func sendInput(_ data: Data) {
-        let transport = bestTransport
-        transport.sendInput(data)
+    /// Whether device-level WebRTC is connected and available for this session.
+    private var isWebRTCAvailable: Bool {
+        deviceTransport?.isWebRTCConnected ?? false
+    }
 
-        // If a P2P transport was selected but disconnected between bestTransport
-        // and sendInput, also send through relay as a safety net.
-        if transport.transportType != .relay && !transport.isConnected {
+    func sendInput(_ data: Data) {
+        if localTransport.isConnected {
+            localTransport.sendInput(data)
+        } else if isWebRTCAvailable {
+            deviceTransport?.sendWebRTCSessionInput(sessionId: sessionId, data: data)
+        } else {
             relay.sendInput(data)
         }
     }
@@ -126,10 +146,12 @@ final class ConnectionManager: ObservableObject {
 
     func sendResize(cols: Int, rows: Int) {
         lastRequestedSize = (cols, rows)
-        let transport = bestTransport
-        transport.sendResize(cols: cols, rows: rows)
 
-        if transport.transportType != .relay && !transport.isConnected {
+        if localTransport.isConnected {
+            localTransport.sendResize(cols: cols, rows: rows)
+        } else if isWebRTCAvailable {
+            deviceTransport?.sendWebRTCSessionResize(sessionId: sessionId, cols: cols, rows: rows)
+        } else {
             relay.sendResize(cols: cols, rows: rows)
         }
     }
@@ -144,17 +166,16 @@ final class ConnectionManager: ObservableObject {
     /// desktop so the shell redraws. Used after attaching a new terminal view.
     func sendNudgeResize() {
         guard let size = lastRequestedSize, size.cols > 1 else { return }
-        let transport = bestTransport
-        transport.sendResize(cols: size.cols - 1, rows: size.rows)
+        sendResize(cols: size.cols - 1, rows: size.rows)
         Task {
             try? await Task.sleep(for: .milliseconds(50))
-            transport.sendResize(cols: size.cols, rows: size.rows)
+            self.sendResize(cols: size.cols, rows: size.rows)
         }
     }
 
     /// Returns true if a P2P transport (local or WebRTC) is available for control messages.
     var hasP2PTransport: Bool {
-        localTransport.isConnected || (deviceTransport?.isWebRTCConnected ?? false) || webrtcTransport.isConnected
+        localTransport.isConnected || (deviceTransport?.isWebRTCConnected ?? false)
     }
 
     func sendListSessions() {
@@ -165,8 +186,8 @@ final class ConnectionManager: ObservableObject {
                let str = String(data: data, encoding: .utf8) {
                 localTransport.sendControlMessage(str)
             }
-        } else if webrtcTransport.isConnected {
-            webrtcTransport.sendControlMessage(msg)
+        } else if let webrtc = deviceTransport?.webrtcTransportForControl, webrtc.isConnected {
+            webrtc.sendControlMessage(msg)
         }
     }
 
@@ -176,14 +197,13 @@ final class ConnectionManager: ObservableObject {
             "sessionId": sessionId,
         ]
 
-        guard let data = try? JSONSerialization.data(withJSONObject: msg),
-              let str = String(data: data, encoding: .utf8)
-        else { return }
-
         if localTransport.isConnected {
-            localTransport.sendControlMessage(str)
-        } else if webrtcTransport.isConnected {
-            webrtcTransport.sendControlMessage(msg)
+            if let data = try? JSONSerialization.data(withJSONObject: msg),
+               let str = String(data: data, encoding: .utf8) {
+                localTransport.sendControlMessage(str)
+            }
+        } else if let webrtc = deviceTransport?.webrtcTransportForControl, webrtc.isConnected {
+            webrtc.sendControlMessage(msg)
         } else {
             relay.sendSignaling(msg)
         }
@@ -195,30 +215,19 @@ final class ConnectionManager: ObservableObject {
             "requestId": requestId,
         ]
 
-        guard let data = try? JSONSerialization.data(withJSONObject: msg),
-              let str = String(data: data, encoding: .utf8)
-        else { return }
-
         if localTransport.isConnected {
-            localTransport.sendControlMessage(str)
-        } else if webrtcTransport.isConnected {
-            webrtcTransport.sendControlMessage(msg)
+            if let data = try? JSONSerialization.data(withJSONObject: msg),
+               let str = String(data: data, encoding: .utf8) {
+                localTransport.sendControlMessage(str)
+            }
+        } else if let webrtc = deviceTransport?.webrtcTransportForControl, webrtc.isConnected {
+            webrtc.sendControlMessage(msg)
         } else {
             relay.sendSignaling(msg)
         }
     }
 
     // MARK: - Private
-
-    private var bestTransport: Transport {
-        if localTransport.isConnected { return localTransport }
-        if deviceTransport?.isWebRTCConnected ?? false { return deviceWebRTCProxy }
-        if webrtcTransport.isConnected { return webrtcTransport }
-        return relay
-    }
-
-    /// Lightweight proxy that routes send calls through device-level WebRTC.
-    private lazy var deviceWebRTCProxy: DeviceWebRTCProxy = DeviceWebRTCProxy(manager: self)
 
     /// Re-send mobile dimensions after a short delay, guarding against
     /// the transport having changed during the wait.
@@ -229,7 +238,7 @@ final class ConnectionManager: ObservableObject {
         Task {
             try? await Task.sleep(for: .milliseconds(150))
             guard self.activeTransport == transportBefore else { return }
-            self.bestTransport.sendResize(cols: size.cols, rows: size.rows)
+            self.sendResize(cols: size.cols, rows: size.rows)
         }
     }
 
@@ -252,9 +261,7 @@ final class ConnectionManager: ObservableObject {
     private func updateActiveTransport() {
         if localTransport.isConnected {
             activeTransport = .local
-        } else if deviceTransport?.isWebRTCConnected ?? false {
-            activeTransport = .webrtc
-        } else if webrtcTransport.isConnected {
+        } else if isWebRTCAvailable {
             activeTransport = .webrtc
         } else {
             activeTransport = .relay
@@ -314,7 +321,7 @@ final class ConnectionManager: ObservableObject {
         // transport isn't handling WebRTC (avoids duplicate connections).
         relay.onSignaling = { [weak self] json in
             guard let self, self.deviceTransport == nil else { return }
-            self.webrtcTransport.handleSignaling(json)
+            // No per-session WebRTC — device-level handles it
         }
 
         // Local transport callbacks — accepted when local is active
@@ -350,62 +357,12 @@ final class ConnectionManager: ObservableObject {
             self?.updateActiveTransport()
         }
 
-        // WebRTC transport callbacks — accepted when WebRTC is active
-        webrtcTransport.onTerminalData = { [weak self] data in
-            guard let self, self.shouldAcceptData(from: .webrtc) else { return }
-            self.bufferAndDeliver(data)
-        }
-
-        webrtcTransport.onResize = { [weak self] cols, rows in
-            self?.ptySize = (cols, rows)
-            self?.onResize?(cols, rows)
-        }
-
-        webrtcTransport.onConnected = { [weak self] in
-            guard let self else { return }
-            self.updateActiveTransport()
-            self.resendSizeAfterDelay()
-        }
-
-        webrtcTransport.onDisconnected = { [weak self] in
-            self?.updateActiveTransport()
-        }
-
-        webrtcTransport.onControlMessage = { [weak self] json in
-            guard let type = json["type"] as? String else { return }
-
-            switch type {
-            case "session_created":
-                if let requestId = json["requestId"] as? String,
-                   let sessionId = json["sessionId"] as? String,
-                   let name = json["name"] as? String,
-                   let cwd = json["cwd"] as? String,
-                   let ptyCols = json["ptyCols"] as? Int,
-                   let ptyRows = json["ptyRows"] as? Int {
-                    self?.dispatchSessionCreated(requestId, sessionId, name, cwd, ptyCols, ptyRows)
-                }
-            case "sessions_list":
-                if let sessions = json["sessions"] as? [[String: Any]] {
-                    self?.dispatchSessionsList(sessions)
-                }
-            case "session_closed", "session_ended":
-                self?.onSessionClosed?()
-            default:
-                break
+        // Reconnect session relay when the network interface changes (WiFi ↔ cellular)
+        NotificationCenter.default.publisher(for: .networkInterfaceChanged)
+            .sink { [weak self] _ in
+                self?.relay.handleNetworkChange()
             }
-        }
-
-        webrtcTransport.sendSignaling = { [weak self] msg in
-            // Prefer device WS for signaling (device-level, session-independent)
-            if let deviceTransport = self?.deviceTransport {
-                deviceTransport.sendSignaling(msg)
-            } else {
-                self?.relay.sendSignaling(msg)
-            }
-        }
-
-        // Also update active transport when device-level WebRTC connects/disconnects
-        // (handled via configureLocalTransport's objectWillChange subscriber)
+            .store(in: &cancellables)
 
         // Propagate relay state changes to this object
         relay.objectWillChange.sink { [weak self] _ in
@@ -426,34 +383,4 @@ final class ConnectionManager: ObservableObject {
             }
         }.store(in: &cancellables)
     }
-}
-
-/// Lightweight proxy that implements Transport by forwarding send calls
-/// to the device-level WebRTC transport in DeviceTransportManager.
-@MainActor
-private final class DeviceWebRTCProxy: Transport {
-    let transportType: TransportType = .webrtc
-    var isConnected: Bool { manager?.deviceTransport?.isWebRTCConnected ?? false }
-
-    // Callbacks unused — data routing is handled by DeviceTransportManager callbacks
-    var onTerminalData: ((Data) -> Void)?
-    var onResize: ((Int, Int) -> Void)?
-    var onConnected: (() -> Void)?
-    var onDisconnected: (() -> Void)?
-
-    private weak var manager: ConnectionManager?
-
-    init(manager: ConnectionManager) {
-        self.manager = manager
-    }
-
-    func sendInput(_ data: Data) {
-        manager?.deviceTransport?.sendWebRTCInput(data)
-    }
-
-    func sendResize(cols: Int, rows: Int) {
-        manager?.deviceTransport?.sendWebRTCResize(cols: cols, rows: rows)
-    }
-
-    func disconnect() {}
 }
