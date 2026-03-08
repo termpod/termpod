@@ -16,12 +16,17 @@
     "ios:generate": "pnpm ios:config && cd apps/ios && xcodegen generate"
   },
   "devDependencies": {
-    "turbo": "^2.8.13",
     "prettier": "^3.5.3",
-    "typescript": "^5.8.2"
+    "turbo": "^2.8.13",
+    "typescript": "^5.8.2",
+    "vitest": "^4.0.18"
   },
   "packageManager": "pnpm@10.29.3",
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild", "workerd", "sharp"]
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "workerd",
+      "sharp"
+    ]
   }
 }
