@@ -187,7 +187,6 @@ final class DeviceTransportManager: ObservableObject {
 
         transport.onDisconnected = { [weak self] in
             self?.log("WebRTC DISCONNECTED")
-            self?.webrtcMode = nil
             self?.updateActiveTransport()
         }
 
