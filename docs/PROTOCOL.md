@@ -310,6 +310,127 @@ Content-Type: application/json
 }
 ```
 
+## WebRTC Signaling (via Relay)
+
+WebRTC signaling messages are exchanged as JSON text frames through the relay. They are forwarded to the other peer(s) in the same session.
+
+### `webrtc_offer`
+
+Sent by desktop to initiate a WebRTC connection.
+
+```json
+{
+  "type": "webrtc_offer",
+  "sdp": "v=0\r\no=- ..."
+}
+```
+
+### `webrtc_answer`
+
+Sent by mobile in response to an offer.
+
+```json
+{
+  "type": "webrtc_answer",
+  "sdp": "v=0\r\no=- ..."
+}
+```
+
+### `webrtc_ice`
+
+ICE candidate exchange (sent by both peers).
+
+```json
+{
+  "type": "webrtc_ice",
+  "candidate": "candidate:...",
+  "sdpMid": "0",
+  "sdpMLineIndex": 0
+}
+```
+
+STUN servers used: Google (`stun:stun.l.google.com:19302`) and Cloudflare (`stun:stun.cloudflare.com:3478`). No TURN server — the relay WebSocket serves as the fallback transport.
+
+## P2P Control Messages
+
+These JSON messages are sent over the WebRTC DataChannel or local WebSocket (Bonjour) for session management without relay involvement.
+
+### `list_sessions`
+
+Request the desktop to list all active PTY sessions.
+
+```json
+{ "type": "list_sessions" }
+```
+
+Response:
+
+```json
+{
+  "type": "sessions_list",
+  "sessions": [
+    { "id": "uuid", "name": "my-project", "cwd": "/path", "processName": "claude", "ptyCols": 120, "ptyRows": 40 }
+  ]
+}
+```
+
+### `create_session_request`
+
+Request the desktop to spawn a new PTY session.
+
+```json
+{
+  "type": "create_session_request",
+  "requestId": "uuid"
+}
+```
+
+Response:
+
+```json
+{
+  "type": "session_created",
+  "requestId": "uuid",
+  "sessionId": "new-session-uuid",
+  "name": "project-name",
+  "cwd": "/path",
+  "ptyCols": 120,
+  "ptyRows": 40
+}
+```
+
+### `delete_session`
+
+Request the desktop to close a PTY session.
+
+```json
+{
+  "type": "delete_session",
+  "sessionId": "uuid"
+}
+```
+
+### `session_closed`
+
+Notification that a session has been closed (sent by desktop to viewers).
+
+```json
+{
+  "type": "session_closed",
+  "sessionId": "uuid"
+}
+```
+
+## Transport Priority
+
+TermPod uses three transports in order of preference:
+
+1. **Local WebSocket (Bonjour)** — Same LAN, ~1-5ms. Desktop advertises `_termpod._tcp` via mDNS.
+2. **WebRTC DataChannel** — Different networks, ~10-30ms. STUN-based P2P via Google/Cloudflare STUN servers.
+3. **Relay WebSocket** — Fallback, ~30-80ms. Always connected for signaling and scrollback.
+
+The relay always stays connected regardless of which transport is active. Terminal data and input are sent through the best available transport only. If a P2P transport disconnects between selection and send, the relay is used as a safety net.
+
 ## Versioning
 
 The `version` field in the `hello` message enables protocol evolution. The relay should:

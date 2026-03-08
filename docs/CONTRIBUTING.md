@@ -79,6 +79,26 @@ For iOS, run `pnpm ios:config` to generate `Config.xcconfig` from your `.env`.
 - Test relay changes with Miniflare locally before deploying
 - iOS project is generated via XcodeGen — edit `project.yml`, not `.xcodeproj` directly
 
+## Testing P2P Transports
+
+### Local (Bonjour)
+- Run the desktop app and iOS app on the same WiFi network
+- The iOS app should discover the desktop via Bonjour automatically
+- Transport badge should show "Local" (green) on device list and session views
+- Terminal data flows directly over LAN WebSocket (~1-5ms)
+
+### WebRTC
+- Connect the iOS app from a different network (e.g. cellular, different WiFi)
+- WebRTC signaling flows through the relay; data flows P2P via DataChannel
+- Transport badge should show "P2P" (blue) once the DataChannel opens
+- If STUN fails (e.g. symmetric NAT), it falls back to relay after 30s timeout
+- Session management (list, create, delete) works over the DataChannel
+
+### Relay (fallback)
+- If both Bonjour and WebRTC are unavailable, all data flows through the relay
+- Transport badge shows "Relay" (orange)
+- The relay is always connected for signaling regardless of active transport
+
 ## Pull Requests
 
 1. Branch from `main`

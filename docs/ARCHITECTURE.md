@@ -26,6 +26,10 @@ Desktop App
 ├── Local Server (Rust)
 │   ├── WebSocket server for LAN connections
 │   └── Bonjour/mDNS advertisement via dns-sd
+├── WebRTC (TypeScript)
+│   ├── DataChannel for P2P terminal data + control messages
+│   ├── Signaling via relay (offer/answer/ICE)
+│   └── STUN servers: Google + Cloudflare (no TURN)
 └── Relay Connection (TypeScript)
     ├── WebSocket client to relay
     ├── Reconnection with exponential backoff
@@ -39,8 +43,9 @@ The iOS app is a native Swift app. It does NOT run a shell — it connects to th
 ```
 iOS App (SwiftUI + SwiftTerm)
 ├── Terminal rendering (SwiftTerm — native CoreText)
-├── Connection Manager
+├── Connection Manager (orchestrates all transports)
 │   ├── Local transport (Bonjour discovery → direct WebSocket)
+│   ├── WebRTC transport (P2P DataChannel via livekit/webrtc)
 │   └── Relay transport (WebSocket via Cloudflare)
 ├── Auth (JWT stored in Keychain)
 ├── Device & session discovery
@@ -106,7 +111,24 @@ iPhone discovers Mac via Bonjour (_termpod._tcp)
  → ~1-5ms latency vs ~30-80ms via relay
 ```
 
-Transport priority: **Local WS (Bonjour) > Relay**
+### WebRTC P2P (Different Networks)
+
+When devices are on different networks, a WebRTC DataChannel provides a peer-to-peer path that avoids the relay hop:
+
+```
+Desktop creates WebRTC offer
+ → Offer sent to mobile via relay signaling
+ → Mobile creates answer, sent back via relay
+ → ICE candidates exchanged (STUN: Google + Cloudflare)
+ → DataChannel opens → binary terminal data + JSON control messages
+ → ~10-30ms latency (no TURN — relay is the fallback if STUN fails)
+```
+
+The relay always stays connected for signaling and as a fallback. WebRTC signaling messages (`webrtc_offer`, `webrtc_answer`, `webrtc_ice`) flow through the relay's text frames. Once the DataChannel is open, terminal data flows P2P.
+
+A 30-second connection timeout automatically falls back to relay if WebRTC negotiation fails.
+
+Transport priority: **Local WS (Bonjour) > WebRTC DataChannel > Relay**
 
 ### New Viewer Connects (mid-session)
 

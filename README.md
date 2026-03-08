@@ -9,16 +9,28 @@ No SSH. No tmux hacks. No VPN. Just open the app.
 ## How It Works
 
 ```
-┌─────────┐         ┌────────────────┐         ┌─────────┐
-│   Mac   │◄──ws───►│  TermPod Relay │◄───ws──►│  iPhone │
-│ (PTY +  │         │  (Cloudflare   │         │ (viewer │
-│  viewer)│         │   Durable Obj) │         │ + input)│
-└─────────┘         └────────────────┘         └─────────┘
+                    ┌────────────────┐
+                    │  TermPod Relay │
+                    │  (Cloudflare   │
+                    │   Durable Obj) │
+                    └───▲────────▲───┘
+                   ws   │        │  ws
+           ┌────────────┘        └────────────┐
+           │                                  │
+     ┌─────▼───┐  bonjour / webrtc (P2P)  ┌──▼──────┐
+     │   Mac   │◄────────────────────────►│  iPhone │
+     │ (PTY +  │                          │ (viewer │
+     │  viewer)│                          │ + input)│
+     └─────────┘                          └─────────┘
 ```
 
-Your Mac runs the actual shell. The relay streams output to all connected devices and forwards input back. Sessions survive disconnects — close the app, reopen it, and you're right where you left off.
+Your Mac runs the actual shell. Devices connect in the fastest way available:
 
-When on the same network, devices connect directly via Bonjour for lower latency.
+1. **Local WebSocket** — Same LAN? Direct connection via Bonjour (~1-5ms)
+2. **WebRTC P2P** — Different networks? Peer-to-peer data channel via STUN (~10-30ms)
+3. **Relay** — Fallback through Cloudflare (~30-80ms)
+
+Sessions survive disconnects — close the app, reopen it, and you're right where you left off.
 
 ## Features
 
@@ -26,6 +38,7 @@ When on the same network, devices connect directly via Bonjour for lower latency
 - **Scrollback sync** — Connect your phone mid-session, see everything that happened
 - **Quick actions** — Accept/deny prompts, Ctrl+C, Enter — one tap on mobile
 - **Local P2P** — Direct connection over LAN via Bonjour (no relay needed)
+- **WebRTC P2P** — Peer-to-peer across networks via STUN, relay as fallback
 - **Multi-session tabs** — Multiple terminal sessions, each in its own tab
 - **Session management** — Named by project directory, device-aware
 - **QR code pairing** — Scan to connect as a fallback
@@ -42,6 +55,7 @@ When on the same network, devices connect directly via Bonjour for lower latency
 | Protocol | WebSocket (binary frames for data, JSON for control) |
 | Auth | JWT + QR code pairing |
 | Local transport | Bonjour / mDNS |
+| P2P transport | WebRTC DataChannel (livekit/webrtc) |
 
 ## Project Structure
 
