@@ -41,7 +41,6 @@ Sessions survive disconnects — close the app, reopen it, and you're right wher
 - **WebRTC P2P** — Peer-to-peer across networks via STUN, relay as fallback
 - **Multi-session tabs** — Multiple terminal sessions, each in its own tab
 - **Session management** — Named by project directory, device-aware
-- **QR code pairing** — Scan to connect as a fallback
 - **Works with everything** — Claude Code, Codex, npm, docker, any CLI
 
 ## Tech Stack
@@ -53,7 +52,7 @@ Sessions survive disconnects — close the app, reopen it, and you're right wher
 | PTY | tauri-plugin-pty (Rust) |
 | Relay | Cloudflare Workers + Durable Objects |
 | Protocol | WebSocket (binary frames for data, JSON for control) |
-| Auth | JWT + QR code pairing |
+| Auth | JWT (HS256) |
 | Local transport | Bonjour / mDNS |
 | P2P transport | WebRTC DataChannel (livekit/webrtc) |
 

@@ -24,9 +24,7 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSCameraUsageDescription</key>
-	<string>TermPod needs camera access to scan QR codes for pairing with your Mac.</string>
-	<key>NSFaceIDUsageDescription</key>
+<key>NSFaceIDUsageDescription</key>
 	<string>TermPod uses Face ID to protect your terminal sessions.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>TermPod uses your local network to connect directly to your Mac for lower latency.</string>

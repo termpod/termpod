@@ -291,25 +291,6 @@ Authorization: Bearer <user-token>
 }
 ```
 
-### `POST /auth/pair`
-
-Validate a pairing token (from QR code scan).
-
-```
-Content-Type: application/json
-
-{
-  "token": "pair-token-xyz789"
-}
-
-→ 200 OK
-{
-  "sessionId": "session-abc123",
-  "viewerToken": "viewer-token-...",
-  "wsUrl": "wss://relay.termpod.dev/sessions/session-abc123/ws"
-}
-```
-
 ## WebRTC Signaling (via Relay)
 
 WebRTC signaling messages are exchanged as JSON text frames through the relay. They are forwarded to the other peer(s) in the same session.

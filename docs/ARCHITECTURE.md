@@ -49,8 +49,7 @@ iOS App (SwiftUI + SwiftTerm)
 │   └── Relay transport (WebSocket via Cloudflare)
 ├── Auth (JWT stored in Keychain)
 ├── Device & session discovery
-├── Special keys bar (Ctrl, Esc, Tab, arrows)
-└── QR code scanner (fallback pairing)
+└── Special keys bar (Ctrl, Esc, Tab, arrows)
 ```
 
 ### 3. Relay Server (The "Hub")
@@ -65,7 +64,6 @@ Cloudflare Edge
 │   ├── GET  /devices          → list user's devices
 │   ├── POST /devices/:id/sessions → register session
 │   ├── GET  /sessions/:id/ws  → upgrade to WebSocket, route to DO
-│   └── POST /auth/pair        → validate QR code token
 └── Durable Objects
     ├── TerminalSession (one per session)
     │   ├── WebSocket connections (desktop + N viewers)
