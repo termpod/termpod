@@ -16,6 +16,8 @@ export interface RelayInfo {
   sendToLocalClient?: (clientId: string, json: string) => void;
   sendLocalControl?: (sessionId: string, json: string) => void;
   sendWebRTCControl?: (msg: Record<string, unknown>) => void;
+  handleWebRTCSignaling?: (msg: Record<string, unknown>) => Promise<void>;
+  initiateWebRTCOffer?: (remoteClientId: string) => Promise<void>;
 }
 
 interface TerminalPanelProps {
@@ -48,9 +50,10 @@ interface TerminalPanelProps {
   onSessionClosed?: () => void;
   onCwdChange?: (cwd: string) => void;
   getSessionsList?: () => Record<string, unknown>[];
+  deviceSendSignaling?: (msg: Record<string, unknown>) => void;
 }
 
-export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFamily, fontWeight, fontSmoothing, fontLigatures, drawBoldInBold, windowPadding, cursorStyle, cursorBlink, lineHeight, promptAtBottom, copyOnSelect, macOptionIsMeta, altClickMoveCursor, wordSeparators, theme, bellEnabled, notifyOnBell, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onDeleteSession, onSessionClosed, onCwdChange, getSessionsList }: TerminalPanelProps) {
+export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFamily, fontWeight, fontSmoothing, fontLigatures, drawBoldInBold, windowPadding, cursorStyle, cursorBlink, lineHeight, promptAtBottom, copyOnSelect, macOptionIsMeta, altClickMoveCursor, wordSeparators, theme, bellEnabled, notifyOnBell, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onDeleteSession, onSessionClosed, onCwdChange, getSessionsList, deviceSendSignaling }: TerminalPanelProps) {
   const onTermReadyRef = useRef(onTermReady);
   onTermReadyRef.current = onTermReady;
   const onCreateSessionRequestRef = useRef(onCreateSessionRequest);
@@ -65,6 +68,9 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
   const getSessionsListRef = useRef(getSessionsList);
   getSessionsListRef.current = getSessionsList;
 
+  const deviceSendSignalingRef = useRef(deviceSendSignaling);
+  deviceSendSignalingRef.current = deviceSendSignaling;
+
   const relay = useRelayBridge(session.exited ? null : session, {
     onCreateSessionRequest: (requestId, source, localClientId) => {
       onCreateSessionRequestRef.current?.(requestId, source, localClientId);
@@ -76,6 +82,7 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
       onSessionClosedRef.current?.();
     },
     getSessionsList: () => getSessionsListRef.current?.() ?? [],
+    deviceSendSignaling: deviceSendSignaling ? (msg) => deviceSendSignalingRef.current?.(msg) : undefined,
   });
   const onRelayChangeRef = useRef(onRelayChange);
   onRelayChangeRef.current = onRelayChange;
@@ -92,8 +99,10 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
       sendToLocalClient: relay.sendToLocalClient,
       sendLocalControl: relay.sendLocalControl,
       sendWebRTCControl: relay.sendWebRTCControl,
+      handleWebRTCSignaling: relay.handleWebRTCSignaling,
+      initiateWebRTCOffer: relay.initiateWebRTCOffer,
     });
-  }, [relay.status, relay.viewers, relay.allConnectedDevices, relay.sessionId, relay.sendSessionCreated, relay.sendToLocalClient, relay.sendLocalControl, relay.sendWebRTCControl]);
+  }, [relay.status, relay.viewers, relay.allConnectedDevices, relay.sessionId, relay.sendSessionCreated, relay.sendToLocalClient, relay.sendLocalControl, relay.sendWebRTCControl, relay.handleWebRTCSignaling, relay.initiateWebRTCOffer]);
 
   // Notify parent when relay session is created (for device registration)
   const registeredRef = useRef<string | null>(null);

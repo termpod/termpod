@@ -366,7 +366,12 @@ final class ConnectionManager: ObservableObject {
         }
 
         webrtcTransport.sendSignaling = { [weak self] msg in
-            self?.relay.sendSignaling(msg)
+            // Prefer device WS for signaling (device-level, session-independent)
+            if let deviceTransport = self?.deviceTransport {
+                deviceTransport.sendSignaling(msg)
+            } else {
+                self?.relay.sendSignaling(msg)
+            }
         }
 
         // Propagate relay state changes to this object

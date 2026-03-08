@@ -114,11 +114,22 @@ export function App() {
       handleDeleteSessionByRelayIdRef.current(sessionId);
     },
     getSessionsList: () => getSessionsListRef.current(),
-    onSignaling: (_msg) => {
-      // TODO Phase 3: forward to device-level WebRTC
+    onSignaling: (msg) => {
+      // Forward WebRTC signaling from device WS to all active sessions' WebRTC handlers
+      for (const info of relayMapRef.current.values()) {
+        info.handleWebRTCSignaling?.(msg).catch(() => {});
+      }
     },
-    onClientJoined: (_clientId, _device) => {
-      // TODO Phase 3: initiate device-level WebRTC offer
+    onClientJoined: (clientId, clientDevice) => {
+      // When a mobile viewer connects via device WS, initiate WebRTC offer
+      // through the first active session's relay bridge
+      if (clientDevice === 'macos') return; // Don't offer to other desktops
+      for (const info of relayMapRef.current.values()) {
+        if (info.sessionId && info.initiateWebRTCOffer) {
+          info.initiateWebRTCOffer(clientId).catch(() => {});
+          break; // Only need one WebRTC connection
+        }
+      }
     },
   });
 
@@ -739,6 +750,7 @@ export function App() {
               }
             }}
             onSessionClosed={() => handleCloseSession(session.id)}
+            deviceSendSignaling={deviceWS.sendSignaling}
             onCwdChange={(cwd) => {
               updateSessionCwd(session.id, cwd);
               const relayInfo = relayMapRef.current.get(session.id);

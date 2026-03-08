@@ -9,6 +9,8 @@ interface UseRelayBridgeOptions {
   onSessionClosed?: () => void;
   onDeleteSession?: (relaySessionId: string) => void;
   getSessionsList?: () => Record<string, unknown>[];
+  /** Send WebRTC signaling via device WS instead of per-session relay WS. */
+  deviceSendSignaling?: (msg: Record<string, unknown>) => void;
 }
 
 export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: UseRelayBridgeOptions) {
@@ -205,7 +207,7 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
         }
       }
     },
-    sendSignaling,
+    sendSignaling: bridgeOptionsRef.current?.deviceSendSignaling ?? sendSignaling,
     localClientId: relay.clientId,
   });
 
@@ -305,5 +307,7 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
     sendToLocalClient: localServer.sendToClient,
     sendLocalControl: localServer.sendControl,
     sendWebRTCControl: webrtc.sendControlMessage,
+    handleWebRTCSignaling: webrtc.handleSignaling,
+    initiateWebRTCOffer: webrtc.initiateOffer,
   };
 }
