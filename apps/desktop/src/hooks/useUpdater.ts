@@ -8,6 +8,7 @@ type UpdateStatus =
   | { state: 'available'; version: string; notes?: string }
   | { state: 'downloading'; progress: number }
   | { state: 'ready' }
+  | { state: 'up-to-date' }
   | { state: 'error'; message: string };
 
 const CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
@@ -16,14 +17,39 @@ export function useUpdater() {
   const [status, setStatus] = useState<UpdateStatus>({ state: 'idle' });
   const [dismissed, setDismissed] = useState(false);
   const pendingUpdate = useRef<Update | null>(null);
+  const manualRef = useRef(false);
+  const autoDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleAutoDismiss = useCallback(() => {
+    if (autoDismissTimer.current) {
+      clearTimeout(autoDismissTimer.current);
+    }
+
+    autoDismissTimer.current = setTimeout(() => {
+      setStatus({ state: 'idle' });
+      autoDismissTimer.current = null;
+    }, 4000);
+  }, []);
 
   const checkForUpdate = useCallback(async () => {
+    const isManual = manualRef.current;
+    manualRef.current = false;
+
     try {
-      setStatus({ state: 'checking' });
+      if (isManual) {
+        setStatus({ state: 'checking' });
+      }
+
       const update = await check();
 
       if (!update) {
-        setStatus({ state: 'idle' });
+        if (isManual) {
+          setStatus({ state: 'up-to-date' });
+          scheduleAutoDismiss();
+        } else {
+          setStatus({ state: 'idle' });
+        }
+
         return;
       }
 
@@ -35,9 +61,19 @@ export function useUpdater() {
         notes: update.body ?? undefined,
       });
     } catch (err) {
-      setStatus({ state: 'error', message: String(err) });
+      if (isManual) {
+        setStatus({ state: 'error', message: String(err) });
+        scheduleAutoDismiss();
+      } else {
+        setStatus({ state: 'idle' });
+      }
     }
-  }, []);
+  }, [scheduleAutoDismiss]);
+
+  const manualCheckForUpdate = useCallback(() => {
+    manualRef.current = true;
+    checkForUpdate();
+  }, [checkForUpdate]);
 
   const downloadAndInstall = useCallback(async () => {
     const update = pendingUpdate.current;
@@ -88,10 +124,20 @@ export function useUpdater() {
     };
   }, [checkForUpdate]);
 
+  // Clean up auto-dismiss timer on unmount
+  useEffect(() => {
+    return () => {
+      if (autoDismissTimer.current) {
+        clearTimeout(autoDismissTimer.current);
+      }
+    };
+  }, []);
+
   return {
     status,
     dismissed,
     checkForUpdate,
+    manualCheckForUpdate,
     downloadAndInstall,
     installAndRestart,
     dismiss,

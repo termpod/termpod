@@ -577,7 +577,7 @@ export function App() {
       }
 
       case 'check_updates':
-        updater.checkForUpdate();
+        updater.manualCheckForUpdate();
         break;
 
       default:

@@ -3,16 +3,31 @@ import type { useUpdater } from '../hooks/useUpdater';
 type Props = ReturnType<typeof useUpdater>;
 
 export function UpdateBanner({ status, dismissed, downloadAndInstall, installAndRestart, dismiss }: Props) {
-  if (dismissed || status.state === 'idle' || status.state === 'checking') {
-    return null;
-  }
-
-  if (status.state === 'error') {
+  if (dismissed || status.state === 'idle') {
     return null;
   }
 
   return (
     <div className="update-banner">
+      {status.state === 'checking' && (
+        <span className="update-text">Checking for updates…</span>
+      )}
+      {status.state === 'up-to-date' && (
+        <>
+          <span className="update-text">You're on the latest version.</span>
+          <button className="update-dismiss" onClick={dismiss} aria-label="Dismiss">
+            ×
+          </button>
+        </>
+      )}
+      {status.state === 'error' && (
+        <>
+          <span className="update-text">Update check failed: {status.message}</span>
+          <button className="update-dismiss" onClick={dismiss} aria-label="Dismiss">
+            ×
+          </button>
+        </>
+      )}
       {status.state === 'available' && (
         <>
           <span className="update-text">
