@@ -251,7 +251,6 @@ final class LocalTransport: Transport {
         guard isOnWiFi else { return }
 
         let attempt = reconnectionManager.nextAttempt()
-        print("[LocalTransport] Reconnecting in \(String(format: "%.1f", attempt.delay))s (attempt \(attempt.number))")
 
         Task {
             try? await Task.sleep(for: .seconds(attempt.delay))

@@ -137,6 +137,10 @@ fn check_full_disk_access() -> bool {
 
 #[tauri::command]
 fn open_url(url: String) {
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return;
+    }
+
     let _ = std::process::Command::new("open").arg(&url).spawn();
 }
 

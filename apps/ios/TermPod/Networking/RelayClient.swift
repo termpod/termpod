@@ -29,6 +29,7 @@ final class RelayClient: ObservableObject, Transport {
 
     // Stored for reconnection
     private var storedURL: URL?
+    private var storedToken: String?
 
     enum ConnectionState: Equatable {
         case disconnected
@@ -50,15 +51,22 @@ final class RelayClient: ObservableObject, Transport {
 
     // MARK: - Connection
 
-    func connect(wsURL: URL) {
+    func connect(wsURL: URL, token: String? = nil) {
         storedURL = wsURL
+        storedToken = token
         state = .connecting
 
         webSocket = session.webSocketTask(with: wsURL)
         webSocket?.resume()
 
         state = .connected
-        sendHello()
+
+        if let token {
+            sendAuth(token: token)
+        } else {
+            sendHello()
+        }
+
         startReceiving()
     }
 
@@ -70,6 +78,7 @@ final class RelayClient: ObservableObject, Transport {
     private func tearDown() {
         state = .disconnected
         storedURL = nil
+        storedToken = nil
         reconnectionManager.reset()
         webSocket?.cancel(with: .goingAway, reason: nil)
         webSocket = nil
@@ -93,6 +102,19 @@ final class RelayClient: ObservableObject, Transport {
         frame[3] = UInt8((rows >> 8) & 0xFF)
         frame[4] = UInt8(rows & 0xFF)
         webSocket?.send(.data(frame)) { _ in }
+    }
+
+    private func sendAuth(token: String) {
+        let auth: [String: Any] = [
+            "type": "auth",
+            "token": token,
+        ]
+
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: auth),
+              let jsonString = String(data: jsonData, encoding: .utf8)
+        else { return }
+
+        webSocket?.send(.string(jsonString)) { _ in }
     }
 
     private func sendHello() {
@@ -189,6 +211,10 @@ final class RelayClient: ObservableObject, Transport {
 
     private func handleControlMessage(type: String, json: [String: Any]) {
         switch type {
+        case "auth_ok":
+            // Auth confirmed — now send hello
+            sendHello()
+
         case "session_info":
             if let ptySizeDict = json["ptySize"] as? [String: Int],
                let cols = ptySizeDict["cols"],
@@ -214,15 +240,12 @@ final class RelayClient: ObservableObject, Transport {
         case "client_left":
             connectedViewers = max(0, connectedViewers - 1)
             let leftRole = json["role"] as? String ?? "unknown"
-            let leftReason = json["reason"] as? String ?? "unknown"
-            print("[Relay] client_left role=\(leftRole) reason=\(leftReason)")
             if leftRole == "desktop" {
                 tearDown()
                 onSessionClosed?()
             }
 
         case "session_ended", "session_closed":
-            print("[Relay] \(type) received — tearing down")
             tearDown()
             onSessionClosed?()
 
@@ -250,7 +273,6 @@ final class RelayClient: ObservableObject, Transport {
     // MARK: - Reconnection
 
     private func handleDisconnect(error: Error) {
-        print("[Relay] handleDisconnect error=\(error.localizedDescription) state=\(state)")
         guard state != .disconnected else { return }
 
         webSocket?.cancel(with: .goingAway, reason: nil)
@@ -267,7 +289,7 @@ final class RelayClient: ObservableObject, Transport {
         Task {
             try? await Task.sleep(for: .seconds(attempt.delay))
             guard state != .disconnected else { return }
-            connect(wsURL: url)
+            connect(wsURL: url, token: storedToken)
         }
     }
 }

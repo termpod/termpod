@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import type { ConnectedDevice } from './useRelayConnection';
 
 export interface LocalServerInfo {
   port: number;
@@ -47,6 +48,7 @@ interface UseLocalServerOptions {
 export function useLocalServer(options: UseLocalServerOptions) {
   const [serverInfo, setServerInfo] = useState<LocalServerInfo | null>(null);
   const [localViewers, setLocalViewers] = useState(0);
+  const [localDevices, setLocalDevices] = useState<ConnectedDevice[]>([]);
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
@@ -79,6 +81,10 @@ export function useLocalServer(options: UseLocalServerOptions) {
 
       if (event.payload.sessionId === sid) {
         setLocalViewers((v) => v + 1);
+        setLocalDevices((prev) => [
+          ...prev.filter((d) => d.clientId !== event.payload.clientId),
+          { clientId: event.payload.clientId, device: event.payload.device, transport: 'local', connectedAt: new Date().toISOString() },
+        ]);
         optionsRef.current.onViewerJoined?.();
       }
     }).then((fn) => unlisten.push(fn));
@@ -88,6 +94,7 @@ export function useLocalServer(options: UseLocalServerOptions) {
 
       if (event.payload.sessionId === sid) {
         setLocalViewers((v) => Math.max(0, v - 1));
+        setLocalDevices((prev) => prev.filter((d) => d.clientId !== event.payload.clientId));
         optionsRef.current.onViewerLeft?.();
       }
     }).then((fn) => unlisten.push(fn));
@@ -152,6 +159,7 @@ export function useLocalServer(options: UseLocalServerOptions) {
   return {
     serverInfo,
     localViewers,
+    localDevices,
     broadcastTerminalData,
     sendControl,
     sendToClient,

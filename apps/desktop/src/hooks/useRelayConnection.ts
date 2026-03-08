@@ -13,6 +13,13 @@ import { getSettingsSnapshot } from './useSettings';
 
 export type RelayStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 
+export interface ConnectedDevice {
+  clientId: string;
+  device: string;
+  transport: 'relay' | 'local' | 'webrtc';
+  connectedAt: string;
+}
+
 interface RelaySession {
   sessionId: string;
 }
@@ -38,6 +45,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
   const [status, setStatus] = useState<RelayStatus>('disconnected');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [viewers, setViewers] = useState(0);
+  const [connectedDevices, setConnectedDevices] = useState<ConnectedDevice[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const connectingRef = useRef(false);
   const intentionalCloseRef = useRef(false);
@@ -75,9 +83,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
       wsRef.current = null;
     }
 
-    const token = getAccessToken();
-    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
-    const wsUrl = `${getRelayBase()}/sessions/${session.sessionId}/ws${tokenParam}`;
+    const wsUrl = `${getRelayBase()}/sessions/${session.sessionId}/ws`;
     const ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
     wsRef.current = ws;
@@ -87,19 +93,12 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
       connectingRef.current = false;
       reconnectDelayRef.current = RECONNECT.initialDelay;
 
-      ws.send(JSON.stringify({
-        type: 'hello',
-        version: PROTOCOL_VERSION,
-        role: 'desktop',
-        device: 'macos',
-        clientId: clientIdRef.current,
-      }));
+      // Send auth as first message (token is NOT in the URL)
+      const token = getAccessToken();
 
-      pingIntervalRef.current = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
-        }
-      }, PING_INTERVAL);
+      if (token) {
+        ws.send(JSON.stringify({ type: 'auth', token }));
+      }
     };
 
     ws.onmessage = (event) => {
@@ -116,6 +115,23 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
       const msg = JSON.parse(event.data) as RelayMessage;
 
       switch (msg.type) {
+        case 'auth_ok':
+          // Auth confirmed — send hello and start ping
+          ws.send(JSON.stringify({
+            type: 'hello',
+            version: PROTOCOL_VERSION,
+            role: 'desktop',
+            device: 'macos',
+            clientId: clientIdRef.current,
+          }));
+
+          pingIntervalRef.current = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
+            }
+          }, PING_INTERVAL);
+          break;
+
         case 'ready':
           updateStatus('connected');
           break;
@@ -123,17 +139,29 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
         case 'client_joined':
           if (msg.role === 'viewer') {
             setViewers((v) => v + 1);
+            setConnectedDevices((prev) => [
+              ...prev.filter((d) => d.clientId !== msg.clientId),
+              { clientId: msg.clientId, device: msg.device, transport: 'relay', connectedAt: new Date().toISOString() },
+            ]);
             optionsRef.current.onViewerJoined?.(msg.clientId);
           }
           break;
 
         case 'client_left':
           setViewers((v) => Math.max(0, v - 1));
+          if ('clientId' in msg) {
+            setConnectedDevices((prev) => prev.filter((d) => d.clientId !== (msg as { clientId: string }).clientId));
+          }
           optionsRef.current.onViewerLeft?.();
           break;
 
         case 'session_info':
           setViewers(msg.clients.filter((c) => c.role === 'viewer').length);
+          setConnectedDevices(
+            msg.clients
+              .filter((c) => c.role === 'viewer')
+              .map((c) => ({ clientId: c.clientId, device: c.device, transport: 'relay' as const, connectedAt: c.connectedAt })),
+          );
           break;
 
         case 'pty_resize':
@@ -239,6 +267,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     sessionRef.current = null;
     setSessionId(null);
     setViewers(0);
+    setConnectedDevices([]);
     updateStatus('disconnected');
   }, [updateStatus, stopPing]);
 
@@ -304,6 +333,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     status,
     sessionId,
     viewers,
+    connectedDevices,
     clientId: clientIdRef.current,
     connect,
     disconnect,

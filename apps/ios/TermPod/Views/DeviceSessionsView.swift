@@ -405,12 +405,12 @@ struct DeviceSessionsView: View {
             }
 
             if let (sessionId, name, _, _, _) = result {
-                guard let wsURL = await auth.authenticatedWSURL(sessionId: sessionId) else {
+                guard let ws = await auth.authenticatedWSURL(sessionId: sessionId) else {
                     requestingSession = false
                     return
                 }
 
-                createAndJoinSession(id: sessionId, name: name, wsURL: wsURL)
+                createAndJoinSession(id: sessionId, name: name, wsURL: ws.url, token: ws.token)
                 requestingSession = false
                 return
             }
@@ -441,12 +441,12 @@ struct DeviceSessionsView: View {
             }
 
             if let (sessionId, name, _, _, _) = result {
-                guard let wsURL = await auth.authenticatedWSURL(sessionId: sessionId) else {
+                guard let ws = await auth.authenticatedWSURL(sessionId: sessionId) else {
                     requestingSession = false
                     return
                 }
 
-                createAndJoinSession(id: sessionId, name: name, wsURL: wsURL)
+                createAndJoinSession(id: sessionId, name: name, wsURL: ws.url, token: ws.token)
                 requestingSession = false
                 return
             }
@@ -468,14 +468,14 @@ struct DeviceSessionsView: View {
             return
         }
 
-        guard let wsURL = await auth.authenticatedWSURL(sessionId: session.id) else { return }
+        guard let ws = await auth.authenticatedWSURL(sessionId: session.id) else { return }
 
         HapticService.shared.playTap()
 
-        createAndJoinSession(id: session.id, name: session.name, wsURL: wsURL)
+        createAndJoinSession(id: session.id, name: session.name, wsURL: ws.url, token: ws.token)
     }
 
-    private func createAndJoinSession(id: String, name: String, wsURL: URL) {
+    private func createAndJoinSession(id: String, name: String, wsURL: URL, token: String? = nil) {
         let connection = ConnectionManager(sessionId: id)
         connection.sessionName = name
         let newSession = Session(id: id, name: name, connection: connection)
@@ -493,7 +493,7 @@ struct DeviceSessionsView: View {
             }
         }
 
-        connection.connect(wsURL: wsURL)
+        connection.connect(wsURL: wsURL, token: token)
         joinedSession = newSession
     }
 }

@@ -211,17 +211,25 @@ final class AuthService: ObservableObject {
         startAutoRefresh()
     }
 
-    /// Build a WebSocket URL with a fresh auth token. Returns nil if not authenticated.
-    func authenticatedWSURL(sessionId: String) async -> URL? {
+    /// Build a WebSocket URL for a session. Token is sent separately via first message.
+    func wsURL(sessionId: String) -> URL? {
         let wsBase = relayHTTP
             .replacingOccurrences(of: "https://", with: "wss://")
             .replacingOccurrences(of: "http://", with: "ws://")
+
+        return URL(string: "\(wsBase)/sessions/\(sessionId)/ws")
+    }
+
+    /// Build a WebSocket URL with a fresh auth token and return both.
+    /// Token is sent as the first WS message, NOT in the URL.
+    func authenticatedWSURL(sessionId: String) async -> (url: URL, token: String)? {
+        guard let url = wsURL(sessionId: sessionId) else { return nil }
 
         guard let token = await validAccessToken(), !token.isEmpty else {
             return nil
         }
 
-        return URL(string: "\(wsBase)/sessions/\(sessionId)/ws?token=\(token)")
+        return (url, token)
     }
 
     /// Make an authenticated API request. Auto-refreshes and retries once on 401.

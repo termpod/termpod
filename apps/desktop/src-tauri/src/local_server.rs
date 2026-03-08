@@ -353,6 +353,20 @@ async fn handle_connection(
                             tx: tx.clone(),
                         };
 
+                        // Validate sessionId against registered sessions
+                        if let Some(sid) = &hello.session_id {
+                            let known = sessions.read().await;
+                            if !known.iter().any(|s| s.id == *sid) {
+                                let err = serde_json::json!({
+                                    "type": "error",
+                                    "message": "Unknown session"
+                                });
+                                let _ = tx.send(Message::Text(err.to_string().into()));
+                                let _ = tx.send(Message::Close(None));
+                                break;
+                            }
+                        }
+
                         clients.write().await.insert(cid.clone(), client);
                         registered_id = Some(cid.clone());
 

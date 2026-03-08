@@ -555,6 +555,7 @@ export function App() {
         })}
         onReorder={reorderSessions}
         relayStatus={activeRelay?.status ?? 'disconnected'}
+        connectedDevices={activeRelay?.connectedDevices ?? []}
       />
       <FullDiskAccessBanner />
       <div className="terminal-area">

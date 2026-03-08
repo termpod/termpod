@@ -18,6 +18,11 @@ export interface ClientInfo {
 
 // Client -> Relay
 
+export interface AuthMessage {
+  type: 'auth';
+  token: string;
+}
+
 export interface HelloMessage {
   type: 'hello';
   version: number;
@@ -77,6 +82,7 @@ export interface CreateSessionRequestMessage {
 }
 
 export type ClientMessage =
+  | AuthMessage
   | HelloMessage
   | InputLockRequestMessage
   | InputLockReleaseMessage
@@ -94,6 +100,10 @@ export interface SessionInfoMessage {
   ptySize: PtySize;
   createdAt: string;
   clients: ClientInfo[];
+}
+
+export interface AuthOkMessage {
+  type: 'auth_ok';
 }
 
 export interface ReadyMessage {
@@ -164,6 +174,7 @@ export interface SessionClosedMessage {
 }
 
 export type RelayMessage =
+  | AuthOkMessage
   | SessionInfoMessage
   | ReadyMessage
   | ClientJoinedMessage

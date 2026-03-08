@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useRelayConnection } from './useRelayConnection';
 import { useLocalServer } from './useLocalServer';
 import { useWebRTC } from './useWebRTC';
@@ -255,12 +255,21 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
     };
   }, [session?.id, session?.exited, connect, disconnect, sendTerminalData]);
 
+  // Combine connected devices from all transports (memoized to prevent render loops)
+  const webrtcConnectedAt = useRef(new Date().toISOString());
+  const allConnectedDevices = useMemo(() => [
+    ...relay.connectedDevices,
+    ...localServer.localDevices,
+    ...(webrtc.isConnected ? [{ clientId: 'webrtc-peer', device: 'unknown', transport: 'webrtc' as const, connectedAt: webrtcConnectedAt.current }] : []),
+  ], [relay.connectedDevices, localServer.localDevices, webrtc.isConnected]);
+
   return {
     ...relay,
     sendResize,
     localServerInfo: localServer.serverInfo,
     localViewers: localServer.localViewers,
     webrtcStatus: webrtc.status,
+    allConnectedDevices,
     sendToLocalClient: localServer.sendToClient,
     sendLocalControl: localServer.sendControl,
     sendWebRTCControl: webrtc.sendControlMessage,

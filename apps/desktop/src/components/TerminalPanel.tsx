@@ -5,11 +5,12 @@ import type { TerminalThemeColors } from '@termpod/ui';
 import type { PtySize } from '@termpod/protocol';
 import type { TerminalSession } from '../hooks/useSessionManager';
 import { useRelayBridge } from '../hooks/useRelayBridge';
-import type { RelayStatus } from '../hooks/useRelayConnection';
+import type { RelayStatus, ConnectedDevice } from '../hooks/useRelayConnection';
 
 export interface RelayInfo {
   status: RelayStatus;
   viewers: number;
+  connectedDevices: ConnectedDevice[];
   sessionId: string | null;
   sendSessionCreated?: (requestId: string, sessionId: string, name: string, cwd: string, ptyCols: number, ptyRows: number) => void;
   sendToLocalClient?: (clientId: string, json: string) => void;
@@ -85,13 +86,14 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
     onRelayChangeRef.current?.({
       status: relay.status,
       viewers: relay.viewers,
+      connectedDevices: relay.allConnectedDevices,
       sessionId: relay.sessionId,
       sendSessionCreated: relay.sendSessionCreated,
       sendToLocalClient: relay.sendToLocalClient,
       sendLocalControl: relay.sendLocalControl,
       sendWebRTCControl: relay.sendWebRTCControl,
     });
-  }, [relay.status, relay.viewers, relay.sessionId, relay.sendSessionCreated, relay.sendToLocalClient, relay.sendLocalControl, relay.sendWebRTCControl]);
+  }, [relay.status, relay.viewers, relay.allConnectedDevices, relay.sessionId, relay.sendSessionCreated, relay.sendToLocalClient, relay.sendLocalControl, relay.sendWebRTCControl]);
 
   // Notify parent when relay session is created (for device registration)
   const registeredRef = useRef<string | null>(null);

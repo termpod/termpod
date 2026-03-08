@@ -184,6 +184,10 @@ export class User extends DurableObject {
       return this.handleCheckSessionAccess(request);
     }
 
+    if (path === '/exists' && request.method === 'GET') {
+      return this.handleExists();
+    }
+
     return new Response('Not found', { status: 404 });
   }
 
@@ -314,6 +318,24 @@ export class User extends DurableObject {
       platform: string;
     };
 
+    if (!body.id || body.id.length > 64) {
+      return Response.json({ error: 'Invalid device ID' }, { status: 400 });
+    }
+
+    if (!body.name || body.name.length > 255) {
+      return Response.json({ error: 'Invalid device name' }, { status: 400 });
+    }
+
+    const VALID_PLATFORMS = ['macos', 'iphone', 'ipad', 'browser'];
+
+    if (!VALID_PLATFORMS.includes(body.platform)) {
+      return Response.json({ error: 'Invalid platform' }, { status: 400 });
+    }
+
+    if (!['desktop', 'mobile'].includes(body.deviceType)) {
+      return Response.json({ error: 'Invalid device type' }, { status: 400 });
+    }
+
     // Clean up stale sessions from previous launches — desktop starts fresh each time
     this.ctx.storage.sql.exec('DELETE FROM sessions WHERE device_id = ?', body.id);
 
@@ -402,6 +424,18 @@ export class User extends DurableObject {
       ptyRows?: number;
     };
 
+    if (!body.id || body.id.length > 64) {
+      return Response.json({ error: 'Invalid session ID' }, { status: 400 });
+    }
+
+    if (body.name !== undefined && body.name.length > 255) {
+      return Response.json({ error: 'Session name too long' }, { status: 400 });
+    }
+
+    if (body.cwd !== undefined && body.cwd.length > 4096) {
+      return Response.json({ error: 'CWD too long' }, { status: 400 });
+    }
+
     // Verify device exists
     const device = this.ctx.storage.sql
       .exec('SELECT id FROM devices WHERE id = ?', deviceId)
@@ -432,6 +466,18 @@ export class User extends DurableObject {
       cwd?: string;
       processName?: string | null;
     };
+
+    if (body.name !== undefined && typeof body.name === 'string' && body.name.length > 255) {
+      return Response.json({ error: 'Session name too long' }, { status: 400 });
+    }
+
+    if (body.cwd !== undefined && typeof body.cwd === 'string' && body.cwd.length > 4096) {
+      return Response.json({ error: 'CWD too long' }, { status: 400 });
+    }
+
+    if (body.processName !== undefined && body.processName !== null && typeof body.processName === 'string' && body.processName.length > 255) {
+      return Response.json({ error: 'Process name too long' }, { status: 400 });
+    }
 
     const existing = this.ctx.storage.sql
       .exec('SELECT id FROM sessions WHERE id = ?', sessionId)
@@ -513,6 +559,18 @@ export class User extends DurableObject {
     );
 
     return Response.json({ ok: true });
+  }
+
+  private handleExists(): Response {
+    const rows = this.ctx.storage.sql
+      .exec('SELECT email FROM profile LIMIT 1')
+      .toArray();
+
+    if (rows.length === 0) {
+      return Response.json({ exists: false }, { status: 404 });
+    }
+
+    return Response.json({ exists: true });
   }
 
   private async handleCheckSessionAccess(request: Request): Promise<Response> {

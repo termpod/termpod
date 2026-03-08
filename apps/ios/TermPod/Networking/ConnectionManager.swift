@@ -66,8 +66,8 @@ final class ConnectionManager: ObservableObject {
 
     // MARK: - Connection
 
-    func connect(wsURL: URL) {
-        relay.connect(wsURL: wsURL)
+    func connect(wsURL: URL, token: String? = nil) {
+        relay.connect(wsURL: wsURL, token: token)
         localTransport.startDiscovery()
     }
 
@@ -224,7 +224,6 @@ final class ConnectionManager: ObservableObject {
         } else {
             activeTransport = .relay
         }
-
     }
 
     /// During initial connection (connecting/loadingScrollback/connected), accept

@@ -17,10 +17,17 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
+const SECURITY_HEADERS = {
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+};
+
 function corsJson(data: unknown, init?: ResponseInit): Response {
   const res = Response.json(data, init);
 
-  for (const [k, v] of Object.entries(CORS_HEADERS)) {
+  for (const [k, v] of Object.entries({ ...CORS_HEADERS, ...SECURITY_HEADERS })) {
     res.headers.set(k, v);
   }
 
@@ -28,7 +35,9 @@ function corsJson(data: unknown, init?: ResponseInit): Response {
 }
 
 function corsResponse(status: number): Response {
-  return new Response(null, { status, headers: CORS_HEADERS });
+  const headers = { ...CORS_HEADERS, ...SECURITY_HEADERS };
+
+  return new Response(null, { status, headers });
 }
 
 async function requireAuth(request: Request, env: Env): Promise<string | Response> {
@@ -63,9 +72,9 @@ export default {
     try {
       return await handleRequest(request, env);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Internal server error';
+      console.error('Unhandled error:', err);
 
-      return corsJson({ error: message }, { status: 500 });
+      return corsJson({ error: 'Internal server error' }, { status: 500 });
     }
   },
 };
@@ -148,11 +157,17 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 
 // --- Auth handlers ---
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 async function handleSignup(request: Request, env: Env): Promise<Response> {
   const { email, password } = (await request.json()) as { email: string; password: string };
 
   if (!email || !password || password.length < 8) {
     return corsJson({ error: 'Email and password (min 8 chars) required' }, { status: 400 });
+  }
+
+  if (!EMAIL_REGEX.test(email)) {
+    return corsJson({ error: 'Invalid email format' }, { status: 400 });
   }
 
   const stub = getUserDO(env, email);
@@ -211,6 +226,14 @@ async function handleRefresh(request: Request, env: Env): Promise<Response> {
   const payload = await verifyJWT(refreshToken, env.JWT_SECRET);
 
   if (!payload || payload.type !== 'refresh') {
+    return corsJson({ error: 'Invalid refresh token' }, { status: 401 });
+  }
+
+  // Verify user still exists before issuing new tokens
+  const stub = getUserDO(env, payload.sub);
+  const existsRes = await stub.fetch(new Request('http://internal/exists'));
+
+  if (!existsRes.ok) {
     return corsJson({ error: 'Invalid refresh token' }, { status: 401 });
   }
 
@@ -435,28 +458,29 @@ async function handleWebSocket(request: Request, env: Env, sessionId: string): P
     return corsJson({ error: 'Expected WebSocket' }, { status: 426 });
   }
 
-  // Auth via query param for WebSocket connections
+  const headers = new Headers(request.headers);
+
+  // Support both legacy (URL token) and new (first-message) auth flows.
+  // Legacy: token in URL query param → validate here, pass userId to DO.
+  // New: no URL token → DO handles first-message auth.
   const url = new URL(request.url);
-  const token = url.searchParams.get('token');
+  const urlToken = url.searchParams.get('token');
 
-  if (!token) {
-    return corsJson({ error: 'Authentication required' }, { status: 401 });
+  if (urlToken) {
+    const payload = await verifyJWT(urlToken, env.JWT_SECRET);
+
+    if (!payload || payload.type !== 'access') {
+      return corsJson({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    headers.set('X-User-Id', payload.sub);
   }
 
-  const payload = await verifyJWT(token, env.JWT_SECRET);
-
-  if (!payload || payload.type !== 'access') {
-    return corsJson({ error: 'Invalid or expired token' }, { status: 401 });
-  }
-
-  const userId = payload.sub;
+  // Always pass JWT secret so DO can handle first-message auth for new clients
+  headers.set('X-JWT-Secret', env.JWT_SECRET);
 
   const id = env.TERMINAL_SESSION.idFromName(sessionId);
   const stub = env.TERMINAL_SESSION.get(id);
-
-  // Pass authenticated userId to the session DO for ownership tracking
-  const headers = new Headers(request.headers);
-  headers.set('X-User-Id', userId);
 
   return stub.fetch(new Request('http://internal/ws', { headers }));
 }

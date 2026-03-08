@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { TerminalSession } from '../hooks/useSessionManager';
-import type { RelayStatus as RelayStatusType } from '../hooks/useRelayConnection';
+import type { RelayStatus as RelayStatusType, ConnectedDevice } from '../hooks/useRelayConnection';
 import { folderIcon } from '@termpod/shared';
 import type { TabIcon } from '@termpod/shared';
 
@@ -13,9 +13,10 @@ interface TabBarProps {
   onCreate: () => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
   relayStatus: RelayStatusType;
+  connectedDevices: ConnectedDevice[];
 }
 
-export function TabBar({ sessions, activeId, onSelect, onClose, onCreate, onReorder, relayStatus }: TabBarProps) {
+export function TabBar({ sessions, activeId, onSelect, onClose, onCreate, onReorder, relayStatus, connectedDevices }: TabBarProps) {
   const handleDrag = useCallback((e: React.MouseEvent) => {
     // Only drag if clicking directly on the tab-bar (not on child buttons/tabs)
     if (e.target === e.currentTarget) {
@@ -85,9 +86,8 @@ export function TabBar({ sessions, activeId, onSelect, onClose, onCreate, onReor
         document.body.style.cursor = 'grabbing';
 
         // Create floating ghost clone
-        const ghost = document.createElement('div');
+        const ghost = tabEl.cloneNode(true) as HTMLDivElement;
         ghost.className = 'tab-ghost';
-        ghost.innerHTML = tabEl.innerHTML;
         ghost.style.width = `${rect.width}px`;
         ghost.style.height = `${rect.height}px`;
         document.body.appendChild(ghost);
@@ -153,7 +153,7 @@ export function TabBar({ sessions, activeId, onSelect, onClose, onCreate, onReor
       <button className="tab-new" onClick={onCreate} type="button" aria-label="New session (Cmd+T)" title="New session (Cmd+T)">
         +
       </button>
-      <RelayDot status={relayStatus} />
+      <RelayDot status={relayStatus} connectedDevices={connectedDevices} />
     </div>
   );
 }
@@ -233,13 +233,32 @@ const STATUS_LABELS: Record<RelayStatusType, string> = {
   error: 'Connection error',
 };
 
-function RelayDot({ status }: { status: RelayStatusType }) {
+const DEVICE_LABELS: Record<string, string> = {
+  iphone: 'iPhone',
+  ipad: 'iPad',
+  macos: 'Mac',
+  browser: 'Browser',
+  unknown: 'Unknown',
+};
+
+const TRANSPORT_LABELS: Record<string, string> = {
+  relay: 'Relay',
+  local: 'Local',
+  webrtc: 'P2P',
+};
+
+function RelayDot({ status, connectedDevices }: { status: RelayStatusType; connectedDevices: ConnectedDevice[] }) {
+  const count = connectedDevices.length;
+  const tooltip = count > 0
+    ? `${STATUS_LABELS[status]}\n${count} viewer${count > 1 ? 's' : ''}:\n${connectedDevices.map((d) => `  ${DEVICE_LABELS[d.device] ?? d.device} (${TRANSPORT_LABELS[d.transport] ?? d.transport})`).join('\n')}`
+    : STATUS_LABELS[status];
+
   return (
     <div
       className="relay-dot-inline"
       role="status"
-      aria-label={`Relay: ${STATUS_LABELS[status]}`}
-      title={STATUS_LABELS[status]}
+      aria-label={`Relay: ${STATUS_LABELS[status]}${count > 0 ? `, ${count} viewers` : ''}`}
+      title={tooltip}
     >
       <span
         className="relay-dot"
@@ -247,6 +266,9 @@ function RelayDot({ status }: { status: RelayStatusType }) {
         aria-hidden="true"
       />
       <span className="relay-label">{STATUS_LABELS[status]}</span>
+      {count > 0 && (
+        <span className="relay-viewers">{count}</span>
+      )}
     </div>
   );
 }

@@ -8,6 +8,9 @@ import type {
   SessionCreatedMessage,
 } from '@termpod/protocol';
 import { SCROLLBACK_BUFFER_SIZE, Channel } from '@termpod/protocol';
+import { verifyJWT } from './jwt';
+
+const MAX_MESSAGE_SIZE = 64 * 1024; // 64KB
 
 // WebSocket tags store client metadata as JSON so it survives hibernation
 interface ClientTag {
@@ -33,6 +36,7 @@ export class TerminalSession extends DurableObject {
   private scrollbackSize = 0;
   private ptyCols = 120;
   private ptyRows = 40;
+  private jwtSecret: string | null = null;
 
   private async getOwner(): Promise<string | null> {
     return (await this.ctx.storage.get<string>('ownerUserId')) ?? null;
@@ -50,29 +54,40 @@ export class TerminalSession extends DurableObject {
     const url = new URL(request.url);
 
     if (url.pathname === '/ws') {
-      const userId = request.headers.get('X-User-Id');
+      // Store JWT secret for first-message auth validation
+      const secret = request.headers.get('X-JWT-Secret');
 
-      if (!userId) {
-        return new Response('Unauthorized', { status: 401 });
-      }
-
-      // First connection sets the owner; subsequent connections must match
-      const owner = await this.getOwner();
-
-      if (!owner) {
-        await this.setOwner(userId);
-      } else if (owner !== userId) {
-        return new Response('Forbidden', { status: 403 });
+      if (secret) {
+        this.jwtSecret = secret;
       }
 
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
 
-      // Store userId on the WebSocket so we can assign role in handleHello
-      (server as unknown as { serializeAttachment: (v: unknown) => void }).serializeAttachment({
-        userId,
-        pendingHello: true,
-      });
+      // Legacy clients pass X-User-Id (validated by Worker from URL token).
+      // New clients send auth as their first WebSocket message.
+      const userId = request.headers.get('X-User-Id');
+
+      if (userId) {
+        // Legacy flow: ownership check, then wait for hello
+        const owner = await this.getOwner();
+
+        if (!owner) {
+          await this.setOwner(userId);
+        } else if (owner !== userId) {
+          return new Response('Forbidden', { status: 403 });
+        }
+
+        (server as unknown as { serializeAttachment: (v: unknown) => void }).serializeAttachment({
+          userId,
+          pendingHello: true,
+        });
+      } else {
+        // New flow: client must send auth message first
+        (server as unknown as { serializeAttachment: (v: unknown) => void }).serializeAttachment({
+          pendingAuth: true,
+        });
+      }
 
       this.ctx.acceptWebSocket(server);
 
@@ -97,6 +112,24 @@ export class TerminalSession extends DurableObject {
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    // Enforce message size limit
+    const size = typeof message === 'string' ? message.length : message.byteLength;
+
+    if (size > MAX_MESSAGE_SIZE) {
+      ws.close(1009, 'Message too large');
+
+      return;
+    }
+
+    // Check if this socket is pending auth
+    const attachment = (ws as unknown as { deserializeAttachment: () => unknown }).deserializeAttachment() as Record<string, unknown> | null;
+
+    if (attachment?.pendingAuth) {
+      await this.handleAuth(ws, message);
+
+      return;
+    }
+
     if (typeof message === 'string') {
       let parsed: ClientMessage | SessionCreatedMessage;
 
@@ -173,6 +206,65 @@ export class TerminalSession extends DurableObject {
         reason: 'error',
       });
     }
+  }
+
+  private async handleAuth(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    if (typeof message !== 'string') {
+      ws.close(1008, 'Expected auth message');
+
+      return;
+    }
+
+    let parsed: { type: string; token?: string };
+
+    try {
+      parsed = JSON.parse(message);
+    } catch {
+      ws.close(1008, 'Invalid JSON');
+
+      return;
+    }
+
+    if (parsed.type !== 'auth' || !parsed.token) {
+      ws.close(1008, 'Expected auth message');
+
+      return;
+    }
+
+    if (!this.jwtSecret) {
+      ws.close(1011, 'Server configuration error');
+
+      return;
+    }
+
+    const payload = await verifyJWT(parsed.token, this.jwtSecret);
+
+    if (!payload || payload.type !== 'access') {
+      ws.close(1008, 'Invalid or expired token');
+
+      return;
+    }
+
+    const userId = payload.sub;
+
+    // First connection sets the owner; subsequent connections must match
+    const owner = await this.getOwner();
+
+    if (!owner) {
+      await this.setOwner(userId);
+    } else if (owner !== userId) {
+      ws.close(1008, 'Forbidden');
+
+      return;
+    }
+
+    // Auth successful — transition to pendingHello state
+    (ws as unknown as { serializeAttachment: (v: unknown) => void }).serializeAttachment({
+      userId,
+      pendingHello: true,
+    });
+
+    ws.send(JSON.stringify({ type: 'auth_ok' }));
   }
 
   private handleControlMessage(ws: WebSocket, msg: ClientMessage | SessionCreatedMessage): void {
