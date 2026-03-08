@@ -19,6 +19,7 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
   { id: 'next_tab', label: 'Next Tab', shortcut: 'Cmd+Shift+]', category: 'Tabs' },
   { id: 'prev_tab', label: 'Previous Tab', shortcut: 'Cmd+Shift+[', category: 'Tabs' },
   { id: 'close_other_tabs', label: 'Close Other Tabs', shortcut: 'Cmd+Alt+W', category: 'Tabs' },
+  { id: 'rename_tab', label: 'Rename Tab', shortcut: '', category: 'Tabs' },
 
   // Terminal
   { id: 'find', label: 'Find', shortcut: 'Cmd+F', category: 'Terminal' },
@@ -34,6 +35,7 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
   { id: 'zoom_reset', label: 'Reset Zoom', shortcut: 'Cmd+0', category: 'View' },
   { id: 'scroll_top', label: 'Scroll to Top', shortcut: 'Cmd+Up', category: 'View' },
   { id: 'scroll_bottom', label: 'Scroll to Bottom', shortcut: 'Cmd+Down', category: 'View' },
+  { id: 'toggle_fullscreen', label: 'Toggle Full Screen', shortcut: 'Ctrl+Cmd+F', category: 'View' },
 
   // App
   { id: 'command_palette', label: 'Command Palette', shortcut: 'Cmd+Shift+P', category: 'App' },

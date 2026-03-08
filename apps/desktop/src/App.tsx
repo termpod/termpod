@@ -35,6 +35,7 @@ export function App() {
     switchSession,
     focusActive,
     markTermReady,
+    renameSession,
     reorderSessions,
     updateSessionCwd,
     onSessionExitRef,
@@ -575,12 +576,34 @@ export function App() {
         break;
       }
 
+      case 'rename_tab':
+        if (activeId && activeSession) {
+          const newName = window.prompt('Rename tab:', activeSession.name);
+          if (newName !== null && newName.trim()) {
+            renameSession(activeId, newName.trim());
+          }
+        }
+        break;
+
       case 'check_updates':
         updater.manualCheckForUpdate();
         break;
 
+      case 'termpod_help':
+        invoke('open_url', { url: 'https://termpod.dev/docs' });
+        break;
+
+      case 'report_issue':
+        invoke('open_url', { url: 'https://github.com/anthropics/termpod/issues' });
+        break;
+
       default:
-        if (menuId.startsWith('tab_')) {
+        if (menuId.startsWith('theme_')) {
+          const themeKey = menuId.slice(6);
+          if (THEMES[themeKey]) {
+            updateSettings({ theme: themeKey });
+          }
+        } else if (menuId.startsWith('tab_')) {
           const tabIdx = parseInt(menuId.slice(4), 10) - 1;
 
           if (tabIdx < sessions.length) {

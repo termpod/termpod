@@ -2,7 +2,7 @@ mod local_server;
 mod pty;
 
 use std::ffi::CStr;
-use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
 unsafe extern "C" {
@@ -200,6 +200,9 @@ pub fn run() {
                 .accelerator("CmdOrCtrl+Shift+T")
                 .build(app)?;
 
+            let rename_tab = MenuItemBuilder::with_id("rename_tab", "Rename Tab\u{2026}")
+                .build(app)?;
+
             let close_other_tabs = MenuItemBuilder::with_id("close_other_tabs", "Close Other Tabs")
                 .accelerator("CmdOrCtrl+Alt+W")
                 .build(app)?;
@@ -265,15 +268,67 @@ pub fn run() {
                 .item(&clear)
                 .build()?;
 
+            let themes: Vec<(&str, &str)> = vec![
+                ("tokyo-night", "Tokyo Night"),
+                ("dracula", "Dracula"),
+                ("catppuccin-mocha", "Catppuccin Mocha"),
+                ("github-dark", "GitHub Dark"),
+                ("one-dark", "One Dark"),
+                ("solarized-dark", "Solarized Dark"),
+                ("nord", "Nord"),
+                ("gruvbox-dark", "Gruvbox Dark"),
+                ("cobalt2", "Cobalt2"),
+                ("synthwave-84", "Synthwave '84"),
+                ("ayu-dark", "Ayu Dark"),
+                ("night-owl", "Night Owl"),
+                ("rose-pine", "Rose Pine"),
+                ("kanagawa", "Kanagawa"),
+                ("everforest-dark", "Everforest Dark"),
+                ("poimandres", "Poimandres"),
+                ("vesper", "Vesper"),
+                ("material-ocean", "Material Ocean"),
+                ("aura", "Aura"),
+                ("moonlight", "Moonlight"),
+                ("github-light", "GitHub Light"),
+                ("catppuccin-latte", "Catppuccin Latte"),
+                ("solarized-light", "Solarized Light"),
+                ("one-light", "One Light"),
+                ("rose-pine-dawn", "Rose Pine Dawn"),
+                ("ayu-light", "Ayu Light"),
+                ("night-owl-light", "Night Owl Light"),
+                ("everforest-light", "Everforest Light"),
+                ("catppuccin-frappe", "Catppuccin Frappe"),
+                ("tokyo-night-light", "Tokyo Night Light"),
+                ("kanagawa-lotus", "Kanagawa Lotus"),
+                ("gruvbox-light", "Gruvbox Light"),
+                ("poimandres-light", "Poimandres Light"),
+                ("moonlight-light", "Moonlight Light"),
+                ("paper", "Paper"),
+                ("winter-light", "Winter Light"),
+                ("horizon-light", "Horizon Light"),
+                ("vitesse-light", "Vitesse Light"),
+            ];
+
+            let mut theme_submenu = SubmenuBuilder::new(app, "Theme");
+            for (id, label) in &themes {
+                let item = CheckMenuItemBuilder::with_id(format!("theme_{id}"), *label)
+                    .build(app)?;
+                theme_submenu = theme_submenu.item(&item);
+            }
+            let theme_submenu = theme_submenu.build()?;
+
             let view_menu = SubmenuBuilder::new(app, "View")
                 .item(&zoom_in)
                 .item(&zoom_out)
                 .item(&zoom_reset)
+                .separator()
+                .item(&theme_submenu)
                 .build()?;
 
             let mut session_menu = SubmenuBuilder::new(app, "Session")
                 .item(&new_tab)
                 .item(&duplicate_tab)
+                .item(&rename_tab)
                 .item(&close_tab)
                 .item(&close_other_tabs)
                 .separator()
@@ -287,7 +342,37 @@ pub fn run() {
 
             let session_menu = session_menu.build()?;
 
-            let check_updates = MenuItemBuilder::with_id("check_updates", "Check for Updates…")
+            let minimize = MenuItemBuilder::with_id("minimize", "Minimize")
+                .accelerator("CmdOrCtrl+M")
+                .build(app)?;
+            let zoom_window = MenuItemBuilder::with_id("zoom_window", "Zoom")
+                .build(app)?;
+            let bring_all_to_front = MenuItemBuilder::with_id("bring_all_to_front", "Bring All to Front")
+                .build(app)?;
+            let toggle_fullscreen = MenuItemBuilder::with_id("toggle_fullscreen", "Toggle Full Screen")
+                .accelerator("Ctrl+CmdOrCtrl+F")
+                .build(app)?;
+
+            let window_menu = SubmenuBuilder::new(app, "Window")
+                .item(&minimize)
+                .item(&zoom_window)
+                .separator()
+                .item(&bring_all_to_front)
+                .separator()
+                .item(&toggle_fullscreen)
+                .build()?;
+
+            let termpod_help = MenuItemBuilder::with_id("termpod_help", "TermPod Help")
+                .build(app)?;
+            let report_issue = MenuItemBuilder::with_id("report_issue", "Report an Issue\u{2026}")
+                .build(app)?;
+
+            let help_menu = SubmenuBuilder::new(app, "Help")
+                .item(&termpod_help)
+                .item(&report_issue)
+                .build()?;
+
+            let check_updates = MenuItemBuilder::with_id("check_updates", "Check for Updates\u{2026}")
                 .build(app)?;
 
             #[allow(unused_mut)]
@@ -306,7 +391,8 @@ pub fn run() {
                     .build()?)
                 .item(&edit_menu)
                 .item(&view_menu)
-                .item(&session_menu);
+                .item(&session_menu)
+                .item(&window_menu);
 
             #[cfg(debug_assertions)]
             {
@@ -321,7 +407,7 @@ pub fn run() {
                 menu_builder = menu_builder.item(&develop_menu);
             }
 
-            let menu = menu_builder.build()?;
+            let menu = menu_builder.item(&help_menu).build()?;
 
             app.set_menu(menu)?;
 
@@ -338,6 +424,35 @@ pub fn run() {
                         }
                     }
                     return;
+                }
+
+                match id {
+                    "minimize" => {
+                        if let Some(window) = app_handle.get_webview_window("main") {
+                            let _ = window.minimize();
+                        }
+                        return;
+                    }
+                    "zoom_window" => {
+                        if let Some(window) = app_handle.get_webview_window("main") {
+                            let _ = window.maximize();
+                        }
+                        return;
+                    }
+                    "bring_all_to_front" => {
+                        if let Some(window) = app_handle.get_webview_window("main") {
+                            let _ = window.set_focus();
+                        }
+                        return;
+                    }
+                    "toggle_fullscreen" => {
+                        if let Some(window) = app_handle.get_webview_window("main") {
+                            let is_fullscreen = window.is_fullscreen().unwrap_or(false);
+                            let _ = window.set_fullscreen(!is_fullscreen);
+                        }
+                        return;
+                    }
+                    _ => {}
                 }
 
                 if let Some(window) = app_handle.get_webview_window("main") {

@@ -22,7 +22,7 @@
         "transparent": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
-        "trafficLightPosition": { "x": 16, "y": 22 }
+        "trafficLightPosition": { "x": 16, "y": 18 }
       }
     ],
     "security": {
@@ -48,9 +48,7 @@
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc1NkJCOTJBRkEyMUNGRTgKUldUb3p5SDZLcmxyZGZoSU5oQ01QdWl6TDZQd0hVa0IvcHVIVys5RmFGYjVyT1NCOHpNT2htMmkK",
-      "endpoints": [
-        "https://relay.termpod.dev/updates/latest.json"
-      ]
+      "endpoints": ["https://relay.termpod.dev/updates/latest.json"]
     }
   }
 }
