@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { Channel } from './constants.js';
 import {
   decodeBinaryFrame,
+  decodeMuxFrame,
+  encodeMuxTerminalData,
+  encodeMuxTerminalResize,
   encodeScrollbackChunk,
   encodeTerminalData,
   encodeTerminalResize,
@@ -94,6 +97,242 @@ describe('encodeScrollbackChunk', () => {
   });
 });
 
+describe('encodeMuxTerminalData', () => {
+  it('encodes session ID and data into mux frame', () => {
+    const sessionId = 'abc-123';
+    const data = new Uint8Array([0x48, 0x69]); // "Hi"
+    const frame = encodeMuxTerminalData(sessionId, data);
+
+    expect(frame[0]).toBe(Channel.MUX_TERMINAL_DATA);
+    expect(frame[1]).toBe(7); // "abc-123" is 7 bytes
+    expect(frame.length).toBe(1 + 1 + 7 + 2);
+  });
+
+  it('handles empty data payload', () => {
+    const sessionId = 'sess';
+    const frame = encodeMuxTerminalData(sessionId, new Uint8Array(0));
+
+    expect(frame[0]).toBe(Channel.MUX_TERMINAL_DATA);
+    expect(frame[1]).toBe(4);
+    expect(frame.length).toBe(1 + 1 + 4);
+  });
+
+  it('handles long session IDs', () => {
+    const sessionId = 'a'.repeat(200);
+    const data = new Uint8Array([1]);
+    const frame = encodeMuxTerminalData(sessionId, data);
+
+    expect(frame[0]).toBe(Channel.MUX_TERMINAL_DATA);
+    expect(frame[1]).toBe(200);
+    expect(frame.length).toBe(1 + 1 + 200 + 1);
+  });
+
+  it('handles UUID-style session IDs', () => {
+    const sessionId = '550e8400-e29b-41d4-a716-446655440000';
+    const data = new Uint8Array([0xff, 0xfe]);
+    const frame = encodeMuxTerminalData(sessionId, data);
+
+    expect(frame[0]).toBe(Channel.MUX_TERMINAL_DATA);
+    expect(frame[1]).toBe(36);
+    expect(frame.length).toBe(1 + 1 + 36 + 2);
+  });
+
+  it('handles single-character session ID', () => {
+    const frame = encodeMuxTerminalData('x', new Uint8Array([0x01]));
+
+    expect(frame[1]).toBe(1);
+    expect(frame.length).toBe(1 + 1 + 1 + 1);
+  });
+});
+
+describe('encodeMuxTerminalResize', () => {
+  it('encodes session ID, cols, and rows', () => {
+    const sessionId = 'sess-1';
+    const frame = encodeMuxTerminalResize(sessionId, 80, 24);
+
+    expect(frame[0]).toBe(Channel.MUX_TERMINAL_RESIZE);
+    expect(frame[1]).toBe(6);
+    expect(frame.length).toBe(1 + 1 + 6 + 4);
+
+    const view = new DataView(frame.buffer);
+    expect(view.getUint16(2 + 6, false)).toBe(80);
+    expect(view.getUint16(2 + 6 + 2, false)).toBe(24);
+  });
+
+  it('handles max uint16 dimensions', () => {
+    const frame = encodeMuxTerminalResize('s', 65535, 65535);
+    const view = new DataView(frame.buffer);
+
+    expect(view.getUint16(2 + 1, false)).toBe(65535);
+    expect(view.getUint16(2 + 1 + 2, false)).toBe(65535);
+  });
+
+  it('handles zero dimensions', () => {
+    const frame = encodeMuxTerminalResize('s', 0, 0);
+    const view = new DataView(frame.buffer);
+
+    expect(view.getUint16(2 + 1, false)).toBe(0);
+    expect(view.getUint16(2 + 1 + 2, false)).toBe(0);
+  });
+});
+
+describe('decodeMuxFrame', () => {
+  it('decodes a mux terminal data frame', () => {
+    const frame = encodeMuxTerminalData('sess-1', new Uint8Array([0x41, 0x42]));
+    const decoded = decodeMuxFrame(frame);
+
+    expect(decoded).not.toBeNull();
+    expect(decoded!.channel).toBe(Channel.MUX_TERMINAL_DATA);
+    if (decoded!.channel === Channel.MUX_TERMINAL_DATA) {
+      expect(decoded!.sessionId).toBe('sess-1');
+      expect(decoded!.data).toEqual(new Uint8Array([0x41, 0x42]));
+    }
+  });
+
+  it('decodes a mux terminal resize frame', () => {
+    const frame = encodeMuxTerminalResize('sess-2', 120, 40);
+    const decoded = decodeMuxFrame(frame);
+
+    expect(decoded).not.toBeNull();
+    expect(decoded!.channel).toBe(Channel.MUX_TERMINAL_RESIZE);
+    if (decoded!.channel === Channel.MUX_TERMINAL_RESIZE) {
+      expect(decoded!.sessionId).toBe('sess-2');
+      expect(decoded!.cols).toBe(120);
+      expect(decoded!.rows).toBe(40);
+    }
+  });
+
+  it('returns null for frame too short', () => {
+    expect(decodeMuxFrame(new Uint8Array([0x10]))).toBeNull();
+    expect(decodeMuxFrame(new Uint8Array([]))).toBeNull();
+  });
+
+  it('returns null for zero sid_len', () => {
+    const frame = new Uint8Array([0x10, 0x00, 0x41]);
+
+    expect(decodeMuxFrame(frame)).toBeNull();
+  });
+
+  it('returns null for sid_len exceeding frame length', () => {
+    const frame = new Uint8Array([0x10, 0x0a, 0x41]); // sid_len=10 but only 1 byte of sid
+
+    expect(decodeMuxFrame(frame)).toBeNull();
+  });
+
+  it('returns null for non-mux channel', () => {
+    const frame = new Uint8Array([0x00, 0x03, 0x41, 0x42, 0x43]);
+
+    expect(decodeMuxFrame(frame)).toBeNull();
+  });
+
+  it('returns null for resize frame with truncated payload', () => {
+    // Channel + sid_len + sid + only 2 bytes of resize payload (needs 4)
+    const frame = new Uint8Array([0x11, 0x01, 0x73, 0x00, 0x50]);
+
+    expect(decodeMuxFrame(frame)).toBeNull();
+  });
+
+  it('handles mux data frame with empty payload', () => {
+    const frame = encodeMuxTerminalData('test', new Uint8Array(0));
+    const decoded = decodeMuxFrame(frame);
+
+    expect(decoded).not.toBeNull();
+    if (decoded!.channel === Channel.MUX_TERMINAL_DATA) {
+      expect(decoded!.sessionId).toBe('test');
+      expect(decoded!.data.length).toBe(0);
+    }
+  });
+
+  it('handles frame from a subarray (non-zero byteOffset)', () => {
+    const original = encodeMuxTerminalData('sid', new Uint8Array([0xaa, 0xbb]));
+    const largerBuffer = new Uint8Array(16 + original.length);
+    largerBuffer.set(original, 16);
+    const subFrame = largerBuffer.subarray(16, 16 + original.length);
+
+    const decoded = decodeMuxFrame(subFrame);
+
+    expect(decoded).not.toBeNull();
+    if (decoded!.channel === Channel.MUX_TERMINAL_DATA) {
+      expect(decoded!.sessionId).toBe('sid');
+      expect(decoded!.data).toEqual(new Uint8Array([0xaa, 0xbb]));
+    }
+  });
+
+  it('handles resize frame from a subarray (non-zero byteOffset)', () => {
+    const original = encodeMuxTerminalResize('sid', 132, 43);
+    const largerBuffer = new Uint8Array(20 + original.length);
+    largerBuffer.set(original, 20);
+    const subFrame = largerBuffer.subarray(20, 20 + original.length);
+
+    const decoded = decodeMuxFrame(subFrame);
+
+    expect(decoded).not.toBeNull();
+    if (decoded!.channel === Channel.MUX_TERMINAL_RESIZE) {
+      expect(decoded!.sessionId).toBe('sid');
+      expect(decoded!.cols).toBe(132);
+      expect(decoded!.rows).toBe(43);
+    }
+  });
+});
+
+describe('mux round-trips', () => {
+  it('round-trips mux terminal data', () => {
+    const sessionId = '550e8400-e29b-41d4-a716-446655440000';
+    const data = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) {
+      data[i] = i;
+    }
+
+    const encoded = encodeMuxTerminalData(sessionId, data);
+    const decoded = decodeMuxFrame(encoded);
+
+    expect(decoded).not.toBeNull();
+    expect(decoded!.channel).toBe(Channel.MUX_TERMINAL_DATA);
+    if (decoded!.channel === Channel.MUX_TERMINAL_DATA) {
+      expect(decoded!.sessionId).toBe(sessionId);
+      expect(decoded!.data).toEqual(data);
+    }
+  });
+
+  it('round-trips mux terminal resize', () => {
+    const sessionId = 'my-session';
+    const encoded = encodeMuxTerminalResize(sessionId, 200, 50);
+    const decoded = decodeMuxFrame(encoded);
+
+    expect(decoded).not.toBeNull();
+    expect(decoded!.channel).toBe(Channel.MUX_TERMINAL_RESIZE);
+    if (decoded!.channel === Channel.MUX_TERMINAL_RESIZE) {
+      expect(decoded!.sessionId).toBe(sessionId);
+      expect(decoded!.cols).toBe(200);
+      expect(decoded!.rows).toBe(50);
+    }
+  });
+
+  it('round-trips mux data via decodeBinaryFrame', () => {
+    const data = new Uint8Array([0xde, 0xad]);
+    const encoded = encodeMuxTerminalData('sess', data);
+    const decoded = decodeBinaryFrame(encoded);
+
+    expect(decoded.channel).toBe(Channel.MUX_TERMINAL_DATA);
+    if (decoded.channel === Channel.MUX_TERMINAL_DATA) {
+      expect(decoded.sessionId).toBe('sess');
+      expect(decoded.data).toEqual(data);
+    }
+  });
+
+  it('round-trips mux resize via decodeBinaryFrame', () => {
+    const encoded = encodeMuxTerminalResize('sess', 80, 24);
+    const decoded = decodeBinaryFrame(encoded);
+
+    expect(decoded.channel).toBe(Channel.MUX_TERMINAL_RESIZE);
+    if (decoded.channel === Channel.MUX_TERMINAL_RESIZE) {
+      expect(decoded.sessionId).toBe('sess');
+      expect(decoded.cols).toBe(80);
+      expect(decoded.rows).toBe(24);
+    }
+  });
+});
+
 describe('decodeBinaryFrame', () => {
   it('decodes terminal data frame', () => {
     const data = new Uint8Array([0x48, 0x69]);
@@ -127,6 +366,36 @@ describe('decodeBinaryFrame', () => {
       expect(decoded.offset).toBe(5000);
       expect(decoded.data).toEqual(data);
     }
+  });
+
+  it('decodes mux terminal data frame', () => {
+    const data = new Uint8Array([0x01, 0x02, 0x03]);
+    const frame = encodeMuxTerminalData('session-abc', data);
+    const decoded = decodeBinaryFrame(frame);
+
+    expect(decoded.channel).toBe(Channel.MUX_TERMINAL_DATA);
+    if (decoded.channel === Channel.MUX_TERMINAL_DATA) {
+      expect(decoded.sessionId).toBe('session-abc');
+      expect(decoded.data).toEqual(data);
+    }
+  });
+
+  it('decodes mux terminal resize frame', () => {
+    const frame = encodeMuxTerminalResize('session-xyz', 160, 48);
+    const decoded = decodeBinaryFrame(frame);
+
+    expect(decoded.channel).toBe(Channel.MUX_TERMINAL_RESIZE);
+    if (decoded.channel === Channel.MUX_TERMINAL_RESIZE) {
+      expect(decoded.sessionId).toBe('session-xyz');
+      expect(decoded.cols).toBe(160);
+      expect(decoded.rows).toBe(48);
+    }
+  });
+
+  it('throws on invalid mux frame with zero sid_len', () => {
+    const frame = new Uint8Array([0x10, 0x00]);
+
+    expect(() => decodeBinaryFrame(frame)).toThrow('Invalid mux frame');
   });
 
   it('throws on unknown channel', () => {
@@ -201,6 +470,37 @@ describe('decodeBinaryFrame', () => {
     if (decoded.channel === Channel.TERMINAL_RESIZE) {
       expect(decoded.cols).toBe(132);
       expect(decoded.rows).toBe(43);
+    }
+  });
+
+  it('handles mux data frame from a subarray', () => {
+    const encoded = encodeMuxTerminalData('test-sid', new Uint8Array([0xcc]));
+
+    const largerBuffer = new Uint8Array(8 + encoded.length);
+    largerBuffer.set(encoded, 8);
+    const subFrame = largerBuffer.subarray(8, 8 + encoded.length);
+
+    const decoded = decodeBinaryFrame(subFrame);
+    expect(decoded.channel).toBe(Channel.MUX_TERMINAL_DATA);
+    if (decoded.channel === Channel.MUX_TERMINAL_DATA) {
+      expect(decoded.sessionId).toBe('test-sid');
+      expect(decoded.data).toEqual(new Uint8Array([0xcc]));
+    }
+  });
+
+  it('handles mux resize frame from a subarray', () => {
+    const encoded = encodeMuxTerminalResize('test-sid', 100, 30);
+
+    const largerBuffer = new Uint8Array(12 + encoded.length);
+    largerBuffer.set(encoded, 12);
+    const subFrame = largerBuffer.subarray(12, 12 + encoded.length);
+
+    const decoded = decodeBinaryFrame(subFrame);
+    expect(decoded.channel).toBe(Channel.MUX_TERMINAL_RESIZE);
+    if (decoded.channel === Channel.MUX_TERMINAL_RESIZE) {
+      expect(decoded.sessionId).toBe('test-sid');
+      expect(decoded.cols).toBe(100);
+      expect(decoded.rows).toBe(30);
     }
   });
 });
