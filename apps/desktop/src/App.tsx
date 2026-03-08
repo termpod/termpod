@@ -201,22 +201,21 @@ export function App() {
       if (source === 'local' && localClientId) {
         // Respond directly to the requesting local client
         relayInfo.sendToLocalClient?.(localClientId, response);
-      } else if (source === 'webrtc') {
-        // Respond via WebRTC DataChannel
-        relayInfo.sendWebRTCControl?.(JSON.parse(response));
       } else {
-        // Respond via relay (broadcast to all viewers)
-        relayInfo.sendSessionCreated?.(
+        // Respond via device WS — works for both WebRTC and relay sources.
+        // WebRTC is per-session so the new session won't have a WebRTC connection;
+        // device WS is device-level and the relay broadcasts to all viewers.
+        deviceWS.sendSessionCreated({
           requestId,
-          relayInfo.sessionId,
-          newSession.name,
-          newSession.cwd,
-          term?.cols ?? 120,
-          term?.rows ?? 40,
-        );
+          sessionId: relayInfo.sessionId,
+          name: newSession.name,
+          cwd: newSession.cwd,
+          ptyCols: term?.cols ?? 120,
+          ptyRows: term?.rows ?? 40,
+        });
       }
     },
-    [createSession, settings.shellPath],
+    [createSession, settings.shellPath, deviceWS.sendSessionCreated],
   );
 
   const [showSettings, setShowSettings] = useState(false);
