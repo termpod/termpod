@@ -54,25 +54,29 @@ iOS App (SwiftUI + SwiftTerm)
 
 ### 3. Relay Server (The "Hub")
 
-The relay is a Cloudflare Worker + Durable Object that sits between all clients. Each terminal session maps to one Durable Object.
+The relay is a Cloudflare Worker + two Durable Object types. The User DO acts as the device-level control plane; the TerminalSession DO handles per-session binary relay and scrollback.
 
 ```
 Cloudflare Edge
 ├── Worker (stateless entry point)
-│   ├── POST /auth/signup, /auth/login, /auth/refresh
-│   ├── POST /devices          → register device
-│   ├── GET  /devices          → list user's devices
-│   ├── POST /devices/:id/sessions → register session
-│   ├── GET  /sessions/:id/ws  → upgrade to WebSocket, route to DO
+│   ├── Auth: POST /auth/signup, /auth/login, /auth/refresh
+│   ├── Devices: GET/POST/DELETE /devices, heartbeat, offline
+│   ├── Sessions: GET/POST /devices/:id/sessions, DELETE/PATCH /sessions/:id
+│   ├── Device WS: /devices/:id/ws    → route to User DO
+│   ├── Session WS: /sessions/:id/ws  → route to TerminalSession DO
+│   └── Auto-update: /updates/latest.json, /updates/download/:filename
 └── Durable Objects
-    ├── TerminalSession (one per session)
-    │   ├── WebSocket connections (desktop + N viewers)
-    │   ├── Scrollback buffer (circular, persisted in SQLite)
-    │   ├── Session metadata (name, cwd, pty_size)
-    │   └── Hibernation (sleeps when idle, wakes on message)
-    └── User (one per email)
-        ├── Profile, devices, sessions
-        └── SQLite storage
+    ├── User (one per email) — device-level control plane
+    │   ├── Device WS connections (desktop + N mobile viewers)
+    │   ├── Forwards control messages between desktop ↔ mobile
+    │   ├── WebRTC signaling relay (offer/answer/ICE)
+    │   ├── Persists device list + session metadata in SQLite
+    │   └── Hibernatable WebSockets (cost efficient)
+    └── TerminalSession (one per session) — binary data relay
+        ├── Session WS connections (desktop + N viewers)
+        ├── Scrollback buffer (circular, persisted in SQLite)
+        ├── Session metadata (name, cwd, pty_size)
+        └── Hibernation (sleeps when idle, wakes on message)
 ```
 
 ## Data Flow
@@ -97,6 +101,16 @@ Mobile keyboard → WebSocket binary frame → Relay DO
                → Output flows back via the output path above
 ```
 
+### Device-Level Transport Architecture
+
+All transports operate at the **device level**, not per-session. A single connection carries multiplexed data for all active sessions using the multiplexed binary frame format:
+
+```
+[channel:u8][sid_len:u8][session_id:utf8][payload:bytes]
+```
+
+This means one Bonjour connection, one WebRTC DataChannel, and one relay Device WS handle all sessions for a device. The mobile app subscribes/unsubscribes from individual sessions as the user navigates.
+
 ### Local P2P (Same Network)
 
 When both devices are on the same LAN, the mobile app connects directly to the desktop via Bonjour, bypassing the relay entirely:
@@ -105,7 +119,8 @@ When both devices are on the same LAN, the mobile app connects directly to the d
 iPhone discovers Mac via Bonjour (_termpod._tcp)
  → Resolves IP + port
  → Direct WebSocket connection (ws://)
- → Same binary protocol, no relay hop
+ → Sends subscribe_session for each session to view
+ → Receives multiplexed binary frames for subscribed sessions
  → ~1-5ms latency vs ~30-80ms via relay
 ```
 
@@ -115,18 +130,20 @@ When devices are on different networks, a WebRTC DataChannel provides a peer-to-
 
 ```
 Desktop creates WebRTC offer
- → Offer sent to mobile via relay signaling
- → Mobile creates answer, sent back via relay
+ → Offer sent to mobile via Device WS (toClientId targeting)
+ → Mobile creates answer, sent back via Device WS
  → ICE candidates exchanged (STUN: Google + Cloudflare)
- → DataChannel opens → binary terminal data + JSON control messages
+ → DataChannel opens → multiplexed binary data + JSON control messages
  → ~10-30ms latency (no TURN — relay is the fallback if STUN fails)
 ```
 
-The relay always stays connected for signaling and as a fallback. WebRTC signaling messages (`webrtc_offer`, `webrtc_answer`, `webrtc_ice`) flow through the relay's text frames. Once the DataChannel is open, terminal data flows P2P.
+WebRTC signaling flows through the Device WS (User DO), not the per-session WS. A 30-second connection timeout automatically falls back to relay if negotiation fails.
 
-A 30-second connection timeout automatically falls back to relay if WebRTC negotiation fails.
+### Transport Priority and Data Flow
 
-Transport priority: **Local WS (Bonjour) > WebRTC DataChannel > Relay**
+Transport priority: **Local WS (Bonjour) > WebRTC DataChannel > Relay Device WS**
+
+The mobile app receives data from **all** connected transports simultaneously (whichever delivers first), but sends through the **best available** transport only. The relay Device WS is always connected regardless of P2P status — it serves as the fallback data path and the control plane for session management and WebRTC signaling.
 
 ### New Viewer Connects (mid-session)
 
@@ -150,15 +167,23 @@ The shell runs locally with full access to your filesystem, credentials, SSH key
 
 ### Relay uses Durable Objects with Hibernation
 
-Each session = one Durable Object. This gives us:
+Two DO types: **User DO** (one per account, device-level control plane) and **TerminalSession DO** (one per session, binary data relay). This gives us:
 - **Single-threaded coordination**: No race conditions when multiple clients send input
-- **Built-in persistence**: SQLite storage for scrollback that survives DO restarts
+- **Built-in persistence**: SQLite storage for scrollback and device/session metadata
 - **Cost efficiency**: Hibernatable WebSockets mean we only pay when data flows
 - **Global edge**: DO runs near the desktop client, minimizing latency
+
+### Device-level multiplexing over single connections
+
+Instead of one WebSocket per session, each transport (Bonjour, WebRTC, relay) maintains a single device-level connection. Sessions are multiplexed using a binary frame prefix: `[channel][sid_len][session_id][payload]`. This reduces connection overhead and simplifies transport management.
 
 ### Binary frames for terminal data, JSON for control
 
 Terminal output is raw bytes — ANSI escape codes, UTF-8 text, control characters. Terminal I/O uses WebSocket binary frames (zero copy, zero parse). Control messages (resize, auth, session management) use JSON text frames. The first byte of each binary frame is a channel ID for extensibility. See [PROTOCOL.md](./PROTOCOL.md) for details.
+
+### Auto-updates via relay proxy
+
+Desktop app auto-updates are served through the relay (`/updates/latest.json`, `/updates/download/:filename`), which proxies GitHub releases. This allows updates to work even from private repos without exposing GitHub tokens to clients.
 
 ## Configuration
 

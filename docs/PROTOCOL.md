@@ -7,10 +7,19 @@ TermPod uses WebSocket for all communication between clients (desktop, mobile) a
 - **Binary frames**: Terminal I/O data (high frequency, low overhead)
 - **Text frames**: JSON control messages (low frequency, structured)
 
-## Connection Lifecycle
+There are two WebSocket endpoints:
+
+1. **Session WS** (`/sessions/:id/ws`) — Per-session, used by the TerminalSession DO for binary terminal data relay and scrollback. This is the original endpoint.
+2. **Device WS** (`/devices/:deviceId/ws`) — Per-device, used by the User DO for session management, control messages, and multiplexed terminal data. This is the primary endpoint for both desktop and mobile.
+
+## Connection Lifecycles
+
+### Session WebSocket (`/sessions/:id/ws`)
+
+Per-session connection to a TerminalSession Durable Object. Handles binary terminal data relay and scrollback buffer.
 
 ```
-Client                          Relay (Worker → Durable Object)
+Client                          Relay (Worker → TerminalSession DO)
   │                                        │
   ├─── GET /sessions/:id/ws ──────────────►│
   │    Headers: Authorization: Bearer <token>
@@ -30,9 +39,36 @@ Client                          Relay (Worker → Durable Object)
   │                                        │
 ```
 
-## Binary Frame Format
+### Device WebSocket (`/devices/:deviceId/ws`)
 
-All binary frames start with a 1-byte channel ID:
+Per-device connection to the User Durable Object. Handles session discovery, management, WebRTC signaling, and multiplexed terminal data forwarding.
+
+```
+Client                          Relay (Worker → User DO)
+  │                                        │
+  ├─── GET /devices/:id/ws ──────────────►│
+  │    ?token=JWT (or first-message auth)  │
+  │                                        │
+  │◄── 101 Switching Protocols ────────────┤
+  │                                        │
+  ├─── TEXT: { type: "auth", token } ─────►│  (if no URL token)
+  │◄── TEXT: { type: "auth_ok" } ─────────┤
+  │                                        │
+  ├─── TEXT: { type: "hello", ... } ──────►│
+  │◄── TEXT: { type: "hello_ok", ... } ───┤
+  │                                        │
+  │    ═══ device control plane active ═══ │
+  │                                        │
+  ├─── TEXT: { type: "list_sessions" } ───►│  (forwarded to desktop)
+  │◄── TEXT: { type: "sessions_list" } ───┤  (from desktop)
+  │                                        │
+```
+
+## Binary Frame Formats
+
+### Session-Level Binary Frames
+
+Used on Session WS (`/sessions/:id/ws`). All frames start with a 1-byte channel ID:
 
 | Channel | Direction | Description |
 |---------|-----------|-------------|
@@ -40,7 +76,7 @@ All binary frames start with a 1-byte channel ID:
 | `0x01` | desktop → relay | Terminal resize: `[0x01][cols:u16be][rows:u16be]` |
 | `0x02` | relay → viewer | Scrollback chunk: `[0x02][offset:u32be][data...]` |
 
-### Terminal Data (0x00)
+#### Terminal Data (0x00)
 
 ```
 [0x00][raw terminal bytes...]
@@ -51,17 +87,17 @@ All binary frames start with a 1-byte channel ID:
 - No length prefix — WebSocket framing handles message boundaries
 - Maximum frame size: 64KB (split larger output into multiple frames)
 
-### Terminal Resize (0x01)
+#### Terminal Resize (0x01)
 
 ```
 [0x01][cols:u16be][rows:u16be]
 ```
 
 - Sent by desktop when the terminal window is resized
-- Relay broadcasts to all viewers so they can adjust their xterm.js viewport
+- Relay broadcasts to all viewers so they can adjust their viewport
 - Viewers do NOT send resize — they render at the desktop's dimensions
 
-### Scrollback Chunk (0x02)
+#### Scrollback Chunk (0x02)
 
 ```
 [0x02][offset:u32be][raw terminal bytes...]
@@ -72,11 +108,42 @@ All binary frames start with a 1-byte channel ID:
 - May be sent in multiple chunks if scrollback is large
 - After all scrollback is sent, relay sends a `ready` control message
 
+### Multiplexed Binary Frames (Device-Level)
+
+Used on Device WS (`/devices/:deviceId/ws`) and Local WS (Bonjour). Prefixes each frame with a session ID to multiplex multiple sessions over a single connection.
+
+```
+[channel:u8][sid_len:u8][sid:utf8][payload:bytes]
+```
+
+| Field | Size | Description |
+|-------|------|-------------|
+| `channel` | 1 byte | Channel ID (0x00, 0x01, 0x02) |
+| `sid_len` | 1 byte | Length of session ID string in bytes |
+| `sid` | `sid_len` bytes | Session ID (UTF-8 encoded) |
+| `payload` | remaining bytes | Channel-specific payload |
+
+#### Multiplexed Terminal Data (0x00)
+
+```
+[0x00][sid_len][sid][raw terminal bytes...]
+```
+
+#### Multiplexed Terminal Resize (0x01)
+
+```
+[0x01][sid_len][sid][cols:u16be][rows:u16be]
+```
+
 ## Control Messages (JSON Text Frames)
 
-### Client → Relay
+### Session WS Control Messages
 
-#### `hello`
+These messages are exchanged on the per-session WebSocket (`/sessions/:id/ws`).
+
+#### Client → Relay
+
+##### `hello`
 
 Sent immediately after WebSocket connection is established.
 
@@ -90,7 +157,7 @@ Sent immediately after WebSocket connection is established.
 }
 ```
 
-#### `input_lock_request`
+##### `input_lock_request`
 
 Optional — request exclusive input rights.
 
@@ -101,7 +168,7 @@ Optional — request exclusive input rights.
 }
 ```
 
-#### `input_lock_release`
+##### `input_lock_release`
 
 Release exclusive input.
 
@@ -112,7 +179,7 @@ Release exclusive input.
 }
 ```
 
-#### `ping`
+##### `ping`
 
 Application-level keepalive (in addition to WebSocket protocol pings).
 
@@ -123,9 +190,9 @@ Application-level keepalive (in addition to WebSocket protocol pings).
 }
 ```
 
-### Relay → Client
+#### Relay → Client
 
-#### `session_info`
+##### `session_info`
 
 Sent after `hello` is received. Provides session metadata.
 
@@ -144,9 +211,9 @@ Sent after `hello` is received. Provides session metadata.
 }
 ```
 
-#### `ready`
+##### `ready`
 
-Sent after all scrollback chunks have been delivered. Signals that the client should switch from "loading" to "live" state.
+Sent after all scrollback chunks have been delivered.
 
 ```json
 {
@@ -154,9 +221,9 @@ Sent after all scrollback chunks have been delivered. Signals that the client sh
 }
 ```
 
-#### `client_joined`
+##### `client_joined` / `client_left`
 
-Broadcast when a new client connects to the session.
+Broadcast when clients connect to or disconnect from the session.
 
 ```json
 {
@@ -167,10 +234,6 @@ Broadcast when a new client connects to the session.
 }
 ```
 
-#### `client_left`
-
-Broadcast when a client disconnects.
-
 ```json
 {
   "type": "client_left",
@@ -179,7 +242,7 @@ Broadcast when a client disconnects.
 }
 ```
 
-#### `pty_resize`
+##### `pty_resize`
 
 Broadcast when the desktop resizes the terminal (echoed from binary 0x01).
 
@@ -191,7 +254,7 @@ Broadcast when the desktop resizes the terminal (echoed from binary 0x01).
 }
 ```
 
-#### `input_lock_granted`
+##### `input_lock_granted` / `input_lock_denied`
 
 ```json
 {
@@ -199,8 +262,6 @@ Broadcast when the desktop resizes the terminal (echoed from binary 0x01).
   "clientId": "uuid-v4"
 }
 ```
-
-#### `input_lock_denied`
 
 ```json
 {
@@ -210,7 +271,7 @@ Broadcast when the desktop resizes the terminal (echoed from binary 0x01).
 }
 ```
 
-#### `session_ended`
+##### `session_ended`
 
 Sent when the desktop PTY exits or the desktop disconnects.
 
@@ -222,9 +283,7 @@ Sent when the desktop PTY exits or the desktop disconnects.
 }
 ```
 
-#### `pong`
-
-Response to client ping.
+##### `pong`
 
 ```json
 {
@@ -234,7 +293,7 @@ Response to client ping.
 }
 ```
 
-#### `error`
+##### `error`
 
 ```json
 {
@@ -244,120 +303,92 @@ Response to client ping.
 }
 ```
 
-## REST API (Worker)
+### Device WS Control Messages
 
-### `POST /sessions`
+These messages are exchanged on the per-device WebSocket (`/devices/:deviceId/ws`). The User DO forwards messages between desktop and mobile clients connected to the same account.
 
-Create a new session. Called by the desktop app.
+#### Authentication
 
-```
-Authorization: Bearer <user-token>
-Content-Type: application/json
+##### `auth`
 
+Sent as the first message if no JWT was provided in the URL query.
+
+```json
 {
-  "name": "my-project",
-  "ptySize": { "cols": 120, "rows": 40 }
-}
-
-→ 201 Created
-{
-  "sessionId": "session-abc123",
-  "token": "pair-token-xyz789",
-  "tokenExpiresAt": "2026-03-05T10:05:00Z",
-  "wsUrl": "wss://relay.termpod.dev/sessions/session-abc123/ws"
+  "type": "auth",
+  "token": "JWT_ACCESS_TOKEN"
 }
 ```
 
-### `GET /sessions`
+##### `auth_ok`
 
-List active sessions for the authenticated user.
+Confirms successful authentication.
 
-```
-Authorization: Bearer <user-token>
-
-→ 200 OK
+```json
 {
-  "sessions": [
-    {
-      "sessionId": "session-abc123",
-      "name": "my-project",
-      "cwd": "/Users/dev/code/my-project",
-      "createdAt": "2026-03-05T10:00:00Z",
-      "lastActivity": "2026-03-05T12:34:56Z",
-      "viewerCount": 1,
-      "status": "active"
-    }
+  "type": "auth_ok"
+}
+```
+
+#### Handshake
+
+##### `hello` (device)
+
+```json
+{
+  "type": "hello",
+  "role": "desktop" | "viewer",
+  "device": "macos" | "iphone" | "ipad",
+  "clientId": "uuid-v4",
+  "version": 1
+}
+```
+
+##### `hello_ok`
+
+```json
+{
+  "type": "hello_ok",
+  "clients": [
+    { "clientId": "uuid", "role": "desktop", "device": "macos", "connectedAt": "ISO-8601" }
   ]
 }
 ```
 
-## WebRTC Signaling (via Relay)
+#### Session Management
 
-WebRTC signaling messages are exchanged as JSON text frames through the relay. They are forwarded to the other peer(s) in the same session.
+These are forwarded between desktop and mobile clients by the User DO.
 
-### `webrtc_offer`
-
-Sent by desktop to initiate a WebRTC connection.
-
-```json
-{
-  "type": "webrtc_offer",
-  "sdp": "v=0\r\no=- ..."
-}
-```
-
-### `webrtc_answer`
-
-Sent by mobile in response to an offer.
-
-```json
-{
-  "type": "webrtc_answer",
-  "sdp": "v=0\r\no=- ..."
-}
-```
-
-### `webrtc_ice`
-
-ICE candidate exchange (sent by both peers).
-
-```json
-{
-  "type": "webrtc_ice",
-  "candidate": "candidate:...",
-  "sdpMid": "0",
-  "sdpMLineIndex": 0
-}
-```
-
-STUN servers used: Google (`stun:stun.l.google.com:19302`) and Cloudflare (`stun:stun.cloudflare.com:3478`). No TURN server — the relay WebSocket serves as the fallback transport.
-
-## P2P Control Messages
-
-These JSON messages are sent over the WebRTC DataChannel or local WebSocket (Bonjour) for session management without relay involvement.
-
-### `list_sessions`
-
-Request the desktop to list all active PTY sessions.
+##### `list_sessions`
 
 ```json
 { "type": "list_sessions" }
 ```
 
-Response:
+##### `sessions_list`
 
 ```json
 {
   "type": "sessions_list",
   "sessions": [
-    { "id": "uuid", "name": "my-project", "cwd": "/path", "processName": "claude", "ptyCols": 120, "ptyRows": 40 }
+    {
+      "id": "uuid",
+      "name": "my-project",
+      "cwd": "/path",
+      "processName": "claude",
+      "ptyCols": 120,
+      "ptyRows": 40,
+      "createdAt": "ISO-8601"
+    }
   ]
 }
 ```
 
-### `create_session_request`
+##### `sessions_updated`
 
-Request the desktop to spawn a new PTY session.
+Broadcast by desktop when the session list changes (same structure as `sessions_list`). The User DO also persists this to SQLite for offline device queries.
+
+##### `create_session_request`
 
 ```json
 {
@@ -366,7 +397,7 @@ Request the desktop to spawn a new PTY session.
 }
 ```
 
-Response:
+##### `session_created`
 
 ```json
 {
@@ -380,9 +411,7 @@ Response:
 }
 ```
 
-### `delete_session`
-
-Request the desktop to close a PTY session.
+##### `delete_session`
 
 ```json
 {
@@ -391,9 +420,7 @@ Request the desktop to close a PTY session.
 }
 ```
 
-### `session_closed`
-
-Notification that a session has been closed (sent by desktop to viewers).
+##### `session_closed`
 
 ```json
 {
@@ -402,15 +429,194 @@ Notification that a session has been closed (sent by desktop to viewers).
 }
 ```
 
+#### Client Presence
+
+##### `client_joined` / `client_left`
+
+Broadcast by the User DO when clients connect to or disconnect from the device WS.
+
+```json
+{
+  "type": "client_joined",
+  "clientId": "uuid",
+  "role": "desktop" | "viewer",
+  "device": "macos" | "iphone" | "ipad"
+}
+```
+
+```json
+{
+  "type": "client_left",
+  "clientId": "uuid",
+  "role": "desktop" | "viewer",
+  "device": "macos"
+}
+```
+
+#### WebRTC Signaling
+
+WebRTC signaling is routed through the Device WS (User DO) with a `toClientId` field for peer targeting.
+
+##### `webrtc_offer`
+
+```json
+{
+  "type": "webrtc_offer",
+  "toClientId": "target-uuid",
+  "from": "source-uuid",
+  "offer": { "type": "offer", "sdp": "v=0\r\no=- ..." }
+}
+```
+
+##### `webrtc_answer`
+
+```json
+{
+  "type": "webrtc_answer",
+  "toClientId": "target-uuid",
+  "from": "source-uuid",
+  "answer": { "type": "answer", "sdp": "v=0\r\no=- ..." }
+}
+```
+
+##### `webrtc_ice`
+
+```json
+{
+  "type": "webrtc_ice",
+  "toClientId": "target-uuid",
+  "from": "source-uuid",
+  "candidate": { "candidate": "candidate:...", "sdpMLineIndex": 0 }
+}
+```
+
+STUN servers: Google (`stun:stun.l.google.com:19302`) and Cloudflare (`stun:stun.cloudflare.com:3478`). No TURN — the relay WebSocket is the fallback transport.
+
+### Local WS Control Messages (Bonjour P2P)
+
+These messages are sent over the direct local WebSocket for session subscription management.
+
+#### `subscribe_session`
+
+Sent by mobile to start receiving multiplexed binary data for a session.
+
+```json
+{
+  "type": "subscribe_session",
+  "sessionId": "uuid"
+}
+```
+
+#### `unsubscribe_session`
+
+```json
+{
+  "type": "unsubscribe_session",
+  "sessionId": "uuid"
+}
+```
+
+Session management messages (`list_sessions`, `sessions_list`, `create_session_request`, `delete_session`, `session_closed`) also work over the local WS.
+
+## REST API (Worker)
+
+### Auth Endpoints (Public)
+
+#### `POST /auth/signup`
+
+```
+Content-Type: application/json
+
+{ "email": "user@example.com", "password": "secret" }
+
+→ 200 OK
+{ "accessToken": "JWT", "refreshToken": "JWT" }
+```
+
+#### `POST /auth/login`
+
+Same request/response as signup.
+
+#### `POST /auth/refresh`
+
+```
+Content-Type: application/json
+
+{ "refreshToken": "JWT" }
+
+→ 200 OK
+{ "accessToken": "JWT", "refreshToken": "JWT" }
+```
+
+### Device Endpoints (Authenticated)
+
+#### `GET /devices`
+
+List all devices registered to the authenticated user.
+
+#### `POST /devices`
+
+Register a new device.
+
+#### `DELETE /devices/:deviceId`
+
+Remove a device.
+
+#### `POST /devices/:deviceId/heartbeat`
+
+Device keepalive.
+
+#### `POST /devices/:deviceId/offline`
+
+Mark device as offline.
+
+### Session Endpoints (Authenticated)
+
+#### `GET /devices/:deviceId/sessions`
+
+List sessions for a device.
+
+#### `POST /devices/:deviceId/sessions`
+
+Register a new session on a device.
+
+#### `DELETE /sessions/:sessionId`
+
+Delete a session.
+
+#### `PATCH /sessions/:sessionId`
+
+Update session metadata (name, cwd, processName).
+
+### WebSocket Endpoints (Authenticated)
+
+#### `GET /devices/:deviceId/ws`
+
+Device-level WebSocket. Auth via `?token=JWT` query param or first-message `auth` JSON.
+
+#### `GET /sessions/:sessionId/ws`
+
+Session-level WebSocket. Auth via `Authorization: Bearer <token>` header or `?token=JWT`.
+
+### Auto-Update Proxy (Public)
+
+#### `GET /updates/latest.json`
+
+Returns latest release metadata from GitHub. Download URLs are rewritten to proxy through the relay (for private repos).
+
+#### `GET /updates/download/:filename`
+
+Proxies release artifact downloads from GitHub.
+
 ## Transport Priority
 
 TermPod uses three transports in order of preference:
 
-1. **Local WebSocket (Bonjour)** — Same LAN, ~1-5ms. Desktop advertises `_termpod._tcp` via mDNS.
-2. **WebRTC DataChannel** — Different networks, ~10-30ms. STUN-based P2P via Google/Cloudflare STUN servers.
-3. **Relay WebSocket** — Fallback, ~30-80ms. Always connected for signaling and scrollback.
+1. **Local WebSocket (Bonjour)** — Same LAN, ~1-5ms. Desktop advertises `_termpod._tcp` via mDNS. Single multiplexed connection per device.
+2. **WebRTC DataChannel** — Different networks, ~10-30ms. STUN-based P2P. Signaling routed through Device WS.
+3. **Relay Device WS** — Fallback, ~30-80ms. Always connected for signaling, session management, and as fallback data path.
 
-The relay always stays connected regardless of which transport is active. Terminal data and input are sent through the best available transport only. If a P2P transport disconnects between selection and send, the relay is used as a safety net.
+All transports use the same multiplexed binary frame format (`[channel][sid_len][sid][payload]`). The mobile app receives data from ALL connected transports but sends only through the best available one (priority order above).
 
 ## Versioning
 

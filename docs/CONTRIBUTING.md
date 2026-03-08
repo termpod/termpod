@@ -85,19 +85,21 @@ For iOS, run `pnpm ios:config` to generate `Config.xcconfig` from your `.env`.
 - Run the desktop app and iOS app on the same WiFi network
 - The iOS app should discover the desktop via Bonjour automatically
 - Transport badge should show "Local" (green) on device list and session views
+- A single local WebSocket carries all sessions (multiplexed binary frames)
+- Mobile subscribes/unsubscribes from sessions via `subscribe_session`/`unsubscribe_session` control messages
 - Terminal data flows directly over LAN WebSocket (~1-5ms)
 
 ### WebRTC
 - Connect the iOS app from a different network (e.g. cellular, different WiFi)
-- WebRTC signaling flows through the relay; data flows P2P via DataChannel
+- WebRTC signaling flows through the Device WS (User DO); data flows P2P via DataChannel
 - Transport badge should show "P2P" (blue) once the DataChannel opens
 - If STUN fails (e.g. symmetric NAT), it falls back to relay after 30s timeout
 - Session management (list, create, delete) works over the DataChannel
 
 ### Relay (fallback)
-- If both Bonjour and WebRTC are unavailable, all data flows through the relay
+- If both Bonjour and WebRTC are unavailable, all data flows through the relay Device WS
 - Transport badge shows "Relay" (orange)
-- The relay is always connected for signaling regardless of active transport
+- The relay Device WS is always connected for signaling and session management regardless of active transport
 
 ## Pull Requests
 

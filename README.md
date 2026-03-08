@@ -41,6 +41,7 @@ Sessions survive disconnects — close the app, reopen it, and you're right wher
 - **WebRTC P2P** — Peer-to-peer across networks via STUN, relay as fallback
 - **Multi-session tabs** — Multiple terminal sessions, each in its own tab
 - **Session management** — Named by project directory, device-aware
+- **Auto-updates** — Desktop app updates automatically via relay proxy
 - **Works with everything** — Claude Code, Codex, npm, docker, any CLI
 
 ## Tech Stack
@@ -52,9 +53,11 @@ Sessions survive disconnects — close the app, reopen it, and you're right wher
 | PTY | tauri-plugin-pty (Rust) |
 | Relay | Cloudflare Workers + Durable Objects |
 | Protocol | WebSocket (binary frames for data, JSON for control) |
+| Transport | Device-level multiplexed connections (single WS per transport) |
 | Auth | JWT (HS256) |
 | Local transport | Bonjour / mDNS |
 | P2P transport | WebRTC DataChannel (livekit/webrtc) |
+| Auto-update | tauri-plugin-updater via relay proxy |
 
 ## Project Structure
 
@@ -73,11 +76,13 @@ termpod/
 │   ├── ui/               # Shared React components
 │   ├── protocol/         # WebSocket message types + binary encoding
 │   └── shared/           # Constants, types, utilities
-├── relay/                # Cloudflare Worker + Durable Object
+├── relay/                # Cloudflare Worker + Durable Objects
 │   ├── src/
-│   │   ├── worker.ts     # Entry point, auth, routing
-│   │   ├── session.ts    # Durable Object (WebSocket hub + scrollback)
-│   │   └── jwt.ts        # JWT signing + verification
+│   │   ├── worker.ts     # Entry point, auth, routing, auto-update proxy
+│   │   ├── user.ts       # User DO (device control plane, session mgmt)
+│   │   ├── session.ts    # TerminalSession DO (binary relay + scrollback)
+│   │   ├── jwt.ts        # JWT signing + verification
+│   │   └── auth.ts       # Password hashing (PBKDF2)
 │   └── wrangler.toml
 ├── docs/                 # Architecture docs
 ├── turbo.json            # Turborepo config
