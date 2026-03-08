@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		137080C40CE52D85B1C6F00F /* RelayConnectionStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792D7A6DFFA33C35A9053F67 /* RelayConnectionStateTests.swift */; };
 		169B3E48F91D8B0A314439D6 /* LockScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52820BB61A9AA96759E63593 /* LockScreenView.swift */; };
 		18ECB53DE13E841EA94AC985 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55CA9DE296CC288EFD4C747D /* SettingsView.swift */; };
 		208941FF81697CC3C6C72249 /* LiveKitWebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = C686E12D6D627D78D4E10351 /* LiveKitWebRTC */; };
@@ -38,11 +39,14 @@
 		C721A1302A6AB28278F6F5D5 /* RelayClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88D42769FD28AA23E4D775DD /* RelayClient.swift */; };
 		C82094DBDCDB97DB8EDD7BED /* SessionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70D9AAC4418354C463392FA /* SessionDetailView.swift */; };
 		CDF95D66D906C9D17E56F859 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA835A2D44DCC88387B48449 /* AuthService.swift */; };
+		CE41D6DADE3EA054CAA1F640 /* ReconnectionManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 960DA694314DEED6D54A734C /* ReconnectionManagerTests.swift */; };
 		D64DEB2D9CC93AE91A5813A0 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85FC2E09AA694551F2E70116 /* OnboardingView.swift */; };
 		D83FBCA10AD10B036876AC68 /* WebRTCTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B74C0D47AE677EA73D9F1EA /* WebRTCTransport.swift */; };
 		E30E11F23F17C5E8D40D1414 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 012D6D7CF30481F06B4F7465 /* AppState.swift */; };
 		EB1E906EA590973E13780EF7 /* ProcessIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90250A199EE661EEBEB629EA /* ProcessIcon.swift */; };
+		F02B602614F1A3CF68B271D9 /* TransportPriorityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33A76E2F6634C9B226F12EA4 /* TransportPriorityTests.swift */; };
 		FB517BEAB72E391E79410AED /* ConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB034420FF46809865A261D9 /* ConnectionManager.swift */; };
+		FD3D8A982D1530C363574847 /* MuxFrameParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F71407A335F2C0BC3162A86 /* MuxFrameParsingTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,29 +66,33 @@
 		202B47557E63F150562A1D4B /* DeviceTransportManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceTransportManager.swift; sourceTree = "<group>"; };
 		308996CBB5A1661B87904400 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		3324D183A1853C7DBBB1E145 /* Transport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transport.swift; sourceTree = "<group>"; };
+		33A76E2F6634C9B226F12EA4 /* TransportPriorityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportPriorityTests.swift; sourceTree = "<group>"; };
 		37D41903B18EFF8D1562741B /* Clip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Clip.swift; sourceTree = "<group>"; };
 		401BCE7EA682F7E1EE1E68CC /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		4D653DE01157D8934F0943A9 /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
 		52820BB61A9AA96759E63593 /* LockScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenView.swift; sourceTree = "<group>"; };
 		55CA9DE296CC288EFD4C747D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		59439100CDD413A19780061B /* BiometricService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricService.swift; sourceTree = "<group>"; };
+		5F71407A335F2C0BC3162A86 /* MuxFrameParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuxFrameParsingTests.swift; sourceTree = "<group>"; };
 		67E0E7A70B0425BD15A1D034 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6AD004AA104E14274ECB150D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		6EFA137D6BCE65AB2585ABFD /* TermPod.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TermPod.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6EFA137D6BCE65AB2585ABFD /* TermPod.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TermPod.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6FAD268E70962E4FABA50804 /* TermPodApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermPodApp.swift; sourceTree = "<group>"; };
 		78CD626EAADBF090C1A20B0A /* SpecialKeysBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpecialKeysBar.swift; sourceTree = "<group>"; };
+		792D7A6DFFA33C35A9053F67 /* RelayConnectionStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayConnectionStateTests.swift; sourceTree = "<group>"; };
 		7A9F879B9B2B12FA50E3F15B /* ReconnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReconnectionManager.swift; sourceTree = "<group>"; };
 		7AD0D18605076142C8E08D02 /* TerminalHostView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalHostView.swift; sourceTree = "<group>"; };
 		841A266B269D03CB688C05B3 /* RemoteTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteTerminalView.swift; sourceTree = "<group>"; };
 		85FC2E09AA694551F2E70116 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		88D42769FD28AA23E4D775DD /* RelayClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayClient.swift; sourceTree = "<group>"; };
 		90250A199EE661EEBEB629EA /* ProcessIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessIcon.swift; sourceTree = "<group>"; };
+		960DA694314DEED6D54A734C /* ReconnectionManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReconnectionManagerTests.swift; sourceTree = "<group>"; };
 		99DAF0CE05725E8242B9B9EA /* TerminalTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalTheme.swift; sourceTree = "<group>"; };
 		9B74C0D47AE677EA73D9F1EA /* WebRTCTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebRTCTransport.swift; sourceTree = "<group>"; };
 		A69F87DDD0F1A0630354FAFC /* termpod.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = termpod.icon; sourceTree = "<group>"; };
 		A70D9AAC4418354C463392FA /* SessionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionDetailView.swift; sourceTree = "<group>"; };
 		AD1B77E6B191FF527246DAED /* TerminalSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSettings.swift; sourceTree = "<group>"; };
-		AD66FE26C3A93B9C7E8DD75D /* TermPodTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TermPodTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AD66FE26C3A93B9C7E8DD75D /* TermPodTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TermPodTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B5FD9C0B964B0BAD2D902C42 /* LocalTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTransport.swift; sourceTree = "<group>"; };
 		C11EA916A9631A12DEC0CC2F /* ClipsEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipsEditorView.swift; sourceTree = "<group>"; };
 		C1658B6D700C3D56AAE7874A /* HapticService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticService.swift; sourceTree = "<group>"; };
@@ -112,6 +120,10 @@
 		0BAEADE9FACDEFA9430E89E5 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				5F71407A335F2C0BC3162A86 /* MuxFrameParsingTests.swift */,
+				960DA694314DEED6D54A734C /* ReconnectionManagerTests.swift */,
+				792D7A6DFFA33C35A9053F67 /* RelayConnectionStateTests.swift */,
+				33A76E2F6634C9B226F12EA4 /* TransportPriorityTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -339,6 +351,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FD3D8A982D1530C363574847 /* MuxFrameParsingTests.swift in Sources */,
+				CE41D6DADE3EA054CAA1F640 /* ReconnectionManagerTests.swift in Sources */,
+				137080C40CE52D85B1C6F00F /* RelayConnectionStateTests.swift in Sources */,
+				F02B602614F1A3CF68B271D9 /* TransportPriorityTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -396,6 +412,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -413,6 +430,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -433,7 +451,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "$(TERMPOD_TEAM_ID)";
 				INFOPLIST_FILE = TermPod/App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -456,7 +474,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "$(TERMPOD_TEAM_ID)";
 				INFOPLIST_FILE = TermPod/App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
