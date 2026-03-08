@@ -382,6 +382,13 @@ extension WebRTCTransport: LKRTCPeerConnectionDelegate {
         Task { @MainActor in
             self.dataChannel = dataChannel
             dataChannel.delegate = self
+            // The DataChannel may already be .open by the time we set the delegate,
+            // meaning dataChannelDidChangeState(.open) was missed. Check and fire now.
+            if dataChannel.readyState == .open {
+                self.cancelConnectionTimeout()
+                self.onConnected?()
+                self.queryConnectionMode()
+            }
         }
     }
 }
