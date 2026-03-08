@@ -255,13 +255,45 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
     };
   }, [session?.id, session?.exited, connect, disconnect, sendTerminalData]);
 
-  // Combine connected devices from all transports (memoized to prevent render loops)
+  // Combine connected devices from all transports, merging entries that represent
+  // the same physical device (e.g. an iPhone connected via relay + local + WebRTC).
+  // Group by device type and collect all transports per device.
   const webrtcConnectedAt = useRef(new Date().toISOString());
-  const allConnectedDevices = useMemo(() => [
-    ...relay.connectedDevices,
-    ...localServer.localDevices,
-    ...(webrtc.isConnected ? [{ clientId: 'webrtc-peer', device: 'unknown', transport: 'webrtc' as const, connectedAt: webrtcConnectedAt.current }] : []),
-  ], [relay.connectedDevices, localServer.localDevices, webrtc.isConnected]);
+  const allConnectedDevices = useMemo(() => {
+    // Filter out 'macos' entries — the desktop should not show itself as a connected device
+    const raw = [
+      ...relay.connectedDevices.filter((d) => d.device !== 'macos'),
+      ...localServer.localDevices.filter((d) => d.device !== 'macos'),
+    ];
+
+    if (webrtc.isConnected) {
+      // Infer WebRTC peer's device type from relay's client list (the peer
+      // always connects via relay first before upgrading to WebRTC).
+      const peerDevice = relay.connectedDevices.find((d) => d.device !== 'macos')?.device ?? 'unknown';
+      raw.push({ clientId: 'webrtc-peer', device: peerDevice, transport: 'webrtc' as const, connectedAt: webrtcConnectedAt.current });
+    }
+
+    // Merge by device type — collect transports per unique device
+    const byDevice = new Map<string, { device: string; transports: string[]; connectedAt: string }>();
+
+    for (const d of raw) {
+      const existing = byDevice.get(d.device);
+
+      if (existing) {
+        if (!existing.transports.includes(d.transport)) {
+          existing.transports.push(d.transport);
+        }
+        // Keep earliest connectedAt
+        if (d.connectedAt < existing.connectedAt) {
+          existing.connectedAt = d.connectedAt;
+        }
+      } else {
+        byDevice.set(d.device, { device: d.device, transports: [d.transport], connectedAt: d.connectedAt });
+      }
+    }
+
+    return [...byDevice.values()];
+  }, [relay.connectedDevices, localServer.localDevices, webrtc.isConnected]);
 
   return {
     ...relay,

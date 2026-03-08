@@ -5,12 +5,12 @@ import type { TerminalThemeColors } from '@termpod/ui';
 import type { PtySize } from '@termpod/protocol';
 import type { TerminalSession } from '../hooks/useSessionManager';
 import { useRelayBridge } from '../hooks/useRelayBridge';
-import type { RelayStatus, ConnectedDevice } from '../hooks/useRelayConnection';
+import type { RelayStatus, MergedDevice } from '../hooks/useRelayConnection';
 
 export interface RelayInfo {
   status: RelayStatus;
   viewers: number;
-  connectedDevices: ConnectedDevice[];
+  connectedDevices: MergedDevice[];
   sessionId: string | null;
   sendSessionCreated?: (requestId: string, sessionId: string, name: string, cwd: string, ptyCols: number, ptyRows: number) => void;
   sendToLocalClient?: (clientId: string, json: string) => void;

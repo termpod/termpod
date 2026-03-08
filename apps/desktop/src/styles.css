@@ -249,6 +249,24 @@ body,
   gap: 6px;
   -webkit-app-region: no-drag;
   app-region: no-drag;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+
+.relay-dot-inline:hover {
+  background: var(--bg-hover);
+}
+
+.relay-dot-active {
+  background: var(--accent-subtle);
+}
+
+.relay-dot-active:hover {
+  background: var(--accent-subtle-hover);
 }
 
 .relay-dot-inline .relay-dot {
@@ -284,6 +302,223 @@ body,
   padding: 1px 6px;
   border-radius: 3px;
   margin-left: 4px;
+}
+
+/* ── Connected Devices Panel ── */
+@keyframes cdp-slide-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.cdp-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 280px;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+  animation: cdp-slide-in 0.15s ease;
+  font-family: var(--font-sans);
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
+}
+
+.cdp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.cdp-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cdp-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.cdp-close-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.cdp-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 0;
+}
+
+.cdp-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.cdp-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cdp-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+
+.cdp-session-group {
+  padding: 0 16px;
+}
+
+.cdp-session-header {
+  padding: 8px 0 4px;
+}
+
+.cdp-session-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cdp-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0 8px;
+}
+
+.cdp-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cdp-status-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.cdp-device-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cdp-device-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+}
+
+.cdp-device-row:hover {
+  background: var(--bg-hover);
+}
+
+.cdp-device-icon {
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.cdp-device-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cdp-device-name {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.cdp-device-transports {
+  display: flex;
+  gap: 4px;
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+
+.cdp-device-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+.cdp-transport-badge {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 4px;
+  line-height: 1.4;
+}
+
+.cdp-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 12px 0;
+}
+
+.cdp-empty-session {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 4px 0 8px;
+}
+
+.cdp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 8px;
+}
+
+.cdp-empty-icon {
+  opacity: 0.5;
+  margin-bottom: 4px;
+}
+
+.cdp-empty-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.cdp-empty-hint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.4;
+}
+
+.cdp-summary {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 12px 16px 4px;
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
 }
 
 /* ── Modal Base ── */

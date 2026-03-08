@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { TerminalSession } from '../hooks/useSessionManager';
-import type { RelayStatus as RelayStatusType, ConnectedDevice } from '../hooks/useRelayConnection';
+import type { RelayStatus as RelayStatusType, MergedDevice } from '../hooks/useRelayConnection';
 import { folderIcon } from '@termpod/shared';
 import type { TabIcon } from '@termpod/shared';
 
@@ -13,10 +13,12 @@ interface TabBarProps {
   onCreate: () => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
   relayStatus: RelayStatusType;
-  connectedDevices: ConnectedDevice[];
+  connectedDevices: MergedDevice[];
+  onToggleDevices?: () => void;
+  devicesPanelOpen?: boolean;
 }
 
-export function TabBar({ sessions, activeId, onSelect, onClose, onCreate, onReorder, relayStatus, connectedDevices }: TabBarProps) {
+export function TabBar({ sessions, activeId, onSelect, onClose, onCreate, onReorder, relayStatus, connectedDevices, onToggleDevices, devicesPanelOpen }: TabBarProps) {
   const handleDrag = useCallback((e: React.MouseEvent) => {
     // Only drag if clicking directly on the tab-bar (not on child buttons/tabs)
     if (e.target === e.currentTarget) {
@@ -153,7 +155,7 @@ export function TabBar({ sessions, activeId, onSelect, onClose, onCreate, onReor
       <button className="tab-new" onClick={onCreate} type="button" aria-label="New session (Cmd+T)" title="New session (Cmd+T)">
         +
       </button>
-      <RelayDot status={relayStatus} connectedDevices={connectedDevices} />
+      <RelayDot status={relayStatus} connectedDevices={connectedDevices} onClick={onToggleDevices} active={devicesPanelOpen} />
     </div>
   );
 }
@@ -233,32 +235,17 @@ const STATUS_LABELS: Record<RelayStatusType, string> = {
   error: 'Connection error',
 };
 
-const DEVICE_LABELS: Record<string, string> = {
-  iphone: 'iPhone',
-  ipad: 'iPad',
-  macos: 'Mac',
-  browser: 'Browser',
-  unknown: 'Unknown',
-};
-
-const TRANSPORT_LABELS: Record<string, string> = {
-  relay: 'Relay',
-  local: 'Local',
-  webrtc: 'P2P',
-};
-
-function RelayDot({ status, connectedDevices }: { status: RelayStatusType; connectedDevices: ConnectedDevice[] }) {
+function RelayDot({ status, connectedDevices, onClick, active }: { status: RelayStatusType; connectedDevices: MergedDevice[]; onClick?: () => void; active?: boolean }) {
   const count = connectedDevices.length;
-  const tooltip = count > 0
-    ? `${STATUS_LABELS[status]}\n${count} viewer${count > 1 ? 's' : ''}:\n${connectedDevices.map((d) => `  ${DEVICE_LABELS[d.device] ?? d.device} (${TRANSPORT_LABELS[d.transport] ?? d.transport})`).join('\n')}`
-    : STATUS_LABELS[status];
 
   return (
-    <div
-      className="relay-dot-inline"
+    <button
+      className={`relay-dot-inline${active ? ' relay-dot-active' : ''}`}
       role="status"
-      aria-label={`Relay: ${STATUS_LABELS[status]}${count > 0 ? `, ${count} viewers` : ''}`}
-      title={tooltip}
+      type="button"
+      aria-label={`Relay: ${STATUS_LABELS[status]}${count > 0 ? `, ${count} viewers` : ''}. Click to toggle connected devices panel.`}
+      title={`${STATUS_LABELS[status]}${count > 0 ? ` — ${count} viewer${count > 1 ? 's' : ''}` : ''}`}
+      onClick={onClick}
     >
       <span
         className="relay-dot"
@@ -269,6 +256,6 @@ function RelayDot({ status, connectedDevices }: { status: RelayStatusType; conne
       {count > 0 && (
         <span className="relay-viewers">{count}</span>
       )}
-    </div>
+    </button>
   );
 }

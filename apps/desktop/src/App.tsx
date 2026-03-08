@@ -10,6 +10,7 @@ import { TabBar } from './components/TabBar';
 import { TerminalPanel } from './components/TerminalPanel';
 import type { RelayInfo } from './components/TerminalPanel';
 import { SettingsPanel } from './components/SettingsPanel';
+import { ConnectedDevicesPanel } from './components/ConnectedDevicesPanel';
 import { LoginScreen } from './components/LoginScreen';
 import { FullDiskAccessBanner } from './components/FullDiskAccessBanner';
 import { KeybindingsPanel } from './components/KeybindingsPanel';
@@ -124,6 +125,7 @@ export function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showKeybindings, setShowKeybindings] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showDevicesPanel, setShowDevicesPanel] = useState(false);
   const { bindings } = useKeybindings();
   const initializedRef = useRef(false);
   const [relayMap, setRelayMap] = useState<Map<string, RelayInfo>>(new Map());
@@ -228,6 +230,20 @@ export function App() {
   }, [sessions, relayMap]);
 
   const activeRelay = activeId ? relayMap.get(activeId) : null;
+
+  const sessionDevices = useMemo(() => {
+    return sessions
+      .filter((s) => !s.exited && !s.closing)
+      .map((s) => {
+        const info = relayMap.get(s.id);
+        return {
+          sessionName: s.name,
+          sessionId: info?.sessionId ?? null,
+          relayStatus: info?.status ?? ('disconnected' as const),
+          devices: info?.connectedDevices ?? [],
+        };
+      });
+  }, [sessions, relayMap]);
 
   const handleRelayChange = useCallback((sessionId: string, info: RelayInfo) => {
     setRelayMap((prev) => {
@@ -556,6 +572,8 @@ export function App() {
         onReorder={reorderSessions}
         relayStatus={activeRelay?.status ?? 'disconnected'}
         connectedDevices={activeRelay?.connectedDevices ?? []}
+        onToggleDevices={() => setShowDevicesPanel((v) => !v)}
+        devicesPanelOpen={showDevicesPanel}
       />
       <FullDiskAccessBanner />
       <div className="terminal-area">
@@ -633,6 +651,12 @@ export function App() {
             }}
           />
         ))}
+        {showDevicesPanel && (
+          <ConnectedDevicesPanel
+            sessionDevices={sessionDevices}
+            onClose={() => { setShowDevicesPanel(false); setTimeout(focusActive, 50); }}
+          />
+        )}
       </div>
       {showSettings && (
         <SettingsPanel

@@ -20,6 +20,12 @@ export interface ConnectedDevice {
   connectedAt: string;
 }
 
+export interface MergedDevice {
+  device: string;
+  transports: string[];
+  connectedAt: string;
+}
+
 interface RelaySession {
   sessionId: string;
 }
