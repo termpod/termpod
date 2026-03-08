@@ -33,6 +33,10 @@ final class DeviceTransportManager: ObservableObject {
     private var sessionCreatedHandlers: [String: (_ requestId: String, _ sessionId: String, _ name: String, _ cwd: String, _ ptyCols: Int, _ ptyRows: Int) -> Void] = [:]
     private var sessionsListHandlers: [String: ([DeviceSessionInfo]) -> Void] = [:]
 
+    /// Per-session data/resize handlers for multiplexed local WS.
+    private var sessionDataHandlers: [String: (Data) -> Void] = [:]
+    private var sessionResizeHandlers: [String: (Int, Int) -> Void] = [:]
+
     // MARK: - Transports
 
     /// Local Bonjour + WebSocket (control-only, no sessionId)
@@ -185,6 +189,60 @@ final class DeviceTransportManager: ObservableObject {
         localConnected || (registeredWebRTC?.isConnected ?? false)
     }
 
+    /// Whether the local WS transport is connected.
+    var isLocalConnected: Bool { localConnected }
+
+    // MARK: - Session Multiplexing (Local WS)
+
+    /// Subscribe to session data over the multiplexed local WS connection.
+    func subscribeSession(sessionId: String, onData: @escaping (Data) -> Void, onResize: @escaping (Int, Int) -> Void) {
+        sessionDataHandlers[sessionId] = onData
+        sessionResizeHandlers[sessionId] = onResize
+
+        guard localConnected else { return }
+        sendLocalControl(["type": "subscribe_session", "sessionId": sessionId])
+    }
+
+    /// Unsubscribe from session data.
+    func unsubscribeSession(sessionId: String) {
+        sessionDataHandlers.removeValue(forKey: sessionId)
+        sessionResizeHandlers.removeValue(forKey: sessionId)
+
+        guard localConnected else { return }
+        sendLocalControl(["type": "unsubscribe_session", "sessionId": sessionId])
+    }
+
+    /// Send terminal input for a specific session over multiplexed local WS.
+    func sendSessionInput(sessionId: String, data: Data) {
+        guard let ws = localWS else { return }
+
+        let sidBytes = Array(sessionId.utf8)
+        var frame = Data(capacity: 2 + sidBytes.count + data.count)
+        frame.append(0x00)
+        frame.append(UInt8(sidBytes.count))
+        frame.append(contentsOf: sidBytes)
+        frame.append(data)
+
+        ws.send(.data(frame)) { _ in }
+    }
+
+    /// Send resize for a specific session over multiplexed local WS.
+    func sendSessionResize(sessionId: String, cols: Int, rows: Int) {
+        guard let ws = localWS else { return }
+
+        let sidBytes = Array(sessionId.utf8)
+        var frame = Data(capacity: 2 + sidBytes.count + 4)
+        frame.append(0x01)
+        frame.append(UInt8(sidBytes.count))
+        frame.append(contentsOf: sidBytes)
+        frame.append(UInt8((cols >> 8) & 0xFF))
+        frame.append(UInt8(cols & 0xFF))
+        frame.append(UInt8((rows >> 8) & 0xFF))
+        frame.append(UInt8(rows & 0xFF))
+
+        ws.send(.data(frame)) { _ in }
+    }
+
     // MARK: - Bonjour Discovery + Local WebSocket
 
     private func startBonjourDiscovery() {
@@ -307,33 +365,80 @@ final class DeviceTransportManager: ObservableObject {
     }
 
     private func handleLocalMessage(_ message: URLSessionWebSocketTask.Message) {
-        guard case .string(let text) = message,
-              let data = text.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let type = json["type"] as? String
-        else { return }
+        switch message {
+        case .data(let rawData):
+            handleLocalBinaryMessage(rawData)
 
-        switch type {
-        case "ready":
-            localConnected = true
-            updateActiveTransport()
-            // Request session list on connect
-            sendLocalControl(["type": "list_sessions"])
+        case .string(let text):
+            guard let data = text.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let type = json["type"] as? String
+            else { return }
 
-        case "sessions_list", "sessions_updated":
-            if let sessionsArray = json["sessions"] as? [[String: Any]] {
-                let parsed = parseSessionsList(sessionsArray)
-                sessions = parsed
-                dispatchSessionsList(parsed)
+            switch type {
+            case "ready":
+                localConnected = true
+                updateActiveTransport()
+                // Re-subscribe all active sessions
+                for sessionId in sessionDataHandlers.keys {
+                    sendLocalControl(["type": "subscribe_session", "sessionId": sessionId])
+                }
+                // Request session list on connect
+                sendLocalControl(["type": "list_sessions"])
+
+            case "sessions_list", "sessions_updated":
+                if let sessionsArray = json["sessions"] as? [[String: Any]] {
+                    let parsed = parseSessionsList(sessionsArray)
+                    sessions = parsed
+                    dispatchSessionsList(parsed)
+                }
+
+            case "session_created":
+                handleSessionCreatedMessage(json)
+
+            case "session_closed", "session_ended":
+                if let sessionId = json["sessionId"] as? String {
+                    sessions.removeAll { $0.id == sessionId }
+                }
+
+            default:
+                break
             }
 
-        case "session_created":
-            handleSessionCreatedMessage(json)
+        @unknown default:
+            break
+        }
+    }
 
-        case "session_closed", "session_ended":
-            if let sessionId = json["sessionId"] as? String {
-                sessions.removeAll { $0.id == sessionId }
-            }
+    /// Parse multiplexed binary frame: [channel][sid_len][sid][payload]
+    private func handleLocalBinaryMessage(_ data: Data) {
+        guard data.count >= 2 else { return }
+
+        let channel = data[0]
+        let sidLen = Int(data[1])
+
+        guard sidLen > 0, data.count >= 2 + sidLen else { return }
+
+        let sidData = data[2..<(2 + sidLen)]
+        guard let sessionId = String(data: sidData, encoding: .utf8) else { return }
+
+        let payloadStart = 2 + sidLen
+
+        switch channel {
+        case 0x00:
+            let payload = data[payloadStart...]
+            sessionDataHandlers[sessionId]?(Data(payload))
+
+        case 0x01:
+            guard data.count >= payloadStart + 4 else { return }
+            let cols = Int(data[payloadStart]) << 8 | Int(data[payloadStart + 1])
+            let rows = Int(data[payloadStart + 2]) << 8 | Int(data[payloadStart + 3])
+            sessionResizeHandlers[sessionId]?(cols, rows)
+
+        case 0x02:
+            // Scrollback — deliver as terminal data
+            let payload = data[payloadStart...]
+            sessionDataHandlers[sessionId]?(Data(payload))
 
         default:
             break
@@ -343,6 +448,9 @@ final class DeviceTransportManager: ObservableObject {
     private func handleLocalDisconnect() {
         localWS = nil
         localConnected = false
+        // Clear session handlers — sessions will fall back to other transports
+        sessionDataHandlers.removeAll()
+        sessionResizeHandlers.removeAll()
         updateActiveTransport()
 
         guard !intentionalClose else { return }
@@ -358,7 +466,7 @@ final class DeviceTransportManager: ObservableObject {
         }
     }
 
-    private func sendLocalControl(_ msg: [String: Any]) {
+    func sendLocalControl(_ msg: [String: Any]) {
         guard let ws = localWS else { return }
         sendJSON(ws: ws, msg: msg)
     }

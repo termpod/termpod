@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use std::process::Child;
 use std::sync::Arc;
@@ -29,7 +29,7 @@ type Sessions = Arc<RwLock<Vec<SessionInfo>>>;
 #[derive(Clone)]
 struct Client {
     _id: String,
-    session_id: Option<String>,
+    session_ids: HashSet<String>,
     role: String,
     _device: String,
     tx: mpsc::UnboundedSender<Message>,
@@ -218,17 +218,18 @@ pub async fn local_server_broadcast(session_id: String, data: Vec<u8>) -> Result
     };
 
     let clients = state.clients.read().await;
+    let sid_bytes = session_id.as_bytes();
 
-    // Prepend channel byte 0x00 for terminal data
-    let mut frame = Vec::with_capacity(1 + data.len());
+    // Build multiplexed frame: [channel:0x00][sid_len][sid][data]
+    let mut frame = Vec::with_capacity(2 + sid_bytes.len() + data.len());
     frame.push(0x00);
+    frame.push(sid_bytes.len() as u8);
+    frame.extend_from_slice(sid_bytes);
     frame.extend_from_slice(&data);
     let msg = Message::Binary(frame.into());
 
     for client in clients.values() {
-        if client.session_id.as_deref() == Some(session_id.as_str())
-            && client.role == "viewer"
-        {
+        if client.session_ids.contains(&session_id) && client.role == "viewer" {
             let _ = client.tx.send(msg.clone());
         }
     }
@@ -251,9 +252,7 @@ pub async fn local_server_send_control(
     let msg = Message::Text(json.into());
 
     for client in clients.values() {
-        if client.session_id.as_deref() == Some(session_id.as_str())
-            && client.role == "viewer"
-        {
+        if client.session_ids.contains(&session_id) && client.role == "viewer" {
             let _ = client.tx.send(msg.clone());
         }
     }
@@ -329,8 +328,8 @@ async fn handle_connection(
         }
     });
 
-    let mut session_id: Option<String> = None;
     let mut registered_id: Option<String> = None;
+    let mut client_device = String::new();
 
     while let Some(msg_result) = ws_rx.next().await {
         let msg = match msg_result {
@@ -342,18 +341,12 @@ async fn handle_connection(
             Message::Text(text) => {
                 if let Ok(hello) = serde_json::from_str::<HelloMsg>(&text) {
                     if hello._msg_type == "hello" {
-                        session_id = hello.session_id.clone();
                         let cid = hello.client_id.clone();
+                        client_device = hello.device.clone();
 
-                        let client = Client {
-                            _id: cid.clone(),
-                            session_id: hello.session_id.clone(),
-                            role: hello.role.clone(),
-                            _device: hello.device.clone(),
-                            tx: tx.clone(),
-                        };
+                        let mut initial_sessions = HashSet::new();
 
-                        // Validate sessionId against registered sessions
+                        // Validate and auto-subscribe if sessionId provided (backward compat)
                         if let Some(sid) = &hello.session_id {
                             let known = sessions.read().await;
                             if !known.iter().any(|s| s.id == *sid) {
@@ -365,7 +358,16 @@ async fn handle_connection(
                                 let _ = tx.send(Message::Close(None));
                                 break;
                             }
+                            initial_sessions.insert(sid.clone());
                         }
+
+                        let client = Client {
+                            _id: cid.clone(),
+                            session_ids: initial_sessions,
+                            role: hello.role.clone(),
+                            _device: hello.device.clone(),
+                            tx: tx.clone(),
+                        };
 
                         clients.write().await.insert(cid.clone(), client);
                         registered_id = Some(cid.clone());
@@ -389,6 +391,59 @@ async fn handle_connection(
                     let msg_type = json.get("type").and_then(|t| t.as_str());
 
                     match msg_type {
+                        Some("subscribe_session") => {
+                            if let (Some(cid), Some(sid)) = (
+                                registered_id.as_ref(),
+                                json.get("sessionId").and_then(|s| s.as_str()),
+                            ) {
+                                // Validate session exists
+                                let known = sessions.read().await;
+                                if known.iter().any(|s| s.id == sid) {
+                                    let mut cl = clients.write().await;
+                                    if let Some(client) = cl.get_mut(cid) {
+                                        client.session_ids.insert(sid.to_string());
+                                    }
+
+                                    let _ = app.emit(
+                                        "local-ws-viewer-joined",
+                                        ViewerEvent {
+                                            client_id: cid.clone(),
+                                            device: client_device.clone(),
+                                            session_id: sid.to_string(),
+                                        },
+                                    );
+                                } else {
+                                    let err = serde_json::json!({
+                                        "type": "error",
+                                        "message": "Unknown session",
+                                        "sessionId": sid,
+                                    });
+                                    let _ = tx.send(Message::Text(err.to_string().into()));
+                                }
+                            }
+                        }
+
+                        Some("unsubscribe_session") => {
+                            if let (Some(cid), Some(sid)) = (
+                                registered_id.as_ref(),
+                                json.get("sessionId").and_then(|s| s.as_str()),
+                            ) {
+                                let mut cl = clients.write().await;
+                                if let Some(client) = cl.get_mut(cid) {
+                                    client.session_ids.remove(sid);
+                                }
+
+                                let _ = app.emit(
+                                    "local-ws-viewer-left",
+                                    ViewerEvent {
+                                        client_id: cid.clone(),
+                                        device: client_device.clone(),
+                                        session_id: sid.to_string(),
+                                    },
+                                );
+                            }
+                        }
+
                         Some("ping") => {
                             let pong = serde_json::json!({
                                 "type": "pong",
@@ -442,34 +497,58 @@ async fn handle_connection(
             }
 
             Message::Binary(data) => {
-                if data.is_empty() {
+                if data.len() < 2 {
                     continue;
                 }
 
                 let channel = data[0];
+                let sid_len = data[1] as usize;
 
-                if let Some(sid) = &session_id {
+                // Parse multiplexed frame: [channel][sid_len][sid][payload]
+                let (target_sid, payload_offset) = if sid_len > 0 && data.len() >= 2 + sid_len {
+                    if let Ok(sid) = std::str::from_utf8(&data[2..2 + sid_len]) {
+                        (Some(sid.to_string()), 2 + sid_len)
+                    } else {
+                        continue;
+                    }
+                } else if sid_len == 0 {
+                    // Fallback: use client's first/only session_id
+                    let cid = registered_id.as_ref();
+                    let fallback = if let Some(cid) = cid {
+                        let cl = clients.read().await;
+                        cl.get(cid).and_then(|c| c.session_ids.iter().next().cloned())
+                    } else {
+                        None
+                    };
+                    (fallback, 2)
+                } else {
+                    continue;
+                };
+
+                if let Some(sid) = target_sid {
                     match channel {
                         0x00 => {
-                            // Terminal input from viewer → emit to JS
                             let _ = app.emit(
                                 "local-ws-input",
                                 InputEvent {
-                                    session_id: sid.clone(),
-                                    data: data[1..].to_vec(),
+                                    session_id: sid,
+                                    data: data[payload_offset..].to_vec(),
                                 },
                             );
                         }
-                        0x01 if data.len() >= 5 => {
-                            // Resize from viewer
-                            let cols =
-                                u16::from_be_bytes([data[1], data[2]]);
-                            let rows =
-                                u16::from_be_bytes([data[3], data[4]]);
+                        0x01 if data.len() >= payload_offset + 4 => {
+                            let cols = u16::from_be_bytes([
+                                data[payload_offset],
+                                data[payload_offset + 1],
+                            ]);
+                            let rows = u16::from_be_bytes([
+                                data[payload_offset + 2],
+                                data[payload_offset + 3],
+                            ]);
                             let _ = app.emit(
                                 "local-ws-resize",
                                 ResizeEvent {
-                                    session_id: sid.clone(),
+                                    session_id: sid,
                                     cols,
                                     rows,
                                 },
@@ -485,17 +564,22 @@ async fn handle_connection(
         }
     }
 
-    // Cleanup
+    // Cleanup: emit viewer-left for each subscribed session
     if let Some(cid) = &registered_id {
-        clients.write().await.remove(cid);
+        let session_ids = {
+            let mut cl = clients.write().await;
+            let sids = cl.get(cid).map(|c| c.session_ids.clone()).unwrap_or_default();
+            cl.remove(cid);
+            sids
+        };
 
-        if let Some(sid) = &session_id {
+        for sid in session_ids {
             let _ = app.emit(
                 "local-ws-viewer-left",
                 ViewerEvent {
                     client_id: cid.clone(),
-                    device: String::new(),
-                    session_id: sid.clone(),
+                    device: client_device.clone(),
+                    session_id: sid,
                 },
             );
         }

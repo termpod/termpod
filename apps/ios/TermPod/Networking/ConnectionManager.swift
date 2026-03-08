@@ -67,6 +67,11 @@ final class ConnectionManager: ObservableObject {
         setupCallbacks()
     }
 
+    /// Wire up the device transport to the local transport for multiplexing.
+    func configureLocalTransport(with transport: DeviceTransportManager) {
+        localTransport.deviceTransport = transport
+    }
+
     // MARK: - Connection
 
     func connect(wsURL: URL, token: String? = nil) {

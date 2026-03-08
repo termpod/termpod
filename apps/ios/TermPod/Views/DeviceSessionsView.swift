@@ -418,6 +418,7 @@ struct DeviceSessionsView: View {
         let connection = ConnectionManager(sessionId: id)
         connection.sessionName = name
         connection.deviceTransport = deviceTransport
+        connection.configureLocalTransport(with: deviceTransport)
         let newSession = Session(id: id, name: name, connection: connection)
 
         appState.sessions.append(newSession)

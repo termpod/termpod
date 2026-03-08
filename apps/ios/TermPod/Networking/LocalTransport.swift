@@ -1,15 +1,16 @@
 import Foundation
-import Network
-import UIKit
 
-/// Discovers a TermPod desktop on the local network via Bonjour,
-/// then connects directly via WebSocket for lowest-latency communication.
+/// Local transport that delegates to DeviceTransportManager's multiplexed local WS connection.
+///
+/// Instead of owning its own Bonjour discovery and WebSocket, this now subscribes
+/// to session data through the device-level connection, enabling multiple sessions
+/// to share a single local WS.
 @MainActor
 final class LocalTransport: Transport {
 
     let transportType: TransportType = .local
 
-    var isConnected: Bool { webSocket != nil && connected }
+    var isConnected: Bool { deviceTransport?.isLocalConnected ?? false }
 
     var onTerminalData: ((Data) -> Void)?
     var onResize: ((Int, Int) -> Void)?
@@ -19,278 +20,61 @@ final class LocalTransport: Transport {
     var onSessionsList: (([[String: Any]]) -> Void)?
     var onSessionClosed: (() -> Void)?
 
-    private var browser: NWBrowser?
-    private var webSocket: URLSessionWebSocketTask?
-    private let urlSession = URLSession(configuration: .default)
-    private let clientId = UUID().uuidString
-    private let sessionId: String
-    private var connected = false
-    private var intentionalClose = false
-    private var reconnectionManager = ReconnectionManager()
-    private let networkMonitor = NWPathMonitor()
+    weak var deviceTransport: DeviceTransportManager?
 
-    private var isOnWiFi = false
-    private var discoveryRequested = false
+    private let sessionId: String
+    private var subscribed = false
 
     init(sessionId: String) {
         self.sessionId = sessionId
-
-        networkMonitor.pathUpdateHandler = { [weak self] path in
-            let wifi = path.usesInterfaceType(.wifi)
-
-            Task { @MainActor in
-                guard let self else { return }
-                let wasOnWiFi = self.isOnWiFi
-                self.isOnWiFi = wifi
-
-                if wifi && !wasOnWiFi && self.discoveryRequested {
-                    self.startBrowsing()
-                } else if !wifi && wasOnWiFi && self.connected {
-                    self.handleDisconnect()
-                }
-            }
-        }
-
-        networkMonitor.start(queue: .main)
     }
 
-    // MARK: - Discovery
+    // MARK: - Discovery / Subscription
 
     func startDiscovery() {
-        discoveryRequested = true
+        guard !subscribed else { return }
+        subscribed = true
 
-        if isOnWiFi {
-            startBrowsing()
-        }
-    }
-
-    private func startBrowsing() {
-        browser?.cancel()
-
-        let params = NWParameters()
-        params.includePeerToPeer = true
-
-        browser = NWBrowser(for: .bonjour(type: "_termpod._tcp", domain: "local."), using: params)
-
-        browser?.stateUpdateHandler = { _ in }
-
-        browser?.browseResultsChangedHandler = { [weak self] results, _ in
-            Task { @MainActor in
-                self?.handleBrowseResults(results)
+        deviceTransport?.subscribeSession(
+            sessionId: sessionId,
+            onData: { [weak self] data in
+                self?.onTerminalData?(data)
+            },
+            onResize: { [weak self] cols, rows in
+                self?.onResize?(cols, rows)
             }
-        }
+        )
 
-        browser?.start(queue: .main)
+        if deviceTransport?.isLocalConnected == true {
+            onConnected?()
+        }
     }
 
     func stopDiscovery() {
-        browser?.cancel()
-        browser = nil
-    }
-
-    private func handleBrowseResults(_ results: Set<NWBrowser.Result>) {
-        guard webSocket == nil else { return }
-
-        for result in results {
-            if case .service(_, _, _, _) = result.endpoint {
-                resolve(result: result)
-                return
-            }
-        }
-    }
-
-    private func resolve(result: NWBrowser.Result) {
-        let connection = NWConnection(to: result.endpoint, using: .tcp)
-
-        connection.stateUpdateHandler = { [weak self] state in
-            guard let self else { return }
-
-            if case .ready = state {
-                if let path = connection.currentPath,
-                   let endpoint = path.remoteEndpoint,
-                   case .hostPort(let host, let port) = endpoint {
-                    let hostStr: String
-                    switch host {
-                    case .ipv4(let addr):
-                        // Strip interface scope suffix (e.g. "%en0")
-                        let raw = "\(addr)"
-                        hostStr = raw.components(separatedBy: "%").first ?? raw
-                    case .ipv6(let addr):
-                        let raw = "\(addr)"
-                        let clean = raw.components(separatedBy: "%").first ?? raw
-                        hostStr = "[\(clean)]"
-                    case .name(let name, _):
-                        hostStr = name
-                    @unknown default:
-                        hostStr = "unknown"
-                    }
-
-                    Task { @MainActor in
-                        self.connectWebSocket(host: hostStr, port: port.rawValue)
-                    }
-                }
-
-                connection.cancel()
-            }
-        }
-
-        connection.start(queue: .main)
-    }
-
-    // MARK: - WebSocket Connection
-
-    private func connectWebSocket(host: String, port: UInt16) {
-        guard let url = URL(string: "ws://\(host):\(port)") else { return }
-
-        intentionalClose = false
-        webSocket = urlSession.webSocketTask(with: url)
-        webSocket?.resume()
-
-        sendHello()
-        startReceiving()
-    }
-
-    private func sendHello() {
-        let hello: [String: Any] = [
-            "type": "hello",
-            "version": 1,
-            "role": "viewer",
-            "device": UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone",
-            "clientId": clientId,
-            "sessionId": sessionId,
-        ]
-
-        guard let data = try? JSONSerialization.data(withJSONObject: hello),
-              let str = String(data: data, encoding: .utf8)
-        else { return }
-
-        webSocket?.send(.string(str)) { _ in }
-    }
-
-    private func startReceiving() {
-        webSocket?.receive { [weak self] result in
-            guard let self else { return }
-
-            switch result {
-            case .success(let message):
-                Task { @MainActor in
-                    self.handleMessage(message)
-                    self.startReceiving()
-                }
-
-            case .failure:
-                Task { @MainActor in
-                    self.handleDisconnect()
-                }
-            }
-        }
-    }
-
-    private func handleMessage(_ message: URLSessionWebSocketTask.Message) {
-        switch message {
-        case .data(let data):
-            guard let channel = data.first else { return }
-
-            switch channel {
-            case 0x00:
-                onTerminalData?(Data(data.dropFirst()))
-            case 0x02:
-                let payload = data.dropFirst(5)
-                onTerminalData?(Data(payload))
-            default:
-                break
-            }
-
-        case .string(let text):
-            guard let jsonData = text.data(using: .utf8),
-                  let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
-                  let type = json["type"] as? String
-            else { return }
-
-            if type == "ready" {
-                connected = true
-                reconnectionManager.reset()
-                onConnected?()
-            } else if type == "pty_resize" {
-                if let cols = json["cols"] as? Int, let rows = json["rows"] as? Int {
-                    onResize?(cols, rows)
-                }
-            } else if type == "session_created" {
-                if let requestId = json["requestId"] as? String,
-                   let sessionId = json["sessionId"] as? String,
-                   let name = json["name"] as? String,
-                   let cwd = json["cwd"] as? String,
-                   let ptyCols = json["ptyCols"] as? Int,
-                   let ptyRows = json["ptyRows"] as? Int {
-                    onSessionCreated?(requestId, sessionId, name, cwd, ptyCols, ptyRows)
-                }
-            } else if type == "sessions_list" {
-                if let sessions = json["sessions"] as? [[String: Any]] {
-                    onSessionsList?(sessions)
-                }
-            } else if type == "session_closed" || type == "session_ended" {
-                onSessionClosed?()
-            }
-
-        @unknown default:
-            break
-        }
-    }
-
-    private func handleDisconnect() {
-        connected = false
-        webSocket = nil
-
-        if !intentionalClose {
-            onDisconnected?()
-            scheduleReconnect()
-        }
-    }
-
-    private func scheduleReconnect() {
-        guard isOnWiFi else { return }
-
-        let attempt = reconnectionManager.nextAttempt()
-
-        Task {
-            try? await Task.sleep(for: .seconds(attempt.delay))
-            guard !intentionalClose, isOnWiFi else { return }
-            // Restart discovery — the browser won't re-emit for known services,
-            // so we cancel and recreate it to get a fresh browse.
-            stopDiscovery()
-            startBrowsing()
-        }
+        // No-op — unsubscription happens in disconnect()
     }
 
     // MARK: - Transport
 
     func sendControlMessage(_ json: String) {
-        webSocket?.send(.string(json)) { _ in }
+        guard let data = json.data(using: .utf8),
+              let msg = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return }
+
+        deviceTransport?.sendLocalControl(msg)
     }
 
     func sendInput(_ data: Data) {
-        var frame = Data([0x00])
-        frame.append(data)
-        webSocket?.send(.data(frame)) { _ in }
+        deviceTransport?.sendSessionInput(sessionId: sessionId, data: data)
     }
 
     func sendResize(cols: Int, rows: Int) {
-        var frame = Data(count: 5)
-        frame[0] = 0x01
-        frame[1] = UInt8((cols >> 8) & 0xFF)
-        frame[2] = UInt8(cols & 0xFF)
-        frame[3] = UInt8((rows >> 8) & 0xFF)
-        frame[4] = UInt8(rows & 0xFF)
-        webSocket?.send(.data(frame)) { _ in }
+        deviceTransport?.sendSessionResize(sessionId: sessionId, cols: cols, rows: rows)
     }
 
     func disconnect() {
-        intentionalClose = true
-        discoveryRequested = false
-        stopDiscovery()
-        networkMonitor.cancel()
-        webSocket?.cancel(with: .goingAway, reason: nil)
-        webSocket = nil
-        connected = false
+        guard subscribed else { return }
+        subscribed = false
+        deviceTransport?.unsubscribeSession(sessionId: sessionId)
     }
 }
