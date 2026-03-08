@@ -88,6 +88,9 @@ final class ConnectionManager: ObservableObject {
                 self?.updateActiveTransport()
             }
         }.store(in: &cancellables)
+
+        // If device transport already has an active P2P connection, use it immediately
+        updateActiveTransport()
     }
 
     // MARK: - Connection
