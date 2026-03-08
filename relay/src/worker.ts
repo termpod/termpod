@@ -145,6 +145,13 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
       return handlePendingRequests(request, env, pendingRequestsMatch[1]);
     }
 
+    // Device WebSocket (control plane + signaling)
+    const deviceWsMatch = url.pathname.match(/^\/devices\/([^/]+)\/ws$/);
+
+    if (deviceWsMatch) {
+      return handleDeviceWebSocket(request, env, deviceWsMatch[1]);
+    }
+
     // WebSocket upgrade for terminal sessions
     const wsMatch = url.pathname.match(/^\/sessions\/([^/]+)\/ws$/);
 
@@ -447,6 +454,73 @@ async function handlePendingRequests(
   }
 
   return corsJson({ error: 'Method not allowed' }, { status: 405 });
+}
+
+// --- Device WebSocket handler ---
+
+async function handleDeviceWebSocket(request: Request, env: Env, deviceId: string): Promise<Response> {
+  const upgradeHeader = request.headers.get('Upgrade');
+
+  if (upgradeHeader !== 'websocket') {
+    return corsJson({ error: 'Expected WebSocket' }, { status: 426 });
+  }
+
+  // Validate device ID format
+  if (!deviceId || deviceId.length > 64) {
+    return corsJson({ error: 'Invalid device ID' }, { status: 400 });
+  }
+
+  // Auth: first-message flow (DO handles JWT validation)
+  // We still need the userId to route to the correct User DO.
+  // Try to extract from Authorization header or URL token for routing.
+  const headers = new Headers(request.headers);
+  headers.set('X-JWT-Secret', env.JWT_SECRET);
+
+  // Try Authorization header for DO routing
+  const auth = request.headers.get('Authorization');
+  let userId: string | null = null;
+
+  if (auth?.startsWith('Bearer ')) {
+    const token = auth.slice(7);
+    const payload = await verifyJWT(token, env.JWT_SECRET);
+
+    if (payload?.type === 'access') {
+      userId = payload.sub;
+      headers.set('X-User-Id', userId);
+    }
+  }
+
+  // Try URL token as fallback
+  if (!userId) {
+    const url = new URL(request.url);
+    const urlToken = url.searchParams.get('token');
+
+    if (urlToken) {
+      const payload = await verifyJWT(urlToken, env.JWT_SECRET);
+
+      if (payload?.type === 'access') {
+        userId = payload.sub;
+        headers.set('X-User-Id', userId);
+      }
+    }
+  }
+
+  // If we couldn't determine the user from headers/URL, the DO will handle
+  // first-message auth. But we need a userId to route to the correct DO.
+  // For first-message auth, the client must provide a userId hint.
+  if (!userId) {
+    // Check for userId query param (used for routing only, auth still via first message)
+    const url = new URL(request.url);
+    userId = url.searchParams.get('userId');
+
+    if (!userId) {
+      return corsJson({ error: 'Authentication required' }, { status: 401 });
+    }
+  }
+
+  const stub = getUserDO(env, userId);
+
+  return stub.fetch(new Request(`http://internal/devices/${deviceId}/ws`, { headers }));
 }
 
 // --- WebSocket handler ---

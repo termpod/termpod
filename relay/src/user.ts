@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { hashPassword, verifyPassword } from './auth';
+import { verifyJWT } from './jwt';
 
 export interface UserProfile {
   email: string;
@@ -34,8 +35,31 @@ export interface PendingSessionRequest {
   createdAt: string;
 }
 
+// WebSocket tags store client metadata so it survives hibernation
+interface DeviceClientTag {
+  clientId: string;
+  role: 'desktop' | 'viewer';
+  device: string;
+  userId: string;
+  targetDeviceId: string;
+  connectedAt: string;
+}
+
+function setWsTag(ws: WebSocket, tag: DeviceClientTag): void {
+  (ws as unknown as { serializeAttachment: (v: unknown) => void }).serializeAttachment(tag);
+}
+
+function getWsTag(ws: WebSocket): DeviceClientTag | null {
+  const tag = (ws as unknown as { deserializeAttachment: () => unknown }).deserializeAttachment();
+
+  return (tag && typeof tag === 'object' && 'clientId' in (tag as Record<string, unknown>))
+    ? tag as DeviceClientTag
+    : null;
+}
+
 export class User extends DurableObject {
   private initialized = false;
+  private jwtSecret: string | null = null;
 
   private ensureSchema(): void {
     if (this.initialized) {
@@ -104,6 +128,13 @@ export class User extends DurableObject {
     const path = url.pathname;
 
     this.ensureSchema();
+
+    // Device WebSocket upgrade
+    const deviceWsMatch = path.match(/^\/devices\/([^/]+)\/ws$/);
+
+    if (deviceWsMatch) {
+      return this.handleDeviceWsUpgrade(request, deviceWsMatch[1]);
+    }
 
     // Auth routes
     if (path === '/signup' && request.method === 'POST') {
@@ -581,5 +612,393 @@ export class User extends DurableObject {
       .toArray();
 
     return Response.json({ allowed: rows.length > 0 });
+  }
+
+  // --- Device WebSocket ---
+
+  private handleDeviceWsUpgrade(request: Request, deviceId: string): Response {
+    const secret = request.headers.get('X-JWT-Secret');
+
+    if (secret) {
+      this.jwtSecret = secret;
+    }
+
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair);
+
+    // Check if Worker already validated the token (legacy flow)
+    const userId = request.headers.get('X-User-Id');
+
+    if (userId) {
+      (server as unknown as { serializeAttachment: (v: unknown) => void }).serializeAttachment({
+        userId,
+        targetDeviceId: deviceId,
+        pendingHello: true,
+      });
+    } else {
+      (server as unknown as { serializeAttachment: (v: unknown) => void }).serializeAttachment({
+        targetDeviceId: deviceId,
+        pendingAuth: true,
+      });
+    }
+
+    this.ctx.acceptWebSocket(server);
+
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    if (typeof message !== 'string') {
+      return; // Device WS is JSON-only (no binary terminal data)
+    }
+
+    // Enforce size limit
+    if (message.length > 64 * 1024) {
+      ws.close(1009, 'Message too large');
+
+      return;
+    }
+
+    const attachment = (ws as unknown as { deserializeAttachment: () => unknown }).deserializeAttachment() as Record<string, unknown> | null;
+
+    if (attachment?.pendingAuth) {
+      await this.handleWsAuth(ws, message, attachment.targetDeviceId as string);
+
+      return;
+    }
+
+    let parsed: Record<string, unknown>;
+
+    try {
+      parsed = JSON.parse(message);
+    } catch {
+      ws.close(1008, 'Invalid JSON');
+
+      return;
+    }
+
+    // Pending hello — only accept hello messages
+    if (attachment?.pendingHello) {
+      if (parsed.type === 'hello') {
+        this.handleWsHello(ws, parsed, attachment);
+      }
+
+      return;
+    }
+
+    this.handleWsControlMessage(ws, parsed);
+  }
+
+  async webSocketClose(ws: WebSocket): Promise<void> {
+    const tag = getWsTag(ws);
+
+    if (!tag) {
+      return;
+    }
+
+    // If desktop disconnects, mark device offline and notify viewers
+    if (tag.role === 'desktop') {
+      this.ctx.storage.sql.exec(
+        'UPDATE devices SET is_online = 0, last_seen_at = ? WHERE id = ?',
+        new Date().toISOString(),
+        tag.targetDeviceId,
+      );
+    }
+
+    this.broadcastToDevice(tag.targetDeviceId, ws, {
+      type: 'client_left',
+      clientId: tag.clientId,
+      role: tag.role,
+      device: tag.device,
+    });
+  }
+
+  async webSocketError(ws: WebSocket): Promise<void> {
+    await this.webSocketClose(ws);
+  }
+
+  private async handleWsAuth(ws: WebSocket, message: string, targetDeviceId: string): Promise<void> {
+    let parsed: { type: string; token?: string };
+
+    try {
+      parsed = JSON.parse(message);
+    } catch {
+      ws.close(1008, 'Invalid JSON');
+
+      return;
+    }
+
+    if (parsed.type !== 'auth' || !parsed.token) {
+      ws.close(1008, 'Expected auth message');
+
+      return;
+    }
+
+    if (!this.jwtSecret) {
+      ws.close(1011, 'Server configuration error');
+
+      return;
+    }
+
+    const payload = await verifyJWT(parsed.token, this.jwtSecret);
+
+    if (!payload || payload.type !== 'access') {
+      ws.close(1008, 'Invalid or expired token');
+
+      return;
+    }
+
+    (ws as unknown as { serializeAttachment: (v: unknown) => void }).serializeAttachment({
+      userId: payload.sub,
+      targetDeviceId,
+      pendingHello: true,
+    });
+
+    ws.send(JSON.stringify({ type: 'auth_ok' }));
+  }
+
+  private handleWsHello(ws: WebSocket, msg: Record<string, unknown>, attachment: Record<string, unknown>): void {
+    const clientId = (msg.clientId as string) || crypto.randomUUID();
+    const role = (msg.role as string) === 'desktop' ? 'desktop' as const : 'viewer' as const;
+    const device = (msg.device as string) || 'unknown';
+    const targetDeviceId = attachment.targetDeviceId as string;
+    const userId = attachment.userId as string;
+
+    const tag: DeviceClientTag = {
+      clientId,
+      role,
+      device,
+      userId,
+      targetDeviceId,
+      connectedAt: new Date().toISOString(),
+    };
+
+    setWsTag(ws, tag);
+
+    // If desktop, mark device online and update heartbeat
+    if (role === 'desktop') {
+      this.ctx.storage.sql.exec(
+        'UPDATE devices SET is_online = 1, last_seen_at = ? WHERE id = ?',
+        new Date().toISOString(),
+        targetDeviceId,
+      );
+    }
+
+    // Send current client list for this device
+    const clients: { clientId: string; role: string; device: string; connectedAt: string }[] = [];
+
+    for (const sock of this.ctx.getWebSockets()) {
+      const t = getWsTag(sock);
+
+      if (t && t.targetDeviceId === targetDeviceId) {
+        clients.push({
+          clientId: t.clientId,
+          role: t.role,
+          device: t.device,
+          connectedAt: t.connectedAt,
+        });
+      }
+    }
+
+    ws.send(JSON.stringify({ type: 'hello_ok', clients }));
+
+    // Notify other clients of this device
+    this.broadcastToDevice(targetDeviceId, ws, {
+      type: 'client_joined',
+      clientId,
+      role,
+      device,
+    });
+  }
+
+  private handleWsControlMessage(ws: WebSocket, msg: Record<string, unknown>): void {
+    const tag = getWsTag(ws);
+
+    if (!tag) {
+      return;
+    }
+
+    const type = msg.type as string;
+
+    switch (type) {
+      case 'ping':
+        ws.send(JSON.stringify({
+          type: 'pong',
+          timestamp: msg.timestamp,
+          serverTime: Date.now(),
+        }));
+        break;
+
+      case 'list_sessions':
+        this.handleWsListSessions(ws, tag);
+        break;
+
+      case 'create_session_request':
+        // Forward from viewer to desktop
+        if (tag.role === 'viewer') {
+          this.forwardToDeviceRole(tag.targetDeviceId, ws, 'desktop', msg);
+        }
+        break;
+
+      case 'session_created':
+        // Forward from desktop to viewers (or to specific requestor)
+        if (tag.role === 'desktop') {
+          if (msg.toClientId) {
+            this.forwardToClient(msg.toClientId as string, msg);
+          } else {
+            this.forwardToDeviceRole(tag.targetDeviceId, ws, 'viewer', msg);
+          }
+        }
+        break;
+
+      case 'delete_session':
+        // Forward to desktop; also remove from SQLite
+        if (tag.role === 'viewer') {
+          this.forwardToDeviceRole(tag.targetDeviceId, ws, 'desktop', msg);
+
+          if (msg.sessionId) {
+            this.ctx.storage.sql.exec('DELETE FROM sessions WHERE id = ?', msg.sessionId as string);
+          }
+        }
+        break;
+
+      case 'session_closed':
+        // Forward from desktop to all viewers
+        if (tag.role === 'desktop') {
+          this.forwardToDeviceRole(tag.targetDeviceId, ws, 'viewer', msg);
+
+          if (msg.sessionId) {
+            this.ctx.storage.sql.exec('DELETE FROM sessions WHERE id = ?', msg.sessionId as string);
+          }
+        }
+        break;
+
+      case 'sessions_updated':
+        // Desktop sends updated session list — update SQLite and broadcast to viewers
+        if (tag.role === 'desktop') {
+          this.handleWsSessionsUpdated(ws, tag, msg);
+        }
+        break;
+
+      case 'webrtc_offer':
+      case 'webrtc_answer':
+      case 'webrtc_ice':
+        this.forwardToClient(msg.toClientId as string, msg);
+        break;
+    }
+  }
+
+  private handleWsListSessions(ws: WebSocket, tag: DeviceClientTag): void {
+    this.ensureSchema();
+
+    const rows = this.ctx.storage.sql
+      .exec(
+        'SELECT id, device_id, name, cwd, process_name, pty_cols, pty_rows, created_at FROM sessions WHERE device_id = ? ORDER BY created_at',
+        tag.targetDeviceId,
+      )
+      .toArray();
+
+    const sessions = rows.map((r) => ({
+      id: r.id as string,
+      deviceId: r.device_id as string,
+      name: r.name as string,
+      cwd: r.cwd as string,
+      processName: (r.process_name as string) ?? null,
+      ptyCols: r.pty_cols as number,
+      ptyRows: r.pty_rows as number,
+      createdAt: r.created_at as string,
+    }));
+
+    ws.send(JSON.stringify({ type: 'sessions_list', sessions }));
+  }
+
+  private handleWsSessionsUpdated(ws: WebSocket, tag: DeviceClientTag, msg: Record<string, unknown>): void {
+    const sessions = msg.sessions as Array<{
+      id: string;
+      name: string;
+      cwd: string;
+      processName?: string | null;
+      ptyCols?: number;
+      ptyRows?: number;
+    }>;
+
+    if (!Array.isArray(sessions)) {
+      return;
+    }
+
+    // Replace all sessions for this device with the new list
+    this.ctx.storage.sql.exec('DELETE FROM sessions WHERE device_id = ?', tag.targetDeviceId);
+
+    for (const s of sessions) {
+      if (!s.id || typeof s.id !== 'string' || s.id.length > 64) {
+        continue;
+      }
+
+      this.ctx.storage.sql.exec(
+        'INSERT OR REPLACE INTO sessions (id, device_id, name, cwd, process_name, pty_cols, pty_rows, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        s.id,
+        tag.targetDeviceId,
+        s.name ?? 'shell',
+        s.cwd ?? '',
+        s.processName ?? null,
+        s.ptyCols ?? 120,
+        s.ptyRows ?? 40,
+        new Date().toISOString(),
+      );
+    }
+
+    // Broadcast to viewers of this device
+    this.forwardToDeviceRole(tag.targetDeviceId, ws, 'viewer', {
+      type: 'sessions_updated',
+      sessions,
+    });
+  }
+
+  // --- Device WS helpers ---
+
+  private broadcastToDevice(deviceId: string, sender: WebSocket, msg: Record<string, unknown>): void {
+    const json = JSON.stringify(msg);
+
+    for (const sock of this.ctx.getWebSockets()) {
+      if (sock === sender) {
+        continue;
+      }
+
+      const t = getWsTag(sock);
+
+      if (t?.targetDeviceId === deviceId) {
+        sock.send(json);
+      }
+    }
+  }
+
+  private forwardToDeviceRole(deviceId: string, sender: WebSocket, targetRole: string, msg: Record<string, unknown>): void {
+    const json = JSON.stringify(msg);
+
+    for (const sock of this.ctx.getWebSockets()) {
+      if (sock === sender) {
+        continue;
+      }
+
+      const t = getWsTag(sock);
+
+      if (t?.targetDeviceId === deviceId && t.role === targetRole) {
+        sock.send(json);
+      }
+    }
+  }
+
+  private forwardToClient(clientId: string, msg: Record<string, unknown>): void {
+    const json = JSON.stringify(msg);
+
+    for (const sock of this.ctx.getWebSockets()) {
+      const t = getWsTag(sock);
+
+      if (t?.clientId === clientId) {
+        sock.send(json);
+
+        return;
+      }
+    }
   }
 }

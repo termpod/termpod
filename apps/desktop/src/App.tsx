@@ -16,6 +16,7 @@ import { FullDiskAccessBanner } from './components/FullDiskAccessBanner';
 import { KeybindingsPanel } from './components/KeybindingsPanel';
 import { CommandPalette } from './components/CommandPalette';
 import { useKeybindings, matchesShortcut } from './hooks/useKeybindings';
+import { useDeviceWS } from './hooks/useDeviceWS';
 import { enable as enableAutostart, disable as disableAutostart } from '@tauri-apps/plugin-autostart';
 
 export function App() {
@@ -47,7 +48,81 @@ export function App() {
     createSession({ shell: settings.shellPath });
   };
 
-  // Handle push-based session creation requests from mobile
+  // Helper: build sessions list for P2P/relay control messages
+  const getSessionsListRef = useRef<() => Record<string, unknown>[]>(() => []);
+
+  // Helper: handle delete session by relay ID
+  const handleDeleteSessionByRelayIdRef = useRef<(relaySessionId: string) => void>(() => {});
+
+  // Device-level WebSocket to relay (control plane + signaling)
+  const deviceWS = useDeviceWS(device.deviceId, device.registered, {
+    onCreateSessionRequest: (requestId) => {
+      // Device WS create session request — create and respond via device WS
+      (async () => {
+        const win = getCurrentWindow();
+        win.show();
+        win.setFocus();
+
+        const newSession = await createSession({ shell: settings.shellPath });
+
+        if (!newSession) {
+          return;
+        }
+
+        // Wait for relay session ID to be assigned
+        const waitForRelay = () =>
+          new Promise<RelayInfo | null>((resolve) => {
+            let attempts = 0;
+            const check = () => {
+              const info = relayMapRef.current.get(newSession.id);
+
+              if (info?.sessionId) {
+                resolve(info);
+                return;
+              }
+
+              attempts++;
+
+              if (attempts > 50) {
+                resolve(null);
+                return;
+              }
+
+              setTimeout(check, 100);
+            };
+            check();
+          });
+
+        const relayInfo = await waitForRelay();
+
+        if (!relayInfo?.sessionId) {
+          return;
+        }
+
+        const term = newSession.termRef.current;
+        deviceWS.sendSessionCreated({
+          requestId,
+          sessionId: relayInfo.sessionId,
+          name: newSession.name,
+          cwd: newSession.cwd,
+          ptyCols: term?.cols ?? 120,
+          ptyRows: term?.rows ?? 40,
+        });
+      })();
+    },
+    onDeleteSession: (sessionId) => {
+      handleDeleteSessionByRelayIdRef.current(sessionId);
+    },
+    getSessionsList: () => getSessionsListRef.current(),
+    onSignaling: (_msg) => {
+      // TODO Phase 3: forward to device-level WebRTC
+    },
+    onClientJoined: (_clientId, _device) => {
+      // TODO Phase 3: initiate device-level WebRTC offer
+    },
+  });
+
+  // Handle push-based session creation requests from mobile (via per-session transports)
   const handleCreateSessionRequest = useCallback(
     async (requestId: string, source: 'relay' | 'local' | 'webrtc', localClientId?: string) => {
       const win = getCurrentWindow();
@@ -151,6 +226,7 @@ export function App() {
       const closedMsg = JSON.stringify({ type: 'session_closed', sessionId: relayInfo.sessionId });
       relayInfo.sendLocalControl?.(relayInfo.sessionId, closedMsg);
       relayInfo.sendWebRTCControl?.({ type: 'session_closed', sessionId: relayInfo.sessionId });
+      deviceWS.sendSessionClosed(relayInfo.sessionId);
       device.removeSession(relayInfo.sessionId);
     }
 
@@ -167,7 +243,7 @@ export function App() {
     }
 
     setTimeout(focusActive, 50);
-  }, [closeSession, focusActive, device, createSession, settings, sessions]);
+  }, [closeSession, focusActive, device, deviceWS, createSession, settings, sessions]);
 
   // Auto-close tab when shell exits (e.g. ctrl+d)
   onSessionExitRef.current = (id: string) => {
@@ -207,16 +283,16 @@ export function App() {
     }
   }, [sessions, device]);
 
-  // Sync session list to local server for Bonjour-based discovery
-  useEffect(() => {
-    const localSessions: { id: string; name: string; cwd: string; processName: string | null; ptyCols: number; ptyRows: number }[] = [];
+  // Build sessions list (shared by local server, device WS, and P2P control messages)
+  const buildSessionsList = useCallback(() => {
+    const list: { id: string; name: string; cwd: string; processName: string | null; ptyCols: number; ptyRows: number }[] = [];
 
     for (const s of sessions) {
       if (s.exited || s.closing) continue;
       const relayInfo = relayMapRef.current.get(s.id);
       if (!relayInfo?.sessionId) continue;
 
-      localSessions.push({
+      list.push({
         id: relayInfo.sessionId,
         name: s.name,
         cwd: s.cwd,
@@ -226,8 +302,30 @@ export function App() {
       });
     }
 
+    return list;
+  }, [sessions]);
+
+  // Wire up refs for device WS callbacks
+  getSessionsListRef.current = buildSessionsList;
+
+  handleDeleteSessionByRelayIdRef.current = (relaySessionId: string) => {
+    for (const [localId, info] of relayMapRef.current.entries()) {
+      if (info.sessionId === relaySessionId) {
+        handleCloseSession(localId);
+        break;
+      }
+    }
+  };
+
+  // Sync session list to local server + device WS
+  useEffect(() => {
+    const localSessions = buildSessionsList();
+
     invoke('update_local_sessions', { sessions: localSessions }).catch(() => {});
-  }, [sessions, relayMap]);
+
+    // Also push to device WS so relay SQLite stays in sync and mobile viewers get updates
+    deviceWS.sendSessionsUpdated(localSessions);
+  }, [sessions, relayMap, buildSessionsList, deviceWS.sendSessionsUpdated]);
 
   const activeRelay = activeId ? relayMap.get(activeId) : null;
 
