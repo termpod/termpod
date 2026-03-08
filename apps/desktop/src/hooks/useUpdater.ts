@@ -112,9 +112,12 @@ export function useUpdater() {
     setDismissed(true);
   }, []);
 
-  // Check on launch + periodically
+  // Check on launch + periodically (skip in dev mode)
   useEffect(() => {
-    // Delay initial check so the app settles first
+    if (import.meta.env.DEV) {
+      return;
+    }
+
     const initialTimeout = setTimeout(checkForUpdate, 5000);
     const interval = setInterval(checkForUpdate, CHECK_INTERVAL_MS);
 

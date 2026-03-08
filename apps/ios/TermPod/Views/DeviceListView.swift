@@ -188,7 +188,7 @@ struct DeviceRow: View {
                                 .font(.caption)
                         }
                     } else {
-                        Image(systemName: "xmark.circle")
+                        Image(systemName:  "xmark.circle")
                             .font(.caption2)
                         Text("Offline")
                             .font(.caption)

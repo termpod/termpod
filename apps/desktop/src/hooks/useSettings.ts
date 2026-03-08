@@ -217,10 +217,10 @@ export const THEMES: Record<string, TerminalTheme> = {
 
   'cobalt2': {
     name: 'Cobalt2',
-    background: '#193549',
+    background: '#122738',
     foreground: '#ffffff',
     cursor: '#ffc600',
-    selectionBackground: '#0050a4',
+    selectionBackground: '#003d7a',
     black: '#000000',
     red: '#ff4050',
     green: '#38de21',
