@@ -1,6 +1,6 @@
 {
   "name": "termpod",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "private": true,
   "scripts": {
     "dev": "turbo run dev --filter=@termpod/desktop --filter=@termpod/relay",
