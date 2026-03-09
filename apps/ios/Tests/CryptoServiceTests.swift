@@ -234,6 +234,68 @@ final class CryptoServiceTests: XCTestCase {
         XCTAssertThrowsError(try bob.decrypt(encrypted))
     }
 
+    // MARK: - Verification Code
+
+    func testVerificationCodeIsNilBeforeKeyDerivation() {
+        let crypto = CryptoService()
+        XCTAssertNil(crypto.verificationCode())
+    }
+
+    func testVerificationCodeIsSixDigits() throws {
+        let (alice, _) = try setupPair(sessionId: "verify-format")
+
+        let code = alice.verificationCode()
+        XCTAssertNotNil(code)
+        XCTAssertEqual(code!.count, 6)
+
+        // All characters are digits
+        XCTAssertTrue(code!.allSatisfy { $0.isNumber })
+    }
+
+    func testBothPeersGetSameVerificationCode() throws {
+        let (alice, bob) = try setupPair(sessionId: "verify-match")
+
+        let aliceCode = alice.verificationCode()
+        let bobCode = bob.verificationCode()
+
+        XCTAssertNotNil(aliceCode)
+        XCTAssertNotNil(bobCode)
+        XCTAssertEqual(aliceCode, bobCode)
+    }
+
+    func testDifferentSessionsProduceDifferentVerificationCodes() throws {
+        let (alice1, _) = try setupPair(sessionId: "verify-session-A")
+        let (alice2, _) = try setupPair(sessionId: "verify-session-B")
+
+        let code1 = alice1.verificationCode()
+        let code2 = alice2.verificationCode()
+
+        XCTAssertNotNil(code1)
+        XCTAssertNotNil(code2)
+        XCTAssertNotEqual(code1, code2)
+    }
+
+    func testDifferentKeyPairsProduceDifferentVerificationCodes() throws {
+        let (alice1, _) = try setupPair(sessionId: "verify-same-sid")
+        let (alice2, _) = try setupPair(sessionId: "verify-same-sid")
+
+        let code1 = alice1.verificationCode()
+        let code2 = alice2.verificationCode()
+
+        XCTAssertNotNil(code1)
+        XCTAssertNotNil(code2)
+        // Different key pairs with the same session ID still yield different codes
+        XCTAssertNotEqual(code1, code2)
+    }
+
+    func testVerificationCodeIsNilAfterReset() throws {
+        let (alice, _) = try setupPair(sessionId: "verify-reset")
+
+        XCTAssertNotNil(alice.verificationCode())
+        alice.reset()
+        XCTAssertNil(alice.verificationCode())
+    }
+
     // MARK: - Error Cases
 
     func testEncryptWithoutSessionKeyThrows() {

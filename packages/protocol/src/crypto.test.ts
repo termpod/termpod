@@ -68,6 +68,80 @@ describe('deriveSessionKey', () => {
     expect(decrypted).toEqual(plaintext);
   });
 
+  it('includes a 6-digit verification code', async () => {
+    const desktop = await generateKeyPair();
+    const mobile = await generateKeyPair();
+
+    const session = await deriveSessionKey(
+      desktop.privateKey,
+      mobile.publicKeyJwk,
+      'verify-test',
+    );
+
+    expect(session.verificationCode).toBeDefined();
+    expect(session.verificationCode).toMatch(/^\d{6}$/);
+  });
+
+  it('both peers derive the same verification code', async () => {
+    const desktop = await generateKeyPair();
+    const mobile = await generateKeyPair();
+    const sessionId = 'verify-match';
+
+    const desktopSession = await deriveSessionKey(
+      desktop.privateKey,
+      mobile.publicKeyJwk,
+      sessionId,
+    );
+
+    const mobileSession = await deriveSessionKey(
+      mobile.privateKey,
+      desktop.publicKeyJwk,
+      sessionId,
+    );
+
+    expect(desktopSession.verificationCode).toBe(mobileSession.verificationCode);
+  });
+
+  it('different sessions produce different verification codes', async () => {
+    const desktop = await generateKeyPair();
+    const mobile = await generateKeyPair();
+
+    const session1 = await deriveSessionKey(
+      desktop.privateKey,
+      mobile.publicKeyJwk,
+      'session-alpha',
+    );
+
+    const session2 = await deriveSessionKey(
+      desktop.privateKey,
+      mobile.publicKeyJwk,
+      'session-beta',
+    );
+
+    expect(session1.verificationCode).not.toBe(session2.verificationCode);
+  });
+
+  it('different key pairs produce different verification codes', async () => {
+    const desktop1 = await generateKeyPair();
+    const mobile1 = await generateKeyPair();
+    const desktop2 = await generateKeyPair();
+    const mobile2 = await generateKeyPair();
+
+    const session1 = await deriveSessionKey(
+      desktop1.privateKey,
+      mobile1.publicKeyJwk,
+      'same-session-id',
+    );
+
+    const session2 = await deriveSessionKey(
+      desktop2.privateKey,
+      mobile2.publicKeyJwk,
+      'same-session-id',
+    );
+
+    expect(session1.verificationCode).not.toBe(session2.verificationCode);
+  });
+
   it('produces different keys for different session IDs', async () => {
     const desktop = await generateKeyPair();
     const mobile = await generateKeyPair();

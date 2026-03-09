@@ -7,6 +7,7 @@ class CryptoService {
     private var sendCounter: UInt64 = 0
     private var recvCounter: UInt64 = 0
     private var sessionId: String = ""
+    private var storedVerificationCode: String?
 
     /// Generate a new ECDH key pair and return the public key as a JWK-compatible dictionary
     func generateKeyPair() -> [String: Any] {
@@ -56,6 +57,18 @@ class CryptoService {
             sharedInfo: Data(info.utf8),
             outputByteCount: 32
         )
+
+        // Derive verification code from shared secret (separate HKDF info)
+        let verifyInfo = "termpod-verify-\(sessionId)"
+        let verifyKey = sharedSecret.hkdfDerivedSymmetricKey(
+            using: SHA256.self,
+            salt: Data(count: 32),
+            sharedInfo: Data(verifyInfo.utf8),
+            outputByteCount: 8
+        )
+        let verifyBytes = verifyKey.withUnsafeBytes { Array($0) }
+        let verifyNum = UInt32(verifyBytes[0]) << 24 | UInt32(verifyBytes[1]) << 16 | UInt32(verifyBytes[2]) << 8 | UInt32(verifyBytes[3])
+        self.storedVerificationCode = String(format: "%06d", verifyNum % 1_000_000)
 
         self.sessionKey = derivedKey
         self.sessionId = sessionId
@@ -121,6 +134,12 @@ class CryptoService {
         return plaintext
     }
 
+    /// 6-digit verification code derived from the shared secret.
+    /// Both peers should display the same code — mismatch indicates MITM.
+    func verificationCode() -> String? {
+        storedVerificationCode
+    }
+
     /// Reset all state (for reconnection)
     func reset() {
         privateKey = nil
@@ -128,6 +147,7 @@ class CryptoService {
         sendCounter = 0
         recvCounter = 0
         sessionId = ""
+        storedVerificationCode = nil
     }
 
     // MARK: - Helpers

@@ -167,6 +167,7 @@ pub fn run() {
             local_server::stop_local_server,
             local_server::get_local_auth_secret,
             local_server::local_server_broadcast,
+            local_server::local_server_broadcast_raw,
             local_server::local_server_send_control,
             local_server::local_server_send_to_client,
             local_server::update_local_sessions,

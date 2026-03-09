@@ -71,7 +71,7 @@ class MockWebSocket {
 describe('Session DO: binary frame routing', () => {
   /**
    * Simulates the routing logic from session.ts webSocketMessage():
-   * - Desktop sends terminal data → store scrollback + broadcast to viewers
+   * - Desktop sends terminal data → broadcast to viewers (no scrollback storage)
    * - Viewer sends terminal data → forward to desktop only
    * - Desktop sends resize → broadcast resize JSON to all
    * - Viewer sends resize → dropped (only desktop can resize)
@@ -81,17 +81,14 @@ describe('Session DO: binary frame routing', () => {
     sender: MockWebSocket,
     data: Uint8Array,
     allSockets: MockWebSocket[],
-  ): { scrollbackAppended: boolean; recipientCount: number } {
+  ): { recipientCount: number } {
     const channel = data[0];
-    let scrollbackAppended = false;
     let recipientCount = 0;
 
     if (channel === Channel.TERMINAL_DATA) {
       const senderRole = sender.tag?.role ?? 'unknown';
 
       if (senderRole === 'desktop') {
-        scrollbackAppended = true;
-
         for (const ws of allSockets) {
           if (ws !== sender && ws.tag?.role === 'viewer') {
             ws.send(data.buffer as ArrayBuffer);
@@ -111,8 +108,6 @@ describe('Session DO: binary frame routing', () => {
       const senderRole = sender.tag?.role ?? 'unknown';
 
       if (senderRole === 'desktop') {
-        scrollbackAppended = true;
-
         for (const ws of allSockets) {
           if (ws !== sender && ws.tag?.role === 'viewer') {
             ws.send(data.buffer as ArrayBuffer);
@@ -129,7 +124,7 @@ describe('Session DO: binary frame routing', () => {
       }
     } else if (channel === Channel.TERMINAL_RESIZE) {
       if (sender.tag?.role !== 'desktop') {
-        return { scrollbackAppended: false, recipientCount: 0 };
+        return { recipientCount: 0 };
       }
 
       const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
@@ -145,7 +140,7 @@ describe('Session DO: binary frame routing', () => {
       }
     }
 
-    return { scrollbackAppended, recipientCount };
+    return { recipientCount };
   }
 
   let desktop: MockWebSocket;
@@ -160,11 +155,10 @@ describe('Session DO: binary frame routing', () => {
     allSockets = [desktop, viewer1, viewer2];
   });
 
-  it('desktop terminal data → scrollback + broadcast to all viewers', () => {
+  it('desktop terminal data → broadcast to all viewers', () => {
     const frame = new Uint8Array([Channel.TERMINAL_DATA, 0x48, 0x65, 0x6c, 0x6c, 0x6f]);
     const result = routeBinaryFrame(desktop, frame, allSockets);
 
-    expect(result.scrollbackAppended).toBe(true);
     expect(result.recipientCount).toBe(2);
     expect(viewer1.sentMessages.length).toBe(1);
     expect(viewer2.sentMessages.length).toBe(1);
@@ -175,7 +169,6 @@ describe('Session DO: binary frame routing', () => {
     const frame = new Uint8Array([Channel.TERMINAL_DATA, 0x0d]); // Enter key
     const result = routeBinaryFrame(viewer1, frame, allSockets);
 
-    expect(result.scrollbackAppended).toBe(false);
     expect(result.recipientCount).toBe(1);
     expect(desktop.sentMessages.length).toBe(1);
     expect(viewer1.sentMessages.length).toBe(0); // not echoed
@@ -206,12 +199,11 @@ describe('Session DO: binary frame routing', () => {
     expect(desktop.sentMessages.length).toBe(0);
   });
 
-  it('desktop encrypted frame (0xE0) → scrollback + broadcast to viewers', () => {
+  it('desktop encrypted frame (0xE0) → broadcast to viewers', () => {
     // Encrypted frame: [0xE0][nonce:12][ciphertext+tag]
     const frame = new Uint8Array([0xe0, ...new Array(12).fill(0xaa), ...new Array(20).fill(0xbb)]);
     const result = routeBinaryFrame(desktop, frame, allSockets);
 
-    expect(result.scrollbackAppended).toBe(true);
     expect(result.recipientCount).toBe(2);
     expect(viewer1.sentMessages.length).toBe(1);
     expect(viewer2.sentMessages.length).toBe(1);
@@ -222,7 +214,6 @@ describe('Session DO: binary frame routing', () => {
     const frame = new Uint8Array([0xe0, ...new Array(12).fill(0xaa), ...new Array(20).fill(0xbb)]);
     const result = routeBinaryFrame(viewer1, frame, allSockets);
 
-    expect(result.scrollbackAppended).toBe(false);
     expect(result.recipientCount).toBe(1);
     expect(desktop.sentMessages.length).toBe(1);
     expect(viewer1.sentMessages.length).toBe(0);
@@ -234,7 +225,6 @@ describe('Session DO: binary frame routing', () => {
     const frame = new Uint8Array([0xe0, ...new Array(32).fill(0xcc)]);
     const result = routeBinaryFrame(unknownClient, frame, [unknownClient, desktop, viewer1]);
 
-    expect(result.scrollbackAppended).toBe(false);
     expect(result.recipientCount).toBe(0);
   });
 
@@ -243,16 +233,14 @@ describe('Session DO: binary frame routing', () => {
     const frame = new Uint8Array([Channel.TERMINAL_DATA, 0x41]);
     const result = routeBinaryFrame(unknownClient, frame, [unknownClient, desktop, viewer1]);
 
-    expect(result.scrollbackAppended).toBe(false);
     expect(result.recipientCount).toBe(0);
   });
 
-  it('single viewer session — desktop output has no recipients but still stores scrollback', () => {
+  it('desktop-only session — no recipients, no errors', () => {
     const onlyDesktop = [desktop];
     const frame = new Uint8Array([Channel.TERMINAL_DATA, 0x41]);
     const result = routeBinaryFrame(desktop, frame, onlyDesktop);
 
-    expect(result.scrollbackAppended).toBe(true);
     expect(result.recipientCount).toBe(0);
   });
 });

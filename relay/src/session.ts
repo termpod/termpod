@@ -7,7 +7,7 @@ import type {
   SignalingMessage,
   SessionCreatedMessage,
 } from '@termpod/protocol';
-import { SCROLLBACK_BUFFER_SIZE, Channel } from '@termpod/protocol';
+import { Channel } from '@termpod/protocol';
 import { verifyJWT } from './jwt';
 
 const MAX_MESSAGE_SIZE = 64 * 1024; // 64KB
@@ -32,8 +32,6 @@ function getTag(ws: WebSocket): ClientTag | null {
 }
 
 export class TerminalSession extends DurableObject {
-  private scrollback: Uint8Array[] = [];
-  private scrollbackSize = 0;
   private ptyCols = 120;
   private ptyRows = 40;
   private jwtSecret: string | null = null;
@@ -154,8 +152,6 @@ export class TerminalSession extends DurableObject {
       const senderRole = senderTag?.role ?? 'unknown';
 
       if (senderRole === 'desktop') {
-        // Desktop terminal output -> store in scrollback, send to viewers only
-        this.appendScrollback(data);
         this.broadcastToRole(ws, 'viewer', message);
       } else if (senderRole === 'viewer') {
         // Viewer input -> send to desktop only
@@ -185,7 +181,6 @@ export class TerminalSession extends DurableObject {
       const senderRole = senderTag?.role ?? 'unknown';
 
       if (senderRole === 'desktop') {
-        this.appendScrollback(data);
         this.broadcastToRole(ws, 'viewer', message);
       } else if (senderRole === 'viewer') {
         this.broadcastToRole(ws, 'desktop', message);
@@ -394,11 +389,6 @@ export class TerminalSession extends DurableObject {
       }),
     );
 
-    // Send scrollback to new viewers
-    if (assignedRole === 'viewer') {
-      this.sendScrollback(ws);
-    }
-
     ws.send(JSON.stringify({ type: 'ready' }));
 
     this.broadcastJson(ws, {
@@ -407,30 +397,6 @@ export class TerminalSession extends DurableObject {
       role: assignedRole,
       device: msg.device,
     });
-  }
-
-  private appendScrollback(data: Uint8Array): void {
-    this.scrollback.push(new Uint8Array(data));
-    this.scrollbackSize += data.length;
-
-    while (this.scrollbackSize > SCROLLBACK_BUFFER_SIZE && this.scrollback.length > 0) {
-      const removed = this.scrollback.shift()!;
-      this.scrollbackSize -= removed.length;
-    }
-  }
-
-  private sendScrollback(ws: WebSocket): void {
-    let offset = 0;
-
-    for (const chunk of this.scrollback) {
-      const frame = new Uint8Array(5 + chunk.length - 1);
-      const view = new DataView(frame.buffer);
-      frame[0] = Channel.SCROLLBACK_CHUNK;
-      view.setUint32(1, offset, false);
-      frame.set(chunk.subarray(1), 5);
-      ws.send(frame.buffer);
-      offset += chunk.length - 1;
-    }
   }
 
   private broadcastToRole(sender: WebSocket, targetRole: ClientRole, message: string | ArrayBuffer): void {

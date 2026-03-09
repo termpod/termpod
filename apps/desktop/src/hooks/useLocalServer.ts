@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import {
+  generateKeyPair,
+  deriveSessionKey,
+  encryptFrame,
+  decryptFrame,
+  Channel,
+  decodeBinaryFrame,
+} from '@termpod/protocol';
+import type { E2ESession } from '@termpod/protocol';
 import type { ConnectedDevice } from './useRelayConnection';
 
 // Module-level storage for the local auth secret so useDeviceWS can access it
@@ -41,6 +50,20 @@ interface DeleteSessionEvent {
   sessionId: string;
   clientId: string;
 }
+
+interface EncryptedInputEvent {
+  sessionId: string;
+  data: number[];
+}
+
+interface KeyExchangeEvent {
+  clientId: string;
+  json: string;
+}
+
+// Per-client E2E session state for local connections
+const localE2ESessions = new Map<string, E2ESession>();
+const pendingKeyPairs = new Map<string, { publicKeyJwk: JsonWebKey; privateKey: CryptoKey }>();
 
 interface UseLocalServerOptions {
   sessionId: string | null;
@@ -94,6 +117,19 @@ export function useLocalServer(options: UseLocalServerOptions) {
           { clientId: event.payload.clientId, device: event.payload.device, transport: 'local', connectedAt: new Date().toISOString() },
         ]);
         optionsRef.current.onViewerJoined?.();
+
+        // Initiate E2E key exchange with the new viewer
+        generateKeyPair().then((kp) => {
+          pendingKeyPairs.set(event.payload.clientId, kp);
+          invoke('local_server_send_to_client', {
+            clientId: event.payload.clientId,
+            json: JSON.stringify({
+              type: 'key_exchange',
+              publicKey: kp.publicKeyJwk,
+              sessionId: sid,
+            }),
+          }).catch(() => {});
+        });
       }
     }).then((fn) => unlisten.push(fn));
 
@@ -103,6 +139,8 @@ export function useLocalServer(options: UseLocalServerOptions) {
       if (event.payload.sessionId === sid) {
         setLocalViewers((v) => Math.max(0, v - 1));
         setLocalDevices((prev) => prev.filter((d) => d.clientId !== event.payload.clientId));
+        localE2ESessions.delete(event.payload.clientId);
+        pendingKeyPairs.delete(event.payload.clientId);
         optionsRef.current.onViewerLeft?.();
       }
     }).then((fn) => unlisten.push(fn));
@@ -135,6 +173,56 @@ export function useLocalServer(options: UseLocalServerOptions) {
       optionsRef.current.onDeleteSession?.(event.payload.sessionId);
     }).then((fn) => unlisten.push(fn));
 
+    // Handle E2E key exchange ack from local viewers
+    listen<KeyExchangeEvent>('local-ws-key-exchange', (event) => {
+      const { clientId, json } = event.payload;
+
+      try {
+        const msg = JSON.parse(json);
+
+        if (msg.type === 'key_exchange_ack' && msg.publicKey) {
+          const kp = pendingKeyPairs.get(clientId);
+
+          if (kp) {
+            const sid = msg.sessionId || optionsRef.current.sessionId || '';
+            deriveSessionKey(kp.privateKey, msg.publicKey, sid).then((e2eSession) => {
+              localE2ESessions.set(clientId, e2eSession);
+              pendingKeyPairs.delete(clientId);
+              console.log('[LocalServer] E2E encryption active for local viewer', clientId);
+            }).catch((err) => {
+              console.error('[LocalServer] E2E key derivation failed:', err);
+            });
+          }
+        }
+      } catch {
+        // Ignore malformed JSON
+      }
+    }).then((fn) => unlisten.push(fn));
+
+    // Handle E2E encrypted input from local viewers
+    listen<EncryptedInputEvent>('local-ws-encrypted-input', (event) => {
+      const sid = optionsRef.current.sessionId;
+
+      if (event.payload.sessionId === sid) {
+        const encrypted = new Uint8Array(event.payload.data);
+
+        // Find the E2E session for this viewer (try all local sessions)
+        for (const [, e2eSession] of localE2ESessions) {
+          decryptFrame(e2eSession, encrypted)
+            .then((plaintext) => {
+              const inner = decodeBinaryFrame(plaintext);
+
+              if (inner.channel === Channel.TERMINAL_DATA) {
+                optionsRef.current.onViewerInput?.(new TextDecoder().decode(inner.data));
+              }
+            })
+            .catch(() => {
+              // Wrong key — try next session or silently drop
+            });
+        }
+      }
+    }).then((fn) => unlisten.push(fn));
+
     return () => {
       for (const fn of unlisten) {
         fn();
@@ -144,8 +232,32 @@ export function useLocalServer(options: UseLocalServerOptions) {
 
   const broadcastTerminalData = useCallback(
     (sessionId: string, data: Uint8Array | number[]) => {
-      const bytes = data instanceof Uint8Array ? Array.from(data) : data;
-      invoke('local_server_broadcast', { sessionId, data: bytes }).catch(() => {});
+      const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+
+      if (localE2ESessions.size > 0) {
+        // Encrypt the terminal data and broadcast as 0xE0 multiplexed frame
+        const plainFrame = new Uint8Array(1 + bytes.length);
+        plainFrame[0] = Channel.TERMINAL_DATA;
+        plainFrame.set(bytes, 1);
+
+        // Use first available E2E session (all local viewers share same key)
+        const e2eSession = localE2ESessions.values().next().value;
+
+        if (e2eSession) {
+          encryptFrame(e2eSession, plainFrame).then((encrypted) => {
+            // Build multiplexed frame: [0xE0][sid_len][sid][encrypted_data]
+            const sidBytes = new TextEncoder().encode(sessionId);
+            const frame = new Uint8Array(2 + sidBytes.length + encrypted.length);
+            frame[0] = 0xe0;
+            frame[1] = sidBytes.length;
+            frame.set(sidBytes, 2);
+            frame.set(encrypted, 2 + sidBytes.length);
+            invoke('local_server_broadcast_raw', { sessionId, data: Array.from(frame) }).catch(() => {});
+          });
+        }
+      } else {
+        invoke('local_server_broadcast', { sessionId, data: Array.from(bytes) }).catch(() => {});
+      }
     },
     [],
   );

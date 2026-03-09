@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { getLocalAuthSecret } from '../useLocalServer';
+import {
+  generateKeyPair,
+  deriveSessionKey,
+  encryptFrame,
+  decryptFrame,
+  encodeTerminalData,
+  decodeBinaryFrame,
+  Channel,
+} from '@termpod/protocol';
 
 describe('getLocalAuthSecret', () => {
   it('returns null initially (before Tauri invoke sets it)', () => {
@@ -101,5 +110,114 @@ describe('local auth secret sharing triggers', () => {
 
     const shouldSend = !!secret && wsOpen;
     expect(shouldSend).toBe(false);
+  });
+});
+
+describe('local E2E key exchange flow', () => {
+  it('desktop initiates key exchange on viewer join', async () => {
+    // Desktop generates key pair when a viewer joins via Bonjour
+    const desktopKP = await generateKeyPair();
+
+    // Desktop sends key_exchange message to the viewer
+    const keyExchangeMsg = {
+      type: 'key_exchange',
+      publicKey: desktopKP.publicKeyJwk,
+      sessionId: 'local-session-1',
+    };
+
+    expect(keyExchangeMsg.type).toBe('key_exchange');
+    expect(keyExchangeMsg.publicKey.kty).toBe('EC');
+    expect(keyExchangeMsg.publicKey.crv).toBe('P-256');
+  });
+
+  it('derives session key from viewer ack and encrypts/decrypts', async () => {
+    const desktopKP = await generateKeyPair();
+    const viewerKP = await generateKeyPair();
+    const sessionId = 'local-e2e-roundtrip';
+
+    // Desktop derives session after receiving key_exchange_ack
+    const desktopSession = await deriveSessionKey(
+      desktopKP.privateKey,
+      viewerKP.publicKeyJwk,
+      sessionId,
+    );
+
+    // Viewer derives session after receiving key_exchange
+    const viewerSession = await deriveSessionKey(
+      viewerKP.privateKey,
+      desktopKP.publicKeyJwk,
+      sessionId,
+    );
+
+    // Both peers should have matching verification codes
+    expect(desktopSession.verificationCode).toBe(viewerSession.verificationCode);
+
+    // Desktop encrypts terminal output for local viewer
+    const termData = new TextEncoder().encode('hello local\r\n');
+    const plainFrame = encodeTerminalData(termData);
+    const encrypted = await encryptFrame(desktopSession, plainFrame);
+    const decrypted = await decryptFrame(viewerSession, encrypted);
+
+    const inner = decodeBinaryFrame(decrypted);
+    expect(inner.channel).toBe(Channel.TERMINAL_DATA);
+
+    if (inner.channel === Channel.TERMINAL_DATA) {
+      expect(new TextDecoder().decode(inner.data)).toBe('hello local\r\n');
+    }
+  });
+
+  it('viewer encrypted input is decrypted by desktop', async () => {
+    const desktopKP = await generateKeyPair();
+    const viewerKP = await generateKeyPair();
+    const sessionId = 'local-e2e-input';
+
+    const desktopSession = await deriveSessionKey(
+      desktopKP.privateKey,
+      viewerKP.publicKeyJwk,
+      sessionId,
+    );
+
+    const viewerSession = await deriveSessionKey(
+      viewerKP.privateKey,
+      desktopKP.publicKeyJwk,
+      sessionId,
+    );
+
+    // Viewer encrypts input to send to desktop
+    const input = new TextEncoder().encode('ls\n');
+    const plainFrame = encodeTerminalData(input);
+    const encrypted = await encryptFrame(viewerSession, plainFrame);
+
+    // Desktop decrypts
+    const decrypted = await decryptFrame(desktopSession, encrypted);
+    const inner = decodeBinaryFrame(decrypted);
+
+    expect(inner.channel).toBe(Channel.TERMINAL_DATA);
+
+    if (inner.channel === Channel.TERMINAL_DATA) {
+      expect(new TextDecoder().decode(inner.data)).toBe('ls\n');
+    }
+  });
+
+  it('E2E state is cleared when viewer disconnects', async () => {
+    const desktopKP = await generateKeyPair();
+    const viewerKP = await generateKeyPair();
+
+    const session = await deriveSessionKey(
+      desktopKP.privateKey,
+      viewerKP.publicKeyJwk,
+      'local-disconnect',
+    );
+
+    // Simulate per-client E2E map (matches useLocalServer's localE2ESessions)
+    const localSessions = new Map<string, typeof session>();
+    const clientId = 'viewer-abc';
+    localSessions.set(clientId, session);
+    expect(localSessions.has(clientId)).toBe(true);
+
+    // On viewer-left, the session is deleted
+    localSessions.delete(clientId);
+    expect(localSessions.has(clientId)).toBe(false);
+    expect(localSessions.size).toBe(0);
   });
 });

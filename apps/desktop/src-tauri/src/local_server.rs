@@ -114,6 +114,20 @@ struct InputEvent {
 }
 
 #[derive(Serialize, Clone)]
+struct EncryptedInputEvent {
+    #[serde(rename = "sessionId")]
+    session_id: String,
+    data: Vec<u8>,
+}
+
+#[derive(Serialize, Clone)]
+struct KeyExchangeEvent {
+    #[serde(rename = "clientId")]
+    client_id: String,
+    json: String,
+}
+
+#[derive(Serialize, Clone)]
 struct ResizeEvent {
     #[serde(rename = "sessionId")]
     session_id: String,
@@ -164,11 +178,8 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
     // Get local IP addresses for discovery
     let addresses = get_local_addresses();
 
-    // Register mDNS service using macOS dns-sd command (reliable native implementation)
-    let hostname = gethostname::gethostname()
-        .to_string_lossy()
-        .to_string();
-    let service_name = format!("TermPod-{hostname}");
+    // Register mDNS service with randomized name to avoid leaking hostname
+    let service_name = format!("TP-{}", &generate_auth_secret()[..8]);
 
     // Kill any stale dns-sd processes from previous runs
     let _ = std::process::Command::new("pkill")
@@ -264,6 +275,26 @@ pub async fn local_server_broadcast(session_id: String, data: Vec<u8>) -> Result
     frame.extend_from_slice(sid_bytes);
     frame.extend_from_slice(&data);
     let msg = Message::Binary(frame.into());
+
+    for client in clients.values() {
+        if client.session_ids.contains(&session_id) && client.role == "viewer" {
+            let _ = client.tx.send(msg.clone());
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn local_server_broadcast_raw(session_id: String, data: Vec<u8>) -> Result<(), String> {
+    let guard = server_lock().lock().await;
+
+    let Some(state) = guard.as_ref() else {
+        return Ok(());
+    };
+
+    let clients = state.clients.read().await;
+    let msg = Message::Binary(data.into());
 
     for client in clients.values() {
         if client.session_ids.contains(&session_id) && client.role == "viewer" {
@@ -547,6 +578,18 @@ async fn handle_connection(
                             }
                         }
 
+                        Some("key_exchange_ack") => {
+                            if let Some(cid) = registered_id.as_ref() {
+                                let _ = app.emit(
+                                    "local-ws-key-exchange",
+                                    KeyExchangeEvent {
+                                        client_id: cid.clone(),
+                                        json: text.to_string(),
+                                    },
+                                );
+                            }
+                        }
+
                         Some("list_sessions") => {
                             let list = sessions.read().await;
                             let response = serde_json::json!({
@@ -629,6 +672,16 @@ async fn handle_connection(
                                     session_id: sid,
                                     cols,
                                     rows,
+                                },
+                            );
+                        }
+                        0xe0 => {
+                            // E2E encrypted frame — forward raw bytes to JS for decryption
+                            let _ = app.emit(
+                                "local-ws-encrypted-input",
+                                EncryptedInputEvent {
+                                    session_id: sid,
+                                    data: data[payload_offset..].to_vec(),
                                 },
                             );
                         }

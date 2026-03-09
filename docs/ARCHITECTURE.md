@@ -62,7 +62,7 @@ iOS App (SwiftUI + SwiftTerm)
 
 ### 3. Relay Server (The "Hub")
 
-The relay is a Cloudflare Worker + two Durable Object types. The User DO acts as the device-level control plane; the TerminalSession DO handles per-session binary relay and scrollback.
+The relay is a Cloudflare Worker + two Durable Object types. The User DO acts as the device-level control plane; the TerminalSession DO handles per-session binary relay (pure forwarding, no data storage).
 
 ```
 Cloudflare Edge
@@ -95,7 +95,6 @@ Cloudflare Edge
 PTY stdout → Desktop xterm.js (local render)
           → E2E encrypt (AES-256-GCM) → [0xE0][nonce][ciphertext]
           → WebSocket binary frame → Relay DO
-          → DO appends to scrollback buffer (plaintext 0x00 frames only)
           → DO fans out encrypted frames to all connected viewers
           → Mobile E2E decrypt → SwiftTerm (remote render)
 ```
@@ -110,7 +109,7 @@ Mobile keyboard → E2E encrypt → WebSocket binary frame → Relay DO
                → Output flows back via the output path above
 ```
 
-Note: E2E encryption applies to relay transport only. Local (Bonjour) and WebRTC transports send plaintext binary frames (local is trusted network; WebRTC has built-in DTLS encryption). Scrollback remains plaintext for v1.
+Note: E2E encryption applies to both relay and local (Bonjour) transports. WebRTC has built-in DTLS encryption. The relay stores no terminal data — it is a pure forwarder of opaque ciphertext.
 
 ### Device-Level Transport Architecture
 
@@ -161,9 +160,8 @@ The mobile app receives data from **all** connected transports simultaneously (w
 ```
 Mobile opens app → WebSocket connect to relay
                 → Relay sends session metadata (cols, rows, cwd)
-                → Relay sends full scrollback buffer
-                → Mobile SwiftTerm writes scrollback (instant catch-up)
-                → Switch to real-time streaming
+                → E2E key exchange with desktop
+                → Real-time encrypted streaming begins
 ```
 
 ## Key Design Decisions
@@ -180,7 +178,7 @@ The shell runs locally with full access to your filesystem, credentials, SSH key
 
 Two DO types: **User DO** (one per account, device-level control plane) and **TerminalSession DO** (one per session, binary data relay). This gives us:
 - **Single-threaded coordination**: No race conditions when multiple clients send input
-- **Built-in persistence**: SQLite storage for scrollback and device/session metadata
+- **Built-in persistence**: SQLite storage for device/session metadata
 - **Cost efficiency**: Hibernatable WebSockets mean we only pay when data flows
 - **Global edge**: DO runs near the desktop client, minimizing latency
 
@@ -196,8 +194,8 @@ Terminal output is raw bytes — ANSI escape codes, UTF-8 text, control characte
 
 Each transport has its own security model:
 
-- **Relay**: E2E encrypted. Desktop and viewer perform an ECDH P-256 key exchange (via `key_exchange`/`key_exchange_ack` control messages), derive a shared AES-256-GCM key using HKDF-SHA256 (with session ID as info), and encrypt all terminal data as `[0xE0][nonce:12][ciphertext+tag]` frames. The relay forwards these frames blindly — it cannot read terminal data. Desktop uses Web Crypto (`packages/protocol/src/crypto.ts`), iOS uses CryptoKit (`CryptoService.swift`).
-- **Local (Bonjour)**: Authenticated via shared secret. Desktop generates a random auth secret on startup and shares it with iOS through the authenticated relay Device WS (`local_auth_secret` message). iOS must send this secret as the first message on the local WebSocket; the desktop Rust server validates it before accepting any other messages.
+- **Relay**: E2E encrypted. Desktop and viewer perform an ECDH P-256 key exchange (via `key_exchange`/`key_exchange_ack` control messages), derive a shared AES-256-GCM key using HKDF-SHA256 (with session ID as info), and encrypt all terminal data as `[0xE0][nonce:12][ciphertext+tag]` frames. The relay forwards these frames blindly — it cannot read terminal data. The relay stores no terminal data (no scrollback). Desktop uses Web Crypto (`packages/protocol/src/crypto.ts`), iOS uses CryptoKit (`CryptoService.swift`). Both peers derive a 6-digit verification code from the shared secret for MITM detection.
+- **Local (Bonjour)**: Authenticated via shared secret + E2E encrypted. Desktop generates a random auth secret on startup and shares it with iOS through the authenticated relay Device WS. After auth, desktop initiates ECDH key exchange, and all subsequent data is encrypted with AES-256-GCM (same protocol as relay). The mDNS service name is randomized to avoid leaking the hostname.
 - **WebRTC**: E2E encrypted by design — DTLS secures the DataChannel at the transport layer.
 
 ### Auto-updates via relay proxy

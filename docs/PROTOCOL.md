@@ -115,13 +115,13 @@ Used on Session WS (`/sessions/:id/ws`). All frames start with a 1-byte channel 
 [0xE0][nonce:12bytes][ciphertext + AES-GCM auth tag]
 ```
 
-- Used on relay transport only (local and WebRTC don't need it)
-- Inner plaintext is a standard `[0x00][terminal data]` frame
-- Nonce is counter-based (8-byte counter, little-endian, zero-padded to 12 bytes)
-- Key derived via HKDF-SHA256 from ECDH shared secret, with session ID as info parameter
+- Used on both relay and local (Bonjour) transports (WebRTC has built-in DTLS)
+- Inner plaintext is a standard `[0x00][terminal data]` or `[0x01][resize]` frame
+- Nonce is counter-based (8-byte counter, big-endian, zero-padded to 12 bytes)
+- Key derived via HKDF-SHA256 from ECDH shared secret, with `termpod-e2e-{sessionId}` as info
 - The relay forwards `0xE0` frames without inspecting or modifying the payload
 - Key exchange happens via `key_exchange` / `key_exchange_ack` control messages (see below)
-- Scrollback (0x02) frames remain plaintext for v1
+- Both peers derive a 6-digit verification code (HKDF with `termpod-verify-{sessionId}` info) for MITM detection
 
 ### Multiplexed Binary Frames (Device-Level)
 
@@ -133,7 +133,7 @@ Used on Device WS (`/devices/:deviceId/ws`) and Local WS (Bonjour). Prefixes eac
 
 | Field | Size | Description |
 |-------|------|-------------|
-| `channel` | 1 byte | Channel ID (0x00, 0x01, 0x02) |
+| `channel` | 1 byte | Channel ID (0x00, 0x01, 0x02, 0xE0) |
 | `sid_len` | 1 byte | Length of session ID string in bytes |
 | `sid` | `sid_len` bytes | Session ID (UTF-8 encoded) |
 | `payload` | remaining bytes | Channel-specific payload |

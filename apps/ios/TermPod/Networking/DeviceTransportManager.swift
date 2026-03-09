@@ -105,6 +105,8 @@ final class DeviceTransportManager: ObservableObject {
     private var localAuthSecret: String?
     /// Whether the local WS is waiting for auth_ok before sending hello.
     private var localWSPendingAuth = false
+    /// E2E crypto for local transport
+    private var localCrypto = CryptoService()
 
     // MARK: - Lifecycle
 
@@ -429,13 +431,26 @@ final class DeviceTransportManager: ObservableObject {
         guard let ws = localWS else { return }
 
         let sidBytes = Array(sessionId.utf8)
-        var frame = Data(capacity: 2 + sidBytes.count + data.count)
-        frame.append(0x00)
-        frame.append(UInt8(sidBytes.count))
-        frame.append(contentsOf: sidBytes)
-        frame.append(data)
 
-        ws.send(.data(frame)) { _ in }
+        if localCrypto.isReady {
+            // Encrypt: inner frame [0x00][data], then wrap as [0xE0][sid_len][sid][encrypted]
+            var plainFrame = Data([0x00])
+            plainFrame.append(data)
+            guard let encrypted = try? localCrypto.encrypt(plainFrame) else { return }
+            var frame = Data(capacity: 2 + sidBytes.count + encrypted.count)
+            frame.append(0xE0)
+            frame.append(UInt8(sidBytes.count))
+            frame.append(contentsOf: sidBytes)
+            frame.append(encrypted)
+            ws.send(.data(frame)) { _ in }
+        } else {
+            var frame = Data(capacity: 2 + sidBytes.count + data.count)
+            frame.append(0x00)
+            frame.append(UInt8(sidBytes.count))
+            frame.append(contentsOf: sidBytes)
+            frame.append(data)
+            ws.send(.data(frame)) { _ in }
+        }
     }
 
     /// Send resize for a specific session over multiplexed local WS.
@@ -443,16 +458,32 @@ final class DeviceTransportManager: ObservableObject {
         guard let ws = localWS else { return }
 
         let sidBytes = Array(sessionId.utf8)
-        var frame = Data(capacity: 2 + sidBytes.count + 4)
-        frame.append(0x01)
-        frame.append(UInt8(sidBytes.count))
-        frame.append(contentsOf: sidBytes)
-        frame.append(UInt8((cols >> 8) & 0xFF))
-        frame.append(UInt8(cols & 0xFF))
-        frame.append(UInt8((rows >> 8) & 0xFF))
-        frame.append(UInt8(rows & 0xFF))
 
-        ws.send(.data(frame)) { _ in }
+        if localCrypto.isReady {
+            // Encrypt: inner frame [0x01][cols:u16][rows:u16], then wrap as [0xE0][sid_len][sid][encrypted]
+            var plainFrame = Data([0x01])
+            plainFrame.append(UInt8((cols >> 8) & 0xFF))
+            plainFrame.append(UInt8(cols & 0xFF))
+            plainFrame.append(UInt8((rows >> 8) & 0xFF))
+            plainFrame.append(UInt8(rows & 0xFF))
+            guard let encrypted = try? localCrypto.encrypt(plainFrame) else { return }
+            var frame = Data(capacity: 2 + sidBytes.count + encrypted.count)
+            frame.append(0xE0)
+            frame.append(UInt8(sidBytes.count))
+            frame.append(contentsOf: sidBytes)
+            frame.append(encrypted)
+            ws.send(.data(frame)) { _ in }
+        } else {
+            var frame = Data(capacity: 2 + sidBytes.count + 4)
+            frame.append(0x01)
+            frame.append(UInt8(sidBytes.count))
+            frame.append(contentsOf: sidBytes)
+            frame.append(UInt8((cols >> 8) & 0xFF))
+            frame.append(UInt8(cols & 0xFF))
+            frame.append(UInt8((rows >> 8) & 0xFF))
+            frame.append(UInt8(rows & 0xFF))
+            ws.send(.data(frame)) { _ in }
+        }
     }
 
     // MARK: - WebRTC Session Multiplexing
@@ -747,6 +778,24 @@ final class DeviceTransportManager: ObservableObject {
                     sessions.removeAll { $0.id == sessionId }
                 }
 
+            case "key_exchange":
+                if let peerKeyDict = json["publicKey"] as? [String: Any],
+                   let sid = json["sessionId"] as? String {
+                    let ourPublicKey = localCrypto.generateKeyPair()
+                    do {
+                        try localCrypto.deriveSessionKey(peerPublicKeyJwk: peerKeyDict, sessionId: sid)
+                        let ackMsg: [String: Any] = [
+                            "type": "key_exchange_ack",
+                            "publicKey": ourPublicKey,
+                            "sessionId": sid
+                        ]
+                        sendLocalControl(ackMsg)
+                        log("E2E encryption active on local transport")
+                    } catch {
+                        log("E2E key derivation failed: \(error)")
+                    }
+                }
+
             default:
                 break
             }
@@ -786,6 +835,25 @@ final class DeviceTransportManager: ObservableObject {
             let payload = data[payloadStart...]
             sessionDataHandlers[sessionId]?(Data(payload))
 
+        case 0xE0:
+            // E2E encrypted frame — decrypt and process inner frame
+            guard localCrypto.isReady else { break }
+            let encrypted = Data(data[payloadStart...])
+            guard let plaintext = try? localCrypto.decrypt(encrypted) else {
+                print("[DeviceTransport] Local E2E decryption failed")
+                break
+            }
+            // Inner frame: [channel][payload...]
+            guard let innerChannel = plaintext.first else { break }
+            let innerPayload = plaintext.dropFirst()
+            if innerChannel == 0x00 {
+                sessionDataHandlers[sessionId]?(Data(innerPayload))
+            } else if innerChannel == 0x01, innerPayload.count >= 4 {
+                let cols = Int(innerPayload[innerPayload.startIndex]) << 8 | Int(innerPayload[innerPayload.startIndex + 1])
+                let rows = Int(innerPayload[innerPayload.startIndex + 2]) << 8 | Int(innerPayload[innerPayload.startIndex + 3])
+                sessionResizeHandlers[sessionId]?(cols, rows)
+            }
+
         default:
             break
         }
@@ -795,6 +863,7 @@ final class DeviceTransportManager: ObservableObject {
         localWS = nil
         localConnected = false
         localWSPendingAuth = false
+        localCrypto.reset()
         // Keep session handlers intact — on reconnect, the `ready` handler
         // re-subscribes all sessions. Sessions fall back to relay in the meantime.
         updateActiveTransport()

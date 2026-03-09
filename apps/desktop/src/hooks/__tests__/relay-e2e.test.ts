@@ -356,6 +356,8 @@ describe('key_exchange_ack handling', () => {
     expect(session.sendCounter).toBe(0);
     expect(session.recvCounter).toBe(0);
     expect(session.sessionId).toBe(sessionId);
+    expect(session.verificationCode).toBeDefined();
+    expect(session.verificationCode).toMatch(/^\d{6}$/);
   });
 
   it('rejects ack with invalid public key', async () => {

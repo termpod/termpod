@@ -11,6 +11,7 @@
 const NONCE_SIZE = 12;
 const TAG_SIZE = 16;
 const HKDF_INFO_PREFIX = 'termpod-e2e-';
+const VERIFY_INFO_PREFIX = 'termpod-verify-';
 
 const subtle = globalThis.crypto.subtle;
 const encoder = new TextEncoder();
@@ -25,6 +26,7 @@ export interface E2ESession {
   sendCounter: number;
   recvCounter: number;
   sessionId: string;
+  verificationCode: string;
 }
 
 export async function generateKeyPair(): Promise<E2EKeyPair> {
@@ -81,7 +83,23 @@ export async function deriveSessionKey(
     ['encrypt', 'decrypt'],
   );
 
-  return { key: aesKey, sendCounter: 0, recvCounter: 0, sessionId };
+  // Derive verification code from shared secret (separate HKDF info)
+  // Both peers get the same code — mismatch indicates MITM
+  const hkdfKeyForVerify = await subtle.importKey('raw', sharedBits, 'HKDF', false, ['deriveBits']);
+  const verifyBits = await subtle.deriveBits(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: new Uint8Array(32),
+      info: encoder.encode(`${VERIFY_INFO_PREFIX}${sessionId}`),
+    },
+    hkdfKeyForVerify,
+    64,
+  );
+  const verifyNum = new DataView(verifyBits).getUint32(0, false);
+  const verificationCode = String(verifyNum % 1_000_000).padStart(6, '0');
+
+  return { key: aesKey, sendCounter: 0, recvCounter: 0, sessionId, verificationCode };
 }
 
 function counterToNonce(counter: number): Uint8Array {
@@ -137,3 +155,4 @@ export async function decryptFrame(
 
   return new Uint8Array(plaintext);
 }
+
