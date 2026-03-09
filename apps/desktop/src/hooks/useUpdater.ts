@@ -105,7 +105,12 @@ export function useUpdater() {
   }, []);
 
   const installAndRestart = useCallback(async () => {
-    await relaunch();
+    try {
+      await relaunch();
+    } catch (err) {
+      console.error('relaunch() failed:', err);
+      setStatus({ state: 'error', message: `Restart failed: ${err}` });
+    }
   }, []);
 
   const dismiss = useCallback(() => {
