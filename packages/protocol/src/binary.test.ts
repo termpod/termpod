@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { Channel } from './constants.js';
 import {
   decodeBinaryFrame,
+  decodeEncryptedFrame,
   decodeMuxFrame,
+  encodeEncryptedFrame,
   encodeMuxTerminalData,
   encodeMuxTerminalResize,
   encodeScrollbackChunk,
@@ -404,6 +406,20 @@ describe('decodeBinaryFrame', () => {
     expect(() => decodeBinaryFrame(frame)).toThrow('Unknown channel: 0xff');
   });
 
+  it('decodes encrypted frame', () => {
+    const nonce = new Uint8Array(12);
+    nonce.fill(0xaa);
+    const ciphertext = new Uint8Array([0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13]);
+    const frame = encodeEncryptedFrame(nonce, ciphertext);
+    const decoded = decodeBinaryFrame(frame);
+
+    expect(decoded.channel).toBe(Channel.ENCRYPTED);
+    if (decoded.channel === Channel.ENCRYPTED) {
+      expect(decoded.nonce).toEqual(nonce);
+      expect(decoded.ciphertext).toEqual(ciphertext);
+    }
+  });
+
   it('round-trips terminal data', () => {
     const original = new Uint8Array(256);
     for (let i = 0; i < 256; i++) {
@@ -502,5 +518,58 @@ describe('decodeBinaryFrame', () => {
       expect(decoded.cols).toBe(100);
       expect(decoded.rows).toBe(30);
     }
+  });
+});
+
+describe('encodeEncryptedFrame', () => {
+  it('encodes nonce and ciphertext with channel prefix', () => {
+    const nonce = new Uint8Array(12);
+    nonce[0] = 0x01;
+    nonce[11] = 0x0c;
+    const ciphertext = new Uint8Array([0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+      0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0x00, 0xab]);
+    const frame = encodeEncryptedFrame(nonce, ciphertext);
+
+    expect(frame[0]).toBe(Channel.ENCRYPTED);
+    expect(frame[0]).toBe(0xe0);
+    expect(frame.length).toBe(1 + 12 + ciphertext.length);
+    expect(frame.subarray(1, 13)).toEqual(nonce);
+    expect(frame.subarray(13)).toEqual(ciphertext);
+  });
+});
+
+describe('decodeEncryptedFrame', () => {
+  it('round-trips encoded encrypted frame', () => {
+    const nonce = new Uint8Array(12);
+    nonce.fill(0x42);
+    const ciphertext = new Uint8Array(32);
+    ciphertext.fill(0xde);
+
+    const frame = encodeEncryptedFrame(nonce, ciphertext);
+    const decoded = decodeEncryptedFrame(frame);
+
+    expect(decoded).not.toBeNull();
+    expect(decoded!.channel).toBe(Channel.ENCRYPTED);
+    expect(decoded!.nonce).toEqual(nonce);
+    expect(decoded!.ciphertext).toEqual(ciphertext);
+  });
+
+  it('returns null for frame too short', () => {
+    // Needs at least 1 (channel) + 12 (nonce) + 16 (tag) = 29 bytes
+    const tooShort = new Uint8Array(28);
+    tooShort[0] = Channel.ENCRYPTED;
+
+    expect(decodeEncryptedFrame(tooShort)).toBeNull();
+  });
+
+  it('handles minimum valid frame (empty plaintext, just tag)', () => {
+    const nonce = new Uint8Array(12);
+    const tag = new Uint8Array(16); // GCM tag with no ciphertext
+    const frame = encodeEncryptedFrame(nonce, tag);
+    const decoded = decodeEncryptedFrame(frame);
+
+    expect(decoded).not.toBeNull();
+    expect(decoded!.nonce.length).toBe(12);
+    expect(decoded!.ciphertext.length).toBe(16);
   });
 });

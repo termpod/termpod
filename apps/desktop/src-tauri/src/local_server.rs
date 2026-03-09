@@ -1,4 +1,6 @@
 use std::collections::{HashMap, HashSet};
+use std::collections::hash_map::RandomState;
+use std::hash::{BuildHasher, Hasher};
 use std::net::SocketAddr;
 use std::process::Child;
 use std::sync::Arc;
@@ -42,6 +44,7 @@ struct ServerState {
     clients: Clients,
     sessions: Sessions,
     dns_sd_process: Option<Child>,
+    local_auth_secret: String,
 }
 
 static SERVER: std::sync::OnceLock<tokio::sync::Mutex<Option<ServerState>>> =
@@ -55,6 +58,15 @@ fn server_lock() -> &'static tokio::sync::Mutex<Option<ServerState>> {
 pub struct LocalServerInfo {
     pub port: u16,
     pub addresses: Vec<String>,
+    #[serde(rename = "authSecret")]
+    pub auth_secret: String,
+}
+
+#[derive(Deserialize)]
+struct AuthMsg {
+    #[serde(rename = "type")]
+    msg_type: String,
+    secret: String,
 }
 
 #[derive(Deserialize)]
@@ -109,6 +121,26 @@ struct ResizeEvent {
     rows: u16,
 }
 
+fn generate_auth_secret() -> String {
+    let rs = RandomState::new();
+    let mut h1 = rs.build_hasher();
+    h1.write_u64(0);
+    let a = h1.finish();
+    let mut h2 = rs.build_hasher();
+    h2.write_u64(1);
+    let b = h2.finish();
+    format!("{a:016x}{b:016x}")
+}
+
+#[tauri::command]
+pub async fn get_local_auth_secret() -> Result<String, String> {
+    let guard = server_lock().lock().await;
+    let Some(state) = guard.as_ref() else {
+        return Err("Server not running".into());
+    };
+    Ok(state.local_auth_secret.clone())
+}
+
 #[tauri::command]
 pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, String> {
     let mut guard = server_lock().lock().await;
@@ -127,6 +159,7 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
     let clients: Clients = Arc::new(RwLock::new(HashMap::new()));
     let sessions: Sessions = Arc::new(RwLock::new(Vec::new()));
     let (shutdown_tx, mut shutdown_rx) = mpsc::channel::<()>(1);
+    let local_auth_secret = generate_auth_secret();
 
     // Get local IP addresses for discovery
     let addresses = get_local_addresses();
@@ -156,6 +189,7 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
     let clients_clone = clients.clone();
     let sessions_clone = sessions.clone();
     let app_clone = app.clone();
+    let auth_secret_clone = local_auth_secret.clone();
 
     // Spawn the server loop
     tokio::spawn(async move {
@@ -165,9 +199,10 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
                     let clients = clients_clone.clone();
                     let sessions = sessions_clone.clone();
                     let app = app_clone.clone();
+                    let secret = auth_secret_clone.clone();
 
                     tokio::spawn(async move {
-                        if let Err(e) = handle_connection(stream, peer_addr, clients, sessions, app).await {
+                        if let Err(e) = handle_connection(stream, peer_addr, clients, sessions, app, secret).await {
                             eprintln!("[LocalServer] Connection error: {e}");
                         }
                     });
@@ -182,6 +217,7 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
     let info = LocalServerInfo {
         port,
         addresses: addresses.clone(),
+        auth_secret: local_auth_secret.clone(),
     };
 
     *guard = Some(ServerState {
@@ -189,6 +225,7 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
         clients,
         sessions,
         dns_sd_process: Some(dns_sd_process),
+        local_auth_secret,
     });
 
     Ok(info)
@@ -312,6 +349,7 @@ async fn handle_connection(
     clients: Clients,
     sessions: Sessions,
     app: AppHandle,
+    auth_secret: String,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let ws_stream = accept_async(stream).await?;
     let (mut ws_tx, mut ws_rx) = ws_stream.split();
@@ -327,6 +365,46 @@ async fn handle_connection(
             }
         }
     });
+
+    // Wait for auth message as the first message
+    let authenticated = loop {
+        let Some(msg_result) = ws_rx.next().await else {
+            break false;
+        };
+        let msg = match msg_result {
+            Ok(m) => m,
+            Err(_) => break false,
+        };
+        match msg {
+            Message::Text(text) => {
+                if let Ok(auth) = serde_json::from_str::<AuthMsg>(&text) {
+                    if auth.msg_type == "auth" && auth.secret == auth_secret {
+                        let ok = serde_json::json!({ "type": "auth_ok" });
+                        let _ = tx.send(Message::Text(ok.to_string().into()));
+                        break true;
+                    }
+                }
+                // Wrong auth or unrecognized message
+                let err = serde_json::json!({
+                    "type": "error",
+                    "message": "Authentication failed"
+                });
+                let _ = tx.send(Message::Text(err.to_string().into()));
+                let _ = tx.send(Message::Close(None));
+                break false;
+            }
+            Message::Close(_) => break false,
+            _ => continue, // Skip pings etc
+        }
+    };
+
+    if !authenticated {
+        eprintln!("[LocalServer] Auth failed from {peer_addr}");
+        forward_task.abort();
+        return Ok(());
+    }
+
+    eprintln!("[LocalServer] Auth OK from {peer_addr}");
 
     let mut registered_id: Option<String> = None;
     let mut client_device = String::new();

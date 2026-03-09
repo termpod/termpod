@@ -165,6 +165,7 @@ pub fn run() {
             pty::pty_exitstatus,
             local_server::start_local_server,
             local_server::stop_local_server,
+            local_server::get_local_auth_secret,
             local_server::local_server_broadcast,
             local_server::local_server_send_control,
             local_server::local_server_send_to_client,

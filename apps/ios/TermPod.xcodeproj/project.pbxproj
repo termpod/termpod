@@ -32,6 +32,7 @@
 		5EB094A5314BC16F37421677 /* ConnectionManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCD33C740165E948A72B34C6 /* ConnectionManagerTests.swift */; };
 		60748E2146AE9EB066CF01A5 /* TerminalThemeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E35D7CB48603294B7C696E6 /* TerminalThemeTests.swift */; };
 		640B46B16EDEA59FDBFACD76 /* ClipsEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C11EA916A9631A12DEC0CC2F /* ClipsEditorView.swift */; };
+		6AFED37ABB55B38A6DFBC890 /* CryptoService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03D1E5F056D61EE673D9289F /* CryptoService.swift */; };
 		83750D3E8A519D36FD8B93CF /* RemoteTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 841A266B269D03CB688C05B3 /* RemoteTerminalView.swift */; };
 		8760F37A306EA24B20BD3A96 /* NotificationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AA97F7C49D95BAA641389AA /* NotificationServiceTests.swift */; };
 		8779931460CF22DC1B4B01FF /* BiometricService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59439100CDD413A19780061B /* BiometricService.swift */; };
@@ -74,6 +75,7 @@
 /* Begin PBXFileReference section */
 		00A3176BC1880812D6454FF3 /* TerminalSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSettingsTests.swift; sourceTree = "<group>"; };
 		012D6D7CF30481F06B4F7465 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		03D1E5F056D61EE673D9289F /* CryptoService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoService.swift; sourceTree = "<group>"; };
 		0847EF1E05138048DA864079 /* SearchBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchBarView.swift; sourceTree = "<group>"; };
 		0AA97F7C49D95BAA641389AA /* NotificationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationServiceTests.swift; sourceTree = "<group>"; };
 		13D3C957F435FC17208E7AD2 /* DeviceSessionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSessionsView.swift; sourceTree = "<group>"; };
@@ -203,6 +205,7 @@
 			children = (
 				CA835A2D44DCC88387B48449 /* AuthService.swift */,
 				59439100CDD413A19780061B /* BiometricService.swift */,
+				03D1E5F056D61EE673D9289F /* CryptoService.swift */,
 				EEDAA21D4EF7A351D890F412 /* DeviceService.swift */,
 				C1658B6D700C3D56AAE7874A /* HapticService.swift */,
 				D86531B4E3A2CC88842E91CC /* KeychainService.swift */,
@@ -416,6 +419,7 @@
 				57A80DDEC970086620610ED3 /* Clip.swift in Sources */,
 				640B46B16EDEA59FDBFACD76 /* ClipsEditorView.swift in Sources */,
 				FB517BEAB72E391E79410AED /* ConnectionManager.swift in Sources */,
+				6AFED37ABB55B38A6DFBC890 /* CryptoService.swift in Sources */,
 				AB30547F26E32CC6654EB911 /* DeviceListView.swift in Sources */,
 				BFB001DEE3F8416678778971 /* DeviceService.swift in Sources */,
 				513D2673309F500F453AA617 /* DeviceSessionsView.swift in Sources */,

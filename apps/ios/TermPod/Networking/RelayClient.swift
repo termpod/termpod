@@ -26,6 +26,7 @@ final class RelayClient: ObservableObject, Transport {
     private let session = URLSession(configuration: .default)
     private var reconnectionManager = ReconnectionManager()
     private let clientId = UUID().uuidString
+    private let crypto = CryptoService()
 
     // Stored for reconnection
     private var storedURL: URL?
@@ -92,6 +93,7 @@ final class RelayClient: ObservableObject, Transport {
         storedToken = nil
         reconnectionManager.reset()
         stopPingLoop()
+        crypto.reset()
         webSocket?.cancel(with: .goingAway, reason: nil)
         webSocket = nil
     }
@@ -102,7 +104,15 @@ final class RelayClient: ObservableObject, Transport {
         // Channel 0x00 = terminal data
         var frame = Data([0x00])
         frame.append(data)
-        webSocket?.send(.data(frame)) { _ in }
+
+        // If E2E is ready, encrypt and wrap in 0xE0 channel
+        if crypto.isReady, let encrypted = try? crypto.encrypt(frame) {
+            var encFrame = Data([0xE0])
+            encFrame.append(encrypted)
+            webSocket?.send(.data(encFrame)) { _ in }
+        } else {
+            webSocket?.send(.data(frame)) { _ in }
+        }
     }
 
     func sendResize(cols: Int, rows: Int) {
@@ -113,7 +123,15 @@ final class RelayClient: ObservableObject, Transport {
         frame[2] = UInt8(cols & 0xFF)
         frame[3] = UInt8((rows >> 8) & 0xFF)
         frame[4] = UInt8(rows & 0xFF)
-        webSocket?.send(.data(frame)) { _ in }
+
+        // If E2E is ready, encrypt and wrap in 0xE0 channel
+        if crypto.isReady, let encrypted = try? crypto.encrypt(frame) {
+            var encFrame = Data([0xE0])
+            encFrame.append(encrypted)
+            webSocket?.send(.data(encFrame)) { _ in }
+        } else {
+            webSocket?.send(.data(frame)) { _ in }
+        }
     }
 
     private func sendAuth(token: String) {
@@ -274,6 +292,17 @@ final class RelayClient: ObservableObject, Transport {
             guard let channel = data.first else { return }
 
             switch channel {
+            case 0xE0:
+                // E2E encrypted frame — decrypt and process inner frame
+                guard crypto.isReady else { break }
+                let encrypted = data.dropFirst()
+                guard let plaintext = try? crypto.decrypt(Data(encrypted)) else {
+                    print("[RelayClient] E2E decryption failed")
+                    break
+                }
+                // Process decrypted frame recursively
+                handleBinaryFrame(plaintext)
+
             case 0x00:
                 // Terminal data — strip channel byte
                 onTerminalData?(Data(data.dropFirst()))
@@ -301,12 +330,47 @@ final class RelayClient: ObservableObject, Transport {
         }
     }
 
+    /// Process a decrypted binary frame (inner frame after E2E decryption).
+    private func handleBinaryFrame(_ data: Data) {
+        guard let channel = data.first else { return }
+
+        switch channel {
+        case 0x00:
+            onTerminalData?(Data(data.dropFirst()))
+
+        case 0x02:
+            state = .loadingScrollback
+            let payload = data.dropFirst(5)
+            onTerminalData?(Data(payload))
+
+        default:
+            break
+        }
+    }
+
     private func handleControlMessage(type: String, json: [String: Any]) {
         switch type {
         case "auth_ok":
             // Auth confirmed — now send hello. Reset backoff since handshake succeeded.
             reconnectionManager.reset()
             sendHello()
+
+        case "key_exchange":
+            if let peerKeyDict = json["publicKey"] as? [String: Any],
+               let sid = json["sessionId"] as? String {
+                let ourPublicKey = crypto.generateKeyPair()
+                do {
+                    try crypto.deriveSessionKey(peerPublicKeyJwk: peerKeyDict, sessionId: sid)
+                    let ackMsg: [String: Any] = [
+                        "type": "key_exchange_ack",
+                        "publicKey": ourPublicKey
+                    ]
+                    sendSignaling(ackMsg)
+                    print("[RelayClient] E2E key exchange complete for session \(sid)")
+                } catch {
+                    print("[RelayClient] E2E key exchange failed: \(error)")
+                }
+            }
 
         case "session_info":
             if let ptySizeDict = json["ptySize"] as? [String: Int],

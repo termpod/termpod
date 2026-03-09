@@ -3,9 +3,16 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { ConnectedDevice } from './useRelayConnection';
 
+// Module-level storage for the local auth secret so useDeviceWS can access it
+let _localAuthSecret: string | null = null;
+export function getLocalAuthSecret(): string | null {
+  return _localAuthSecret;
+}
+
 export interface LocalServerInfo {
   port: number;
   addresses: string[];
+  authSecret: string;
 }
 
 interface ViewerEvent {
@@ -59,6 +66,7 @@ export function useLocalServer(options: UseLocalServerOptions) {
       .then((info) => {
         if (!cancelled) {
           console.log('[LocalServer] Started on port', info.port, 'addresses:', info.addresses);
+          _localAuthSecret = info.authSecret;
           setServerInfo(info);
         }
       })

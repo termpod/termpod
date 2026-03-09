@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { RECONNECT, RELAY_URL } from '@termpod/shared';
 import { getAccessToken, getValidAccessToken } from './useAuth';
 import { getSettingsSnapshot } from './useSettings';
+import { getLocalAuthSecret } from './useLocalServer';
 
 const PING_INTERVAL = 30_000;
 
@@ -114,6 +115,14 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
               ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
             }
           }, PING_INTERVAL);
+
+          // Share local auth secret with any existing viewers
+          if (getLocalAuthSecret() && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'local_auth_secret',
+              secret: getLocalAuthSecret(),
+            }));
+          }
           break;
 
         case 'client_joined':
@@ -121,6 +130,14 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
             msg.clientId as string,
             msg.device as string,
           );
+
+          // Share local auth secret with new viewer
+          if (getLocalAuthSecret() && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'local_auth_secret',
+              secret: getLocalAuthSecret(),
+            }));
+          }
           break;
 
         case 'client_left':

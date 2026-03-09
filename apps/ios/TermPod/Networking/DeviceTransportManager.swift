@@ -101,6 +101,11 @@ final class DeviceTransportManager: ObservableObject {
     private var clientId = UUID().uuidString
     private var intentionalClose = false
 
+    /// Local auth secret received from the device WS, used to authenticate local WS connections.
+    private var localAuthSecret: String?
+    /// Whether the local WS is waiting for auth_ok before sending hello.
+    private var localWSPendingAuth = false
+
     // MARK: - Lifecycle
 
     /// Start local network discovery (Bonjour + WiFi monitoring).
@@ -143,6 +148,7 @@ final class DeviceTransportManager: ObservableObject {
         localWS?.cancel(with: .goingAway, reason: nil)
         localWS = nil
         localConnected = false
+        localWSPendingAuth = false
 
         deviceWS?.cancel(with: .goingAway, reason: nil)
         deviceWS = nil
@@ -657,7 +663,18 @@ final class DeviceTransportManager: ObservableObject {
         localWS = ws
         ws.resume()
 
-        // Send hello (no sessionId — control-only connection)
+        // Send auth first if we have a secret, then wait for auth_ok before hello
+        if let secret = localAuthSecret {
+            localWSPendingAuth = true
+            sendJSON(ws: ws, msg: ["type": "auth", "secret": secret])
+        } else {
+            sendLocalHello(ws: ws)
+        }
+
+        startLocalReceiving()
+    }
+
+    private func sendLocalHello(ws: URLSessionWebSocketTask) {
         let hello: [String: Any] = [
             "type": "hello",
             "version": 1,
@@ -665,9 +682,7 @@ final class DeviceTransportManager: ObservableObject {
             "device": UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone",
             "clientId": "device-\(clientId)",
         ]
-
         sendJSON(ws: ws, msg: hello)
-        startLocalReceiving()
     }
 
     private func startLocalReceiving() {
@@ -700,6 +715,13 @@ final class DeviceTransportManager: ObservableObject {
             else { return }
 
             switch type {
+            case "auth_ok":
+                // Local WS auth confirmed — now send hello
+                if localWSPendingAuth, let ws = localWS {
+                    localWSPendingAuth = false
+                    sendLocalHello(ws: ws)
+                }
+
             case "ready":
                 localConnected = true
                 updateActiveTransport()
@@ -772,6 +794,7 @@ final class DeviceTransportManager: ObservableObject {
     private func handleLocalDisconnect() {
         localWS = nil
         localConnected = false
+        localWSPendingAuth = false
         // Keep session handlers intact — on reconnect, the `ready` handler
         // re-subscribes all sessions. Sessions fall back to relay in the meantime.
         updateActiveTransport()
@@ -938,6 +961,12 @@ final class DeviceTransportManager: ObservableObject {
         case "webrtc_answer", "webrtc_ice":
             log("Signaling: \(type) keys=\(json.keys.sorted())")
             ensureWebRTCTransport().handleSignaling(json)
+
+        case "local_auth_secret":
+            if let secret = json["secret"] as? String {
+                self.localAuthSecret = secret
+                log("Received local auth secret")
+            }
 
         case "pong":
             deviceWSAwaitingPong = false

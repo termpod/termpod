@@ -58,12 +58,19 @@ export interface MuxTerminalResizeFrame {
   rows: number;
 }
 
+export interface EncryptedFrame {
+  channel: typeof Channel.ENCRYPTED;
+  nonce: Uint8Array;
+  ciphertext: Uint8Array;
+}
+
 export type BinaryFrame =
   | TerminalDataFrame
   | TerminalResizeFrame
   | ScrollbackChunkFrame
   | MuxTerminalDataFrame
-  | MuxTerminalResizeFrame;
+  | MuxTerminalResizeFrame
+  | EncryptedFrame;
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -134,6 +141,30 @@ export function decodeMuxFrame(
   };
 }
 
+const NONCE_SIZE = 12;
+
+export function encodeEncryptedFrame(nonce: Uint8Array, ciphertext: Uint8Array): Uint8Array {
+  const frame = new Uint8Array(1 + nonce.length + ciphertext.length);
+  frame[0] = Channel.ENCRYPTED;
+  frame.set(nonce, 1);
+  frame.set(ciphertext, 1 + nonce.length);
+
+  return frame;
+}
+
+export function decodeEncryptedFrame(frame: Uint8Array): EncryptedFrame | null {
+  // [0xE0][nonce:12][ciphertext+tag]
+  if (frame.length < 1 + NONCE_SIZE + 16) {
+    return null;
+  }
+
+  return {
+    channel: Channel.ENCRYPTED,
+    nonce: frame.subarray(1, 1 + NONCE_SIZE),
+    ciphertext: frame.subarray(1 + NONCE_SIZE),
+  };
+}
+
 export function decodeBinaryFrame(frame: Uint8Array): BinaryFrame {
   const channelId = frame[0] as ChannelId;
   const view = new DataView(frame.buffer, frame.byteOffset, frame.byteLength);
@@ -167,6 +198,15 @@ export function decodeBinaryFrame(frame: Uint8Array): BinaryFrame {
       }
 
       return muxFrame;
+    }
+
+    case Channel.ENCRYPTED: {
+      const encFrame = decodeEncryptedFrame(frame);
+      if (!encFrame) {
+        throw new Error('Invalid encrypted frame');
+      }
+
+      return encFrame;
     }
 
     default: {

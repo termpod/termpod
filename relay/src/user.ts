@@ -880,6 +880,27 @@ export class User extends DurableObject {
         }
         break;
 
+      case 'key_exchange':
+        // Desktop sends E2E public key to viewers
+        if (tag.role === 'desktop') {
+          this.forwardToDeviceRole(tag.targetDeviceId, ws, 'viewer', msg);
+        }
+        break;
+
+      case 'key_exchange_ack':
+        // Viewer sends E2E public key back to desktop
+        if (tag.role === 'viewer') {
+          this.forwardToDeviceRole(tag.targetDeviceId, ws, 'desktop', msg);
+        }
+        break;
+
+      case 'local_auth_secret':
+        // Desktop shares local auth secret with viewers (for Bonjour auth)
+        if (tag.role === 'desktop') {
+          this.forwardToDeviceRole(tag.targetDeviceId, ws, 'viewer', msg);
+        }
+        break;
+
       case 'webrtc_offer':
       case 'webrtc_answer':
       case 'webrtc_ice':

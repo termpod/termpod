@@ -179,6 +179,17 @@ export class TerminalSession extends DurableObject {
         cols: this.ptyCols,
         rows: this.ptyRows,
       });
+    } else if (channel === 0xe0) {
+      // E2E encrypted frame — forward without inspecting contents
+      const senderTag = getTag(ws);
+      const senderRole = senderTag?.role ?? 'unknown';
+
+      if (senderRole === 'desktop') {
+        this.appendScrollback(data);
+        this.broadcastToRole(ws, 'viewer', message);
+      } else if (senderRole === 'viewer') {
+        this.broadcastToRole(ws, 'desktop', message);
+      }
     }
   }
 
@@ -268,6 +279,25 @@ export class TerminalSession extends DurableObject {
   }
 
   private handleControlMessage(ws: WebSocket, msg: ClientMessage | SessionCreatedMessage): void {
+    // Handle E2E key exchange messages (not in typed union)
+    const rawType = (msg as unknown as Record<string, unknown>).type;
+
+    if (rawType === 'key_exchange') {
+      if (getTag(ws)?.role === 'desktop') {
+        this.broadcastToRole(ws, 'viewer', JSON.stringify(msg));
+      }
+
+      return;
+    }
+
+    if (rawType === 'key_exchange_ack') {
+      if (getTag(ws)?.role === 'viewer') {
+        this.broadcastToRole(ws, 'desktop', JSON.stringify(msg));
+      }
+
+      return;
+    }
+
     switch (msg.type) {
       case 'hello':
         this.handleHello(ws, msg);
