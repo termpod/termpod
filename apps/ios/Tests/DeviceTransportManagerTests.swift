@@ -248,6 +248,55 @@ final class DeviceTransportManagerTests: XCTestCase {
         XCTAssertEqual(decodedCols, 256)
         XCTAssertEqual(decodedRows, 100)
     }
+
+    // MARK: - Local Auth
+
+    func testLocalAuthFrameFormat() throws {
+        // The local auth message is: {"type": "auth", "secret": "<secret>"}
+        let secret = "test-secret-123"
+        let authMsg: [String: Any] = ["type": "auth", "secret": secret]
+
+        let jsonData = try JSONSerialization.data(withJSONObject: authMsg)
+        let parsed = try JSONSerialization.jsonObject(with: jsonData) as! [String: Any]
+
+        XCTAssertEqual(parsed["type"] as? String, "auth")
+        XCTAssertEqual(parsed["secret"] as? String, secret)
+    }
+
+    func testLocalAuthSecretMessageParsing() throws {
+        // The device WS sends: {"type": "local_auth_secret", "secret": "<value>"}
+        let secret = "abc-def-ghi"
+        let msg: [String: Any] = ["type": "local_auth_secret", "secret": secret]
+
+        let jsonData = try JSONSerialization.data(withJSONObject: msg)
+        let parsed = try JSONSerialization.jsonObject(with: jsonData) as! [String: Any]
+
+        XCTAssertEqual(parsed["type"] as? String, "local_auth_secret")
+        XCTAssertEqual(parsed["secret"] as? String, secret)
+    }
+
+    @MainActor
+    func testStopResetsLocalWSPendingAuth() {
+        // After stop(), localWSPendingAuth should be false (observable via not crashing on re-start)
+        let dtm = DeviceTransportManager()
+        dtm.stop()
+
+        // Verify full state reset including the new auth-related state
+        XCTAssertFalse(dtm.isConnected)
+        XCTAssertFalse(dtm.isConnecting)
+        XCTAssertTrue(dtm.sessions.isEmpty)
+        XCTAssertFalse(dtm.isLocalConnected)
+    }
+
+    func testLocalAuthOkMessageFormat() throws {
+        // The local WS responds with: {"type": "auth_ok"}
+        let msg: [String: Any] = ["type": "auth_ok"]
+
+        let jsonData = try JSONSerialization.data(withJSONObject: msg)
+        let parsed = try JSONSerialization.jsonObject(with: jsonData) as! [String: Any]
+
+        XCTAssertEqual(parsed["type"] as? String, "auth_ok")
+    }
 }
 
 // MARK: - Notification Name

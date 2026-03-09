@@ -169,4 +169,125 @@ final class RelayClientTests: XCTestCase {
         relay.handleNetworkChange()
         XCTAssertEqual(relay.state, .disconnected)
     }
+
+    // MARK: - E2E Encrypted Frame Format
+
+    func testEncryptedChannelByte() {
+        // The encrypted channel marker is 0xE0
+        let marker: UInt8 = 0xE0
+        XCTAssertEqual(marker, 224)
+
+        // It must differ from all plain channels
+        XCTAssertNotEqual(marker, 0x00) // terminal data
+        XCTAssertNotEqual(marker, 0x01) // resize
+        XCTAssertNotEqual(marker, 0x02) // scrollback
+    }
+
+    func testEncryptedInputFrameFormat() throws {
+        // When E2E is active, sendInput wraps [0x00][payload] in [0xE0][nonce:12][ciphertext+tag]
+        let crypto = CryptoService()
+        let peer = CryptoService()
+
+        let peerJwk = peer.generateKeyPair()
+        let ourJwk = crypto.generateKeyPair()
+        try crypto.deriveSessionKey(peerPublicKeyJwk: peerJwk, sessionId: "test-sess")
+        try peer.deriveSessionKey(peerPublicKeyJwk: ourJwk, sessionId: "test-sess")
+
+        // Build the inner frame the same way sendInput does
+        let input = Data("ls -la\n".utf8)
+        var innerFrame = Data([0x00])
+        innerFrame.append(input)
+
+        // Encrypt and wrap in 0xE0 channel
+        let encrypted = try crypto.encrypt(innerFrame)
+        var encFrame = Data([0xE0])
+        encFrame.append(encrypted)
+
+        // Verify outer format: [0xE0][nonce:12][ciphertext+tag:innerFrame.count+16]
+        XCTAssertEqual(encFrame[0], 0xE0)
+        XCTAssertEqual(encFrame.count, 1 + 12 + innerFrame.count + 16)
+
+        // Verify the peer can decrypt and recover the original inner frame
+        let decrypted = try peer.decrypt(Data(encFrame.dropFirst()))
+        XCTAssertEqual(decrypted, innerFrame)
+        XCTAssertEqual(decrypted[0], 0x00)
+        XCTAssertEqual(Data(decrypted.dropFirst()), input)
+    }
+
+    func testEncryptedResizeFrameFormat() throws {
+        // When E2E is active, sendResize wraps [0x01][cols:u16be][rows:u16be] in [0xE0][encrypted]
+        let crypto = CryptoService()
+        let peer = CryptoService()
+
+        let peerJwk = peer.generateKeyPair()
+        let ourJwk = crypto.generateKeyPair()
+        try crypto.deriveSessionKey(peerPublicKeyJwk: peerJwk, sessionId: "resize-sess")
+        try peer.deriveSessionKey(peerPublicKeyJwk: ourJwk, sessionId: "resize-sess")
+
+        // Build the inner frame the same way sendResize does
+        let cols = 120
+        let rows = 40
+        var innerFrame = Data(count: 5)
+        innerFrame[0] = 0x01
+        innerFrame[1] = UInt8((cols >> 8) & 0xFF)
+        innerFrame[2] = UInt8(cols & 0xFF)
+        innerFrame[3] = UInt8((rows >> 8) & 0xFF)
+        innerFrame[4] = UInt8(rows & 0xFF)
+
+        let encrypted = try crypto.encrypt(innerFrame)
+        var encFrame = Data([0xE0])
+        encFrame.append(encrypted)
+
+        // Verify format
+        XCTAssertEqual(encFrame[0], 0xE0)
+        XCTAssertEqual(encFrame.count, 1 + 12 + 5 + 16) // 0xE0 + nonce + 5-byte resize + tag
+
+        // Verify round-trip decryption
+        let decrypted = try peer.decrypt(Data(encFrame.dropFirst()))
+        XCTAssertEqual(decrypted[0], 0x01)
+        let decodedCols = Int(decrypted[1]) << 8 | Int(decrypted[2])
+        let decodedRows = Int(decrypted[3]) << 8 | Int(decrypted[4])
+        XCTAssertEqual(decodedCols, 120)
+        XCTAssertEqual(decodedRows, 40)
+    }
+
+    func testUnencryptedInputFrameWhenNoE2E() {
+        // When crypto is not ready, frame is plain [0x00][payload]
+        let crypto = CryptoService()
+        XCTAssertFalse(crypto.isReady)
+
+        let input = Data("echo hello\n".utf8)
+        var frame = Data([0x00])
+        frame.append(input)
+
+        // No encryption wrapping — channel byte is 0x00, not 0xE0
+        XCTAssertEqual(frame[0], 0x00)
+        XCTAssertEqual(frame.count, 1 + input.count)
+        XCTAssertEqual(Data(frame.dropFirst()), input)
+    }
+
+    func testEncryptedFrameRoundTripWithMultipleMessages() throws {
+        // Verify counter-based nonces produce different ciphertexts for same plaintext
+        let crypto = CryptoService()
+        let peer = CryptoService()
+
+        let peerJwk = peer.generateKeyPair()
+        let ourJwk = crypto.generateKeyPair()
+        try crypto.deriveSessionKey(peerPublicKeyJwk: peerJwk, sessionId: "multi-sess")
+        try peer.deriveSessionKey(peerPublicKeyJwk: ourJwk, sessionId: "multi-sess")
+
+        let plaintext = Data([0x00, 0x41, 0x42, 0x43]) // [0x00]ABC
+
+        let encrypted1 = try crypto.encrypt(plaintext)
+        let encrypted2 = try crypto.encrypt(plaintext)
+
+        // Same plaintext should produce different ciphertexts (different nonces)
+        XCTAssertNotEqual(encrypted1, encrypted2)
+
+        // But both should decrypt to the same plaintext
+        let decrypted1 = try peer.decrypt(encrypted1)
+        let decrypted2 = try peer.decrypt(encrypted2)
+        XCTAssertEqual(decrypted1, plaintext)
+        XCTAssertEqual(decrypted2, plaintext)
+    }
 }

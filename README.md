@@ -42,6 +42,8 @@ Sessions survive disconnects — close the app, reopen it, and you're right wher
 - **Multi-session tabs** — Multiple terminal sessions, each in its own tab
 - **Session management** — Named by project directory, device-aware
 - **Auto-updates** — Desktop app updates automatically via relay proxy
+- **E2E encryption** — Relay transport encrypted with ECDH + AES-256-GCM; relay can't read your data
+- **Local auth** — Bonjour connections authenticated via shared secret exchanged over relay
 - **Works with everything** — Claude Code, Codex, npm, docker, any CLI
 
 ## Tech Stack
@@ -55,6 +57,7 @@ Sessions survive disconnects — close the app, reopen it, and you're right wher
 | Protocol | WebSocket (binary frames for data, JSON for control) |
 | Transport | Device-level multiplexed connections (single WS per transport) |
 | Auth | JWT (HS256) |
+| Security | E2E: ECDH P-256 + AES-256-GCM (relay), DTLS (WebRTC), shared secret (local) |
 | Local transport | Bonjour / mDNS |
 | P2P transport | WebRTC DataChannel (livekit/webrtc) |
 | Auto-update | tauri-plugin-updater via relay proxy |
@@ -181,6 +184,7 @@ wrangler deploy
 
 - [Architecture Overview](./docs/ARCHITECTURE.md)
 - [Protocol Specification](./docs/PROTOCOL.md)
+- [Security Plan](./docs/SECURITY_PLAN.md)
 - [Contributing](./docs/CONTRIBUTING.md)
 
 ## License

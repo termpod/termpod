@@ -106,6 +106,27 @@ describe('Session DO: binary frame routing', () => {
           }
         }
       }
+    } else if (channel === 0xe0) {
+      // E2E encrypted frame — forward without inspecting
+      const senderRole = sender.tag?.role ?? 'unknown';
+
+      if (senderRole === 'desktop') {
+        scrollbackAppended = true;
+
+        for (const ws of allSockets) {
+          if (ws !== sender && ws.tag?.role === 'viewer') {
+            ws.send(data.buffer as ArrayBuffer);
+            recipientCount++;
+          }
+        }
+      } else if (senderRole === 'viewer') {
+        for (const ws of allSockets) {
+          if (ws !== sender && ws.tag?.role === 'desktop') {
+            ws.send(data.buffer as ArrayBuffer);
+            recipientCount++;
+          }
+        }
+      }
     } else if (channel === Channel.TERMINAL_RESIZE) {
       if (sender.tag?.role !== 'desktop') {
         return { scrollbackAppended: false, recipientCount: 0 };
@@ -183,6 +204,38 @@ describe('Session DO: binary frame routing', () => {
 
     expect(result.recipientCount).toBe(0);
     expect(desktop.sentMessages.length).toBe(0);
+  });
+
+  it('desktop encrypted frame (0xE0) → scrollback + broadcast to viewers', () => {
+    // Encrypted frame: [0xE0][nonce:12][ciphertext+tag]
+    const frame = new Uint8Array([0xe0, ...new Array(12).fill(0xaa), ...new Array(20).fill(0xbb)]);
+    const result = routeBinaryFrame(desktop, frame, allSockets);
+
+    expect(result.scrollbackAppended).toBe(true);
+    expect(result.recipientCount).toBe(2);
+    expect(viewer1.sentMessages.length).toBe(1);
+    expect(viewer2.sentMessages.length).toBe(1);
+    expect(desktop.sentMessages.length).toBe(0);
+  });
+
+  it('viewer encrypted frame (0xE0) → forward to desktop only', () => {
+    const frame = new Uint8Array([0xe0, ...new Array(12).fill(0xaa), ...new Array(20).fill(0xbb)]);
+    const result = routeBinaryFrame(viewer1, frame, allSockets);
+
+    expect(result.scrollbackAppended).toBe(false);
+    expect(result.recipientCount).toBe(1);
+    expect(desktop.sentMessages.length).toBe(1);
+    expect(viewer1.sentMessages.length).toBe(0);
+    expect(viewer2.sentMessages.length).toBe(0);
+  });
+
+  it('unknown role encrypted frame → silently dropped', () => {
+    const unknownClient = new MockWebSocket(null);
+    const frame = new Uint8Array([0xe0, ...new Array(32).fill(0xcc)]);
+    const result = routeBinaryFrame(unknownClient, frame, [unknownClient, desktop, viewer1]);
+
+    expect(result.scrollbackAppended).toBe(false);
+    expect(result.recipientCount).toBe(0);
   });
 
   it('unknown role terminal data → silently dropped', () => {
@@ -263,6 +316,36 @@ describe('Session DO: control message routing', () => {
 
           for (const ws of allSockets) {
             if (ws !== sender && ws.tag?.role === 'viewer') {
+              ws.send(json);
+              recipientIds.push(ws.tag.clientId);
+            }
+          }
+        }
+
+        return { forwarded: recipientIds.length > 0, recipientIds };
+
+      case 'key_exchange':
+        // Desktop sends E2E public key → all viewers
+        if (sender.tag?.role === 'desktop') {
+          const json = JSON.stringify(msg);
+
+          for (const ws of allSockets) {
+            if (ws !== sender && ws.tag?.role === 'viewer') {
+              ws.send(json);
+              recipientIds.push(ws.tag.clientId);
+            }
+          }
+        }
+
+        return { forwarded: recipientIds.length > 0, recipientIds };
+
+      case 'key_exchange_ack':
+        // Viewer sends E2E public key → desktop
+        if (sender.tag?.role === 'viewer') {
+          const json = JSON.stringify(msg);
+
+          for (const ws of allSockets) {
+            if (ws !== sender && ws.tag?.role === 'desktop') {
               ws.send(json);
               recipientIds.push(ws.tag.clientId);
             }
@@ -364,6 +447,53 @@ describe('Session DO: control message routing', () => {
 
     expect(result.forwarded).toBe(false);
   });
+
+  it('key_exchange from desktop → forward to all viewers', () => {
+    const viewer2 = new MockWebSocket({ clientId: 'viewer-2', role: 'viewer', device: 'ipad' });
+    const sockets = [desktop, viewer, viewer2];
+
+    const result = routeControlMessage(desktop, {
+      type: 'key_exchange',
+      publicKey: { kty: 'EC', crv: 'P-256', x: 'abc', y: 'def' },
+      sessionId: 'sess-1',
+    }, sockets);
+
+    expect(result.forwarded).toBe(true);
+    expect(result.recipientIds).toEqual(['viewer-1', 'viewer-2']);
+    expect(desktop.sentMessages.length).toBe(0);
+  });
+
+  it('key_exchange from viewer → not forwarded', () => {
+    const result = routeControlMessage(viewer, {
+      type: 'key_exchange',
+      publicKey: { kty: 'EC', crv: 'P-256', x: 'abc', y: 'def' },
+      sessionId: 'sess-1',
+    }, allSockets);
+
+    expect(result.forwarded).toBe(false);
+    expect(desktop.sentMessages.length).toBe(0);
+  });
+
+  it('key_exchange_ack from viewer → forward to desktop', () => {
+    const result = routeControlMessage(viewer, {
+      type: 'key_exchange_ack',
+      publicKey: { kty: 'EC', crv: 'P-256', x: 'ghi', y: 'jkl' },
+    }, allSockets);
+
+    expect(result.forwarded).toBe(true);
+    expect(result.recipientIds).toEqual(['desktop-1']);
+    expect(viewer.sentMessages.length).toBe(0);
+  });
+
+  it('key_exchange_ack from desktop → not forwarded', () => {
+    const result = routeControlMessage(desktop, {
+      type: 'key_exchange_ack',
+      publicKey: { kty: 'EC', crv: 'P-256', x: 'ghi', y: 'jkl' },
+    }, allSockets);
+
+    expect(result.forwarded).toBe(false);
+    expect(viewer.sentMessages.length).toBe(0);
+  });
 });
 
 // --- User DO: device-level message routing ---
@@ -450,6 +580,19 @@ describe('User DO: device-level control message routing', () => {
       case 'sessions_updated':
         if (senderTag.role === 'desktop') {
           forwardToRole('viewer');
+        }
+        break;
+
+      case 'key_exchange':
+      case 'local_auth_secret':
+        if (senderTag.role === 'desktop') {
+          forwardToRole('viewer');
+        }
+        break;
+
+      case 'key_exchange_ack':
+        if (senderTag.role === 'viewer') {
+          forwardToRole('desktop');
         }
         break;
 
@@ -546,6 +689,73 @@ describe('User DO: device-level control message routing', () => {
     }, allSockets);
 
     expect(result.recipientIds).toEqual(['desktop-1']);
+    expect(viewer2.sentMessages.length).toBe(0);
+  });
+
+  it('desktop key_exchange → all viewers on same device', () => {
+    const result = routeDeviceMessage(desktop, {
+      type: 'key_exchange',
+      publicKey: { kty: 'EC', crv: 'P-256', x: 'abc', y: 'def' },
+      sessionId: 'sess-1',
+    }, allSockets);
+
+    expect(result.recipientIds).toEqual(['viewer-1', 'viewer-2']);
+    expect(desktop.sentMessages.length).toBe(0);
+  });
+
+  it('viewer key_exchange → dropped (only desktop initiates)', () => {
+    const result = routeDeviceMessage(viewer1, {
+      type: 'key_exchange',
+      publicKey: { kty: 'EC', crv: 'P-256', x: 'abc', y: 'def' },
+      sessionId: 'sess-1',
+    }, allSockets);
+
+    expect(result.recipientIds).toEqual([]);
+    expect(desktop.sentMessages.length).toBe(0);
+  });
+
+  it('viewer key_exchange_ack → desktop only', () => {
+    const result = routeDeviceMessage(viewer1, {
+      type: 'key_exchange_ack',
+      publicKey: { kty: 'EC', crv: 'P-256', x: 'ghi', y: 'jkl' },
+    }, allSockets);
+
+    expect(result.recipientIds).toEqual(['desktop-1']);
+    expect(viewer2.sentMessages.length).toBe(0);
+  });
+
+  it('desktop key_exchange_ack → dropped (only viewer responds)', () => {
+    const result = routeDeviceMessage(desktop, {
+      type: 'key_exchange_ack',
+      publicKey: { kty: 'EC', crv: 'P-256', x: 'ghi', y: 'jkl' },
+    }, allSockets);
+
+    expect(result.recipientIds).toEqual([]);
+  });
+
+  it('desktop local_auth_secret → all viewers', () => {
+    const result = routeDeviceMessage(desktop, {
+      type: 'local_auth_secret',
+      secret: 'abc123def456',
+    }, allSockets);
+
+    expect(result.recipientIds).toEqual(['viewer-1', 'viewer-2']);
+    expect(desktop.sentMessages.length).toBe(0);
+
+    // Verify the secret is forwarded correctly
+    const received = viewer1.getLastJson();
+    expect(received!.type).toBe('local_auth_secret');
+    expect(received!.secret).toBe('abc123def456');
+  });
+
+  it('viewer local_auth_secret → dropped (only desktop sends)', () => {
+    const result = routeDeviceMessage(viewer1, {
+      type: 'local_auth_secret',
+      secret: 'should-not-forward',
+    }, allSockets);
+
+    expect(result.recipientIds).toEqual([]);
+    expect(desktop.sentMessages.length).toBe(0);
     expect(viewer2.sentMessages.length).toBe(0);
   });
 

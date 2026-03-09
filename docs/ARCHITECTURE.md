@@ -30,6 +30,10 @@ Desktop App
 │   ├── DataChannel for P2P terminal data + control messages
 │   ├── Signaling via relay (offer/answer/ICE)
 │   └── ICE servers: Google + Cloudflare STUN, optional Cloudflare TURN
+├── E2E Encryption (TypeScript — packages/protocol/src/crypto.ts)
+│   ├── ECDH P-256 key exchange with viewer
+│   ├── AES-256-GCM encryption (HKDF-SHA256 derived key)
+│   └── Counter-based nonces
 └── Relay Connection (TypeScript)
     ├── WebSocket client to relay
     ├── Reconnection with exponential backoff
@@ -47,6 +51,10 @@ iOS App (SwiftUI + SwiftTerm)
 │   ├── Local transport (Bonjour discovery → direct WebSocket)
 │   ├── WebRTC transport (P2P DataChannel via livekit/webrtc)
 │   └── Relay transport (WebSocket via Cloudflare)
+├── E2E Encryption (CryptoKit — Services/CryptoService.swift)
+│   ├── ECDH P-256 key exchange with desktop
+│   ├── AES-256-GCM decryption/encryption
+│   └── HKDF-SHA256 key derivation
 ├── Auth (JWT stored in Keychain)
 ├── Device & session discovery
 └── Special keys bar (Ctrl, Esc, Tab, arrows)
@@ -85,21 +93,24 @@ Cloudflare Edge
 
 ```
 PTY stdout → Desktop xterm.js (local render)
+          → E2E encrypt (AES-256-GCM) → [0xE0][nonce][ciphertext]
           → WebSocket binary frame → Relay DO
-          → DO appends to scrollback buffer
-          → DO fans out to all connected viewers
-          → Mobile SwiftTerm (remote render)
+          → DO appends to scrollback buffer (plaintext 0x00 frames only)
+          → DO fans out encrypted frames to all connected viewers
+          → Mobile E2E decrypt → SwiftTerm (remote render)
 ```
 
 ### Terminal Input (Phone → Mac)
 
 ```
-Mobile keyboard → WebSocket binary frame → Relay DO
-               → DO forwards to desktop WebSocket
-               → Desktop writes to PTY stdin
+Mobile keyboard → E2E encrypt → WebSocket binary frame → Relay DO
+               → DO forwards encrypted frame to desktop WebSocket
+               → Desktop E2E decrypt → writes to PTY stdin
                → PTY processes input
                → Output flows back via the output path above
 ```
+
+Note: E2E encryption applies to relay transport only. Local (Bonjour) and WebRTC transports send plaintext binary frames (local is trusted network; WebRTC has built-in DTLS encryption). Scrollback remains plaintext for v1.
 
 ### Device-Level Transport Architecture
 
@@ -180,6 +191,14 @@ Instead of one WebSocket per session, each transport (Bonjour, WebRTC, relay) ma
 ### Binary frames for terminal data, JSON for control
 
 Terminal output is raw bytes — ANSI escape codes, UTF-8 text, control characters. Terminal I/O uses WebSocket binary frames (zero copy, zero parse). Control messages (resize, auth, session management) use JSON text frames. The first byte of each binary frame is a channel ID for extensibility. See [PROTOCOL.md](./PROTOCOL.md) for details.
+
+### Security: E2E encryption and transport auth
+
+Each transport has its own security model:
+
+- **Relay**: E2E encrypted. Desktop and viewer perform an ECDH P-256 key exchange (via `key_exchange`/`key_exchange_ack` control messages), derive a shared AES-256-GCM key using HKDF-SHA256 (with session ID as info), and encrypt all terminal data as `[0xE0][nonce:12][ciphertext+tag]` frames. The relay forwards these frames blindly — it cannot read terminal data. Desktop uses Web Crypto (`packages/protocol/src/crypto.ts`), iOS uses CryptoKit (`CryptoService.swift`).
+- **Local (Bonjour)**: Authenticated via shared secret. Desktop generates a random auth secret on startup and shares it with iOS through the authenticated relay Device WS (`local_auth_secret` message). iOS must send this secret as the first message on the local WebSocket; the desktop Rust server validates it before accepting any other messages.
+- **WebRTC**: E2E encrypted by design — DTLS secures the DataChannel at the transport layer.
 
 ### Auto-updates via relay proxy
 

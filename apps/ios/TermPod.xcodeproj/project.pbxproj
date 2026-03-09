@@ -54,6 +54,7 @@
 		CE41D6DADE3EA054CAA1F640 /* ReconnectionManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 960DA694314DEED6D54A734C /* ReconnectionManagerTests.swift */; };
 		D64DEB2D9CC93AE91A5813A0 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85FC2E09AA694551F2E70116 /* OnboardingView.swift */; };
 		D83FBCA10AD10B036876AC68 /* WebRTCTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B74C0D47AE677EA73D9F1EA /* WebRTCTransport.swift */; };
+		DE6DE55582C314C8DA00468A /* CryptoServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D501D6E5844B803F0620A69 /* CryptoServiceTests.swift */; };
 		E30E11F23F17C5E8D40D1414 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 012D6D7CF30481F06B4F7465 /* AppState.swift */; };
 		EB1E906EA590973E13780EF7 /* ProcessIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90250A199EE661EEBEB629EA /* ProcessIcon.swift */; };
 		EB887BD7D6BEA8EB7F793FBE /* DeviceTransportManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CB4694768C5A66487596E54 /* DeviceTransportManagerTests.swift */; };
@@ -106,6 +107,7 @@
 		85FC2E09AA694551F2E70116 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		88D42769FD28AA23E4D775DD /* RelayClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayClient.swift; sourceTree = "<group>"; };
 		8D1DDAF91F4010B13363FAD4 /* ClipTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipTests.swift; sourceTree = "<group>"; };
+		8D501D6E5844B803F0620A69 /* CryptoServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoServiceTests.swift; sourceTree = "<group>"; };
 		8F49F64363CEA92C753BF510 /* AuthServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthServiceTests.swift; sourceTree = "<group>"; };
 		90250A199EE661EEBEB629EA /* ProcessIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessIcon.swift; sourceTree = "<group>"; };
 		960DA694314DEED6D54A734C /* ReconnectionManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReconnectionManagerTests.swift; sourceTree = "<group>"; };
@@ -149,6 +151,7 @@
 				8F49F64363CEA92C753BF510 /* AuthServiceTests.swift */,
 				8D1DDAF91F4010B13363FAD4 /* ClipTests.swift */,
 				FCD33C740165E948A72B34C6 /* ConnectionManagerTests.swift */,
+				8D501D6E5844B803F0620A69 /* CryptoServiceTests.swift */,
 				BEA43445BA71CF5515FE46A0 /* DeviceServiceTests.swift */,
 				1CB4694768C5A66487596E54 /* DeviceTransportManagerTests.swift */,
 				CDDB82107221C1367C6C913C /* KeychainServiceTests.swift */,
@@ -393,6 +396,7 @@
 				1377B2E4871F059FBD7D3807 /* AuthServiceTests.swift in Sources */,
 				9007125AD009F91E2C7F4411 /* ClipTests.swift in Sources */,
 				5EB094A5314BC16F37421677 /* ConnectionManagerTests.swift in Sources */,
+				DE6DE55582C314C8DA00468A /* CryptoServiceTests.swift in Sources */,
 				4DE87B42C1C30C7C7D800225 /* DeviceServiceTests.swift in Sources */,
 				EB887BD7D6BEA8EB7F793FBE /* DeviceTransportManagerTests.swift in Sources */,
 				49AD452432F0218E8BF7ED07 /* KeychainServiceTests.swift in Sources */,

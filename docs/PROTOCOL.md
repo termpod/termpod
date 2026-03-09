@@ -75,6 +75,7 @@ Used on Session WS (`/sessions/:id/ws`). All frames start with a 1-byte channel 
 | `0x00` | bidirectional | Terminal data (stdout from desktop, stdin from viewers) |
 | `0x01` | desktop → relay | Terminal resize: `[0x01][cols:u16be][rows:u16be]` |
 | `0x02` | relay → viewer | Scrollback chunk: `[0x02][offset:u32be][data...]` |
+| `0xE0` | bidirectional | E2E encrypted data: `[0xE0][nonce:12][ciphertext+tag]` |
 
 #### Terminal Data (0x00)
 
@@ -107,6 +108,20 @@ Used on Session WS (`/sessions/:id/ws`). All frames start with a 1-byte channel 
 - `offset` is the byte position in the session's total output history
 - May be sent in multiple chunks if scrollback is large
 - After all scrollback is sent, relay sends a `ready` control message
+
+#### E2E Encrypted Data (0xE0)
+
+```
+[0xE0][nonce:12bytes][ciphertext + AES-GCM auth tag]
+```
+
+- Used on relay transport only (local and WebRTC don't need it)
+- Inner plaintext is a standard `[0x00][terminal data]` frame
+- Nonce is counter-based (8-byte counter, little-endian, zero-padded to 12 bytes)
+- Key derived via HKDF-SHA256 from ECDH shared secret, with session ID as info parameter
+- The relay forwards `0xE0` frames without inspecting or modifying the payload
+- Key exchange happens via `key_exchange` / `key_exchange_ack` control messages (see below)
+- Scrollback (0x02) frames remain plaintext for v1
 
 ### Multiplexed Binary Frames (Device-Level)
 
@@ -176,6 +191,30 @@ Release exclusive input.
 {
   "type": "input_lock_release",
   "clientId": "uuid-v4"
+}
+```
+
+##### `key_exchange`
+
+Sent by desktop to initiate E2E encryption with a viewer.
+
+```json
+{
+  "type": "key_exchange",
+  "publicKey": "base64-encoded ECDH P-256 public key (raw format)",
+  "toClientId": "viewer-uuid"
+}
+```
+
+##### `key_exchange_ack`
+
+Sent by viewer in response to `key_exchange`. After both sides have exchanged public keys, they derive the shared AES-256-GCM key via HKDF-SHA256.
+
+```json
+{
+  "type": "key_exchange_ack",
+  "publicKey": "base64-encoded ECDH P-256 public key (raw format)",
+  "toClientId": "desktop-uuid"
 }
 ```
 
@@ -453,6 +492,47 @@ Broadcast by the User DO when clients connect to or disconnect from the device W
 }
 ```
 
+#### E2E Key Exchange
+
+##### `key_exchange`
+
+Sent by desktop to a viewer via Device WS to initiate E2E encryption for relay transport.
+
+```json
+{
+  "type": "key_exchange",
+  "publicKey": "base64-encoded ECDH P-256 public key (raw format)",
+  "toClientId": "viewer-uuid"
+}
+```
+
+##### `key_exchange_ack`
+
+Sent by viewer in response.
+
+```json
+{
+  "type": "key_exchange_ack",
+  "publicKey": "base64-encoded ECDH P-256 public key (raw format)",
+  "toClientId": "desktop-uuid"
+}
+```
+
+The User DO forwards these messages between clients without inspecting them.
+
+#### Local Auth
+
+##### `local_auth_secret`
+
+Sent by desktop to mobile viewers via Device WS. Contains the auth secret required to connect to the desktop's local Bonjour WebSocket server.
+
+```json
+{
+  "type": "local_auth_secret",
+  "secret": "random-auth-secret"
+}
+```
+
 #### WebRTC Signaling
 
 WebRTC signaling is routed through the Device WS (User DO) with a `toClientId` field for peer targeting.
@@ -495,6 +575,19 @@ ICE servers: Google STUN (`stun:stun.l.google.com:19302`, `stun:stun1.l.google.c
 ### Local WS Control Messages (Bonjour P2P)
 
 These messages are sent over the direct local WebSocket for session subscription management.
+
+#### `auth`
+
+Must be the **first message** sent on the local WebSocket. The desktop validates the secret before accepting any other messages.
+
+```json
+{
+  "type": "auth",
+  "secret": "random-auth-secret"
+}
+```
+
+The secret is obtained from the desktop via the `local_auth_secret` Device WS message (see above). If the secret is invalid, the desktop closes the connection.
 
 #### `subscribe_session`
 

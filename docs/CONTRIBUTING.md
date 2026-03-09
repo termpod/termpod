@@ -101,6 +101,15 @@ For iOS, run `pnpm ios:config` to generate `Config.xcconfig` from your `.env`.
 - Transport badge shows "Relay" (orange)
 - The relay Device WS is always connected for signaling and session management regardless of active transport
 
+## Security
+
+TermPod uses E2E encryption on the relay transport so the relay server cannot read terminal data. Key things to know:
+
+- **Relay changes**: Never inspect or modify `0xE0` binary frame contents — the relay must forward them blindly. Only plaintext `0x00` frames should be appended to scrollback.
+- **Crypto implementations**: Desktop uses Web Crypto API (`packages/protocol/src/crypto.ts`), iOS uses CryptoKit (`apps/ios/TermPod/Services/CryptoService.swift`). Changes to the encryption protocol must be updated in both.
+- **Key exchange**: ECDH P-256 via `key_exchange`/`key_exchange_ack` control messages, AES-256-GCM with HKDF-SHA256 derived keys. See [PROTOCOL.md](./PROTOCOL.md) for the full spec.
+- **Local auth**: Bonjour connections require an auth secret (shared via relay Device WS). The desktop Rust server (`local_server.rs`) validates it before accepting any messages.
+
 ## Pull Requests
 
 1. Branch from `main`

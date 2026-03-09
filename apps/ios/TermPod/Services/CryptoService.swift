@@ -167,7 +167,7 @@ class CryptoService {
         return Data(base64Encoded: base64)
     }
 
-    enum CryptoError: Error, LocalizedError {
+    enum CryptoError: Error, LocalizedError, Equatable {
         case noKeyPair
         case invalidPeerKey
         case noSessionKey
