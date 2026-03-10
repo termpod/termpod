@@ -2,9 +2,21 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { RECONNECT, RELAY_URL } from '@termpod/shared';
 import { getAccessToken, getValidAccessToken } from './useAuth';
 import { getSettingsSnapshot } from './useSettings';
-import { getLocalAuthSecret } from './useLocalServer';
+import { getLocalAuthSecret } from './localAuthSecret';
 
 const PING_INTERVAL = 30_000;
+
+// Module-level WS ref so sendLocalAuthSecretToRelay can access the active connection
+let _deviceWS: WebSocket | null = null;
+
+/** Called by useLocalServer when the local server finishes starting and the auth secret is available. */
+export function sendLocalAuthSecretToRelay(): void {
+  const secret = getLocalAuthSecret();
+
+  if (secret && _deviceWS?.readyState === WebSocket.OPEN) {
+    _deviceWS.send(JSON.stringify({ type: 'local_auth_secret', secret }));
+  }
+}
 
 function getRelayBase(): string {
   const custom = getSettingsSnapshot().relayUrl?.trim();
@@ -71,6 +83,7 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
     const wsUrl = `${getRelayBase()}/devices/${deviceId}/ws${token ? `?token=${encodeURIComponent(token)}` : ''}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
+    _deviceWS = ws;
     intentionalCloseRef.current = false;
 
     ws.onopen = () => {
@@ -171,6 +184,7 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
 
     ws.onclose = () => {
       wsRef.current = null;
+      _deviceWS = null;
       stopPing();
 
       if (!intentionalCloseRef.current && deviceId) {
@@ -214,6 +228,7 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
 
       wsRef.current?.close();
       wsRef.current = null;
+      _deviceWS = null;
       setStatus('disconnected');
     };
   }, [isAuthenticated, deviceId, stopPing]);

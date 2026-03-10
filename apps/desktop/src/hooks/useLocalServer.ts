@@ -11,12 +11,8 @@ import {
 } from '@termpod/protocol';
 import type { E2ESession } from '@termpod/protocol';
 import type { ConnectedDevice } from './useRelayConnection';
-
-// Module-level storage for the local auth secret so useDeviceWS can access it
-let _localAuthSecret: string | null = null;
-export function getLocalAuthSecret(): string | null {
-  return _localAuthSecret;
-}
+import { setLocalAuthSecret } from './localAuthSecret';
+import { sendLocalAuthSecretToRelay } from './useDeviceWS';
 
 export interface LocalServerInfo {
   port: number;
@@ -89,8 +85,12 @@ export function useLocalServer(options: UseLocalServerOptions) {
       .then((info) => {
         if (!cancelled) {
           console.log('[LocalServer] Started on port', info.port, 'addresses:', info.addresses);
-          _localAuthSecret = info.authSecret;
+          setLocalAuthSecret(info.authSecret);
           setServerInfo(info);
+
+          // If the Device WS is already connected, push the secret now
+          // (handles the race where hello_ok fired before the server started)
+          sendLocalAuthSecretToRelay();
         }
       })
       .catch((err) => {

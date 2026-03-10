@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getLocalAuthSecret } from '../useLocalServer';
+import { getLocalAuthSecret } from '../localAuthSecret';
 import {
   generateKeyPair,
   deriveSessionKey,

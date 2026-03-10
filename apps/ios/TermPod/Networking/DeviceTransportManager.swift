@@ -688,6 +688,13 @@ final class DeviceTransportManager: ObservableObject {
               let url = URL(string: "ws://\(host):\(port)")
         else { return }
 
+        // Don't connect without auth secret — server will reject us
+        guard let secret = localAuthSecret else {
+            log("Skipping local WS — no auth secret (host=\(host):\(port))")
+            return
+        }
+
+        log("Connecting local WS to \(url)")
         localWS?.cancel(with: .goingAway, reason: nil)
 
         let ws = urlSession.webSocketTask(with: url)
