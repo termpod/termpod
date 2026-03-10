@@ -66,6 +66,7 @@ final class ConnectionManager: ObservableObject {
         self.relay = RelayClient()
         self.localTransport = LocalTransport(sessionId: sessionId)
         setupCallbacks()
+        observeTransportOverride()
     }
 
     /// Wire up the device transport for local WS and WebRTC multiplexing.
@@ -131,11 +132,29 @@ final class ConnectionManager: ObservableObject {
     }
 
     func sendInput(_ data: Data) {
+        let override = transportOverride
+
+        if override != .auto, let forced = override.transportType, isTransportAvailable(forced) {
+            sendInputVia(forced, data: data)
+            return
+        }
+
         if localTransport.isConnected {
             localTransport.sendInput(data)
         } else if isWebRTCAvailable {
             deviceTransport?.sendWebRTCSessionInput(sessionId: sessionId, data: data)
         } else {
+            relay.sendInput(data)
+        }
+    }
+
+    private func sendInputVia(_ transport: TransportType, data: Data) {
+        switch transport {
+        case .local:
+            localTransport.sendInput(data)
+        case .webrtc:
+            deviceTransport?.sendWebRTCSessionInput(sessionId: sessionId, data: data)
+        case .relay:
             relay.sendInput(data)
         }
     }
@@ -146,12 +165,29 @@ final class ConnectionManager: ObservableObject {
 
     func sendResize(cols: Int, rows: Int) {
         lastRequestedSize = (cols, rows)
+        let override = transportOverride
+
+        if override != .auto, let forced = override.transportType, isTransportAvailable(forced) {
+            sendResizeVia(forced, cols: cols, rows: rows)
+            return
+        }
 
         if localTransport.isConnected {
             localTransport.sendResize(cols: cols, rows: rows)
         } else if isWebRTCAvailable {
             deviceTransport?.sendWebRTCSessionResize(sessionId: sessionId, cols: cols, rows: rows)
         } else {
+            relay.sendResize(cols: cols, rows: rows)
+        }
+    }
+
+    private func sendResizeVia(_ transport: TransportType, cols: Int, rows: Int) {
+        switch transport {
+        case .local:
+            localTransport.sendResize(cols: cols, rows: rows)
+        case .webrtc:
+            deviceTransport?.sendWebRTCSessionResize(sessionId: sessionId, cols: cols, rows: rows)
+        case .relay:
             relay.sendResize(cols: cols, rows: rows)
         }
     }
@@ -258,7 +294,25 @@ final class ConnectionManager: ObservableObject {
         }
     }
 
+    /// Read the user's transport override from UserDefaults (matches @AppStorage key).
+    private var transportOverride: TransportOverride {
+        guard let raw = UserDefaults.standard.string(forKey: "transport.override"),
+              let override = TransportOverride(rawValue: raw)
+        else { return .auto }
+        return override
+    }
+
     private func updateActiveTransport() {
+        let override = transportOverride
+
+        if override != .auto, let forced = override.transportType {
+            if isTransportAvailable(forced) {
+                activeTransport = forced
+                return
+            }
+            // Forced transport not available — fall through to auto
+        }
+
         if localTransport.isConnected {
             activeTransport = .local
         } else if isWebRTCAvailable {
@@ -268,14 +322,31 @@ final class ConnectionManager: ObservableObject {
         }
     }
 
+    private func isTransportAvailable(_ transport: TransportType) -> Bool {
+        switch transport {
+        case .local: return localTransport.isConnected
+        case .webrtc: return isWebRTCAvailable
+        case .relay: return true
+        }
+    }
+
     /// During initial connection (connecting/loadingScrollback/connected), accept
     /// relay data unconditionally — it's the only source of scrollback history.
     /// Once the session is live, only accept data from the active transport.
+    /// When a transport override is set, only accept data from that transport
+    /// (except relay during initial scrollback — always needed).
     private func shouldAcceptData(from type: TransportType) -> Bool {
         // Before session is fully live, always accept relay data (scrollback)
         if type == .relay && state != .live {
             return true
         }
+
+        let override = transportOverride
+
+        if override != .auto, let forced = override.transportType, isTransportAvailable(forced) {
+            return type == forced
+        }
+
         return type == activeTransport
     }
 
@@ -285,6 +356,16 @@ final class ConnectionManager: ObservableObject {
             scrollbackBuffer = Data(scrollbackBuffer.suffix(maxScrollbackSize))
         }
         onTerminalData?(data)
+    }
+
+    private func observeTransportOverride() {
+        NotificationCenter.default.publisher(for: .transportOverrideChanged)
+            .sink { [weak self] _ in
+                Task { @MainActor in
+                    self?.updateActiveTransport()
+                }
+            }
+            .store(in: &cancellables)
     }
 
     private func setupCallbacks() {

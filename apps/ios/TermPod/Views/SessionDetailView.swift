@@ -39,6 +39,7 @@ struct SessionDetailView: View {
                     .animation(.easeInOut(duration: 0.25), value: connection.state.isTransient)
 
                 TerminalHostView(connection: connection)
+                    .opacity(connection.state == .live ? 1 : 0)
             }
             .safeAreaInset(edge: .bottom) {
                 SpecialKeysBar(
@@ -51,6 +52,12 @@ struct SessionDetailView: View {
                         }
                     }
                 )
+            }
+
+            // Connecting overlay — shown until session is live
+            if connection.state != .live && connection.state != .disconnected {
+                connectingOverlay
+                    .transition(.opacity)
             }
 
             // Visual bell flash
@@ -88,9 +95,9 @@ struct SessionDetailView: View {
         .onReceive(NotificationCenter.default.publisher(for: .terminalBell)) { _ in
             handleBell()
         }
+        .animation(.easeInOut(duration: 0.3), value: connection.state == .live)
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = settings.keepScreenAwake
-            NotificationService.shared.requestPermission()
         }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
@@ -169,10 +176,14 @@ struct SessionDetailView: View {
 
     private var sessionTransportLabel: String {
         let transport = connection.activeTransport
+        let forced = settings.transportOverride != .auto
+        let suffix = forced ? " ⚙" : ""
+
         if transport == .webrtc, let mode = deviceTransport.webrtcMode {
-            return "P2P · \(mode.rawValue)"
+            return "P2P · \(mode.rawValue)\(suffix)"
         }
-        return transport.label
+
+        return "\(transport.label)\(suffix)"
     }
 
     private var statusColor: Color {
@@ -182,6 +193,36 @@ struct SessionDetailView: View {
         case .local: return .green
         case .webrtc: return .blue
         case .relay: return .orange
+        }
+    }
+
+    // MARK: - Connecting Overlay
+
+    private var connectingOverlay: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .controlSize(.large)
+                .tint(.secondary)
+
+            Text(connectingLabel)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var connectingLabel: String {
+        switch connection.state {
+        case .connecting:
+            return "Connecting..."
+        case .connected:
+            return "Connected, waiting for session..."
+        case .loadingScrollback:
+            return "Loading session history..."
+        case .reconnecting(let attempt):
+            return attempt > 5 ? "Reconnecting..." : "Reconnecting (attempt \(attempt))..."
+        default:
+            return "Connecting..."
         }
     }
 
@@ -197,14 +238,6 @@ struct SessionDetailView: View {
                     ? "Reconnecting..."
                     : "Reconnecting (attempt \(attempt))...",
                 color: .orange,
-                showSpinner: true
-            )
-
-        case .loadingScrollback:
-            bannerView(
-                icon: nil,
-                text: "Loading session history...",
-                color: .blue,
                 showSpinner: true
             )
 

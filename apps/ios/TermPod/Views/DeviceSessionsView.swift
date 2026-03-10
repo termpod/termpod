@@ -240,10 +240,14 @@ struct DeviceSessionsView: View {
 
     private var transportLabel: String {
         let transport = currentTransport
+        let forced = UserDefaults.standard.string(forKey: "transport.override").flatMap(TransportOverride.init(rawValue:)) ?? .auto
+        let suffix = forced != .auto ? " ⚙" : ""
+
         if transport == .webrtc, let mode = deviceTransport.webrtcMode {
-            return "P2P · \(mode.rawValue)"
+            return "P2P · \(mode.rawValue)\(suffix)"
         }
-        return transport.label
+
+        return "\(transport.label)\(suffix)"
     }
 
     private var transportBadge: some View {

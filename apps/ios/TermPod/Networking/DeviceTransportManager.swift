@@ -78,6 +78,8 @@ final class DeviceTransportManager: ObservableObject {
     private var networkMonitorStarted = false
     private var isOnWiFi = false
 
+    private var overrideObserver: AnyCancellable?
+
     /// Device-level relay WebSocket
     private var deviceWS: URLSessionWebSocketTask?
     private var deviceWSConnected = false
@@ -117,6 +119,15 @@ final class DeviceTransportManager: ObservableObject {
         intentionalClose = false
         startNetworkMonitor()
         startBonjourDiscovery()
+
+        if overrideObserver == nil {
+            overrideObserver = NotificationCenter.default.publisher(for: .transportOverrideChanged)
+                .sink { [weak self] _ in
+                    Task { @MainActor in
+                        self?.updateActiveTransport()
+                    }
+                }
+        }
     }
 
     /// Start the full transport manager for a specific desktop device.
@@ -644,12 +655,17 @@ final class DeviceTransportManager: ObservableObject {
     }
 
     private func resolveEndpoint(result: NWBrowser.Result) {
-        let connection = NWConnection(to: result.endpoint, using: .tcp)
+        let params = NWParameters.tcp
+        let connection = NWConnection(to: result.endpoint, using: params)
 
         connection.stateUpdateHandler = { [weak self] state in
-            guard let self else { return }
+            switch state {
+            case .ready:
+                guard let self else {
+                    connection.cancel()
+                    return
+                }
 
-            if case .ready = state {
                 if let path = connection.currentPath,
                    let endpoint = path.remoteEndpoint,
                    case .hostPort(let host, let port) = endpoint {
@@ -677,6 +693,15 @@ final class DeviceTransportManager: ObservableObject {
                 }
 
                 connection.cancel()
+
+            case .failed:
+                connection.cancel()
+
+            case .cancelled, .setup, .preparing, .waiting:
+                break
+
+            @unknown default:
+                break
             }
         }
 
@@ -689,7 +714,7 @@ final class DeviceTransportManager: ObservableObject {
         else { return }
 
         // Don't connect without auth secret — server will reject us
-        guard let secret = localAuthSecret else {
+        guard localAuthSecret != nil else {
             log("Skipping local WS — no auth secret (host=\(host):\(port))")
             return
         }
@@ -1184,10 +1209,29 @@ final class DeviceTransportManager: ObservableObject {
 
     // MARK: - Helpers
 
+    private func isTransportAvailable(_ transport: TransportType) -> Bool {
+        switch transport {
+        case .local: return localConnected
+        case .webrtc: return webrtcTransport?.isConnected ?? false
+        case .relay: return true
+        }
+    }
+
+    /// Read the user's transport override from UserDefaults (matches @AppStorage key).
+    private var transportOverride: TransportOverride {
+        guard let raw = UserDefaults.standard.string(forKey: "transport.override"),
+              let override = TransportOverride(rawValue: raw)
+        else { return .auto }
+        return override
+    }
+
     private func updateActiveTransport() {
         let previous = activeTransport
+        let override = transportOverride
 
-        if localConnected {
+        if override != .auto, let forced = override.transportType, isTransportAvailable(forced) {
+            activeTransport = forced
+        } else if localConnected {
             activeTransport = .local
         } else if webrtcTransport?.isConnected ?? false {
             activeTransport = .webrtc

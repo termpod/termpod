@@ -11,6 +11,7 @@ struct SettingsView: View {
             Form {
                 appearanceSection
                 behaviorSection
+                transportSection
                 securitySection
                 clipsSection
                 aboutSection
@@ -82,6 +83,39 @@ struct SettingsView: View {
             Toggle("Keep Screen Awake", isOn: $settings.keepScreenAwake)
         } header: {
             Text("Behavior")
+        }
+    }
+
+    // MARK: - Transport
+
+    private var transportSection: some View {
+        Section {
+            Picker("Transport", selection: $settings.transportOverride) {
+                ForEach(TransportOverride.allCases) { override in
+                    Label(override.displayName, systemImage: override.iconName)
+                        .tag(override)
+                }
+            }
+            .onChange(of: settings.transportOverride) { _, _ in
+                NotificationCenter.default.post(name: .transportOverrideChanged, object: nil)
+            }
+        } header: {
+            Text("Transport")
+        } footer: {
+            Text(transportFooter)
+        }
+    }
+
+    private var transportFooter: String {
+        switch settings.transportOverride {
+        case .auto:
+            return "Automatically selects the best available transport."
+        case .local:
+            return "Force local Bonjour connection only. Requires same WiFi network."
+        case .webrtc:
+            return "Force WebRTC P2P connection only. Works across networks."
+        case .relay:
+            return "Force relay connection only. Always available but higher latency."
         }
     }
 

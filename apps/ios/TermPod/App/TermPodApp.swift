@@ -13,6 +13,10 @@ struct TermPodApp: App {
     @State private var isLocked = false
     @State private var wasBackgrounded = false
 
+    init() {
+        NotificationService.shared.requestPermission()
+    }
+
     var body: some Scene {
         WindowGroup {
             ZStack {

@@ -11,6 +11,7 @@ final class TerminalSettings: ObservableObject {
     @AppStorage("terminal.bellBehavior") var bellBehavior: BellBehavior = .haptic
     @AppStorage("terminal.keepScreenAwake") var keepScreenAwake: Bool = true
     @AppStorage("terminal.biometricLock") var biometricLockEnabled: Bool = false
+    @AppStorage("transport.override") var transportOverride: TransportOverride = .auto
 
     var currentTheme: TerminalTheme {
         TerminalTheme.find(themeName)
@@ -82,6 +83,44 @@ enum CursorStyle: String, CaseIterable, Identifiable {
     }
 }
 
+enum TransportOverride: String, CaseIterable, Identifiable {
+
+    case auto
+    case local
+    case webrtc
+    case relay
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .auto: return "Auto"
+        case .local: return "Local (Bonjour)"
+        case .webrtc: return "P2P (WebRTC)"
+        case .relay: return "Relay"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .auto: return "arrow.triangle.branch"
+        case .local: return "wifi"
+        case .webrtc: return "point.3.connected.trianglepath.dotted"
+        case .relay: return "cloud"
+        }
+    }
+
+    /// Map to TransportType for comparison. Returns nil for .auto.
+    var transportType: TransportType? {
+        switch self {
+        case .auto: return nil
+        case .local: return .local
+        case .webrtc: return .webrtc
+        case .relay: return .relay
+        }
+    }
+}
+
 enum BellBehavior: String, CaseIterable, Identifiable {
 
     case haptic
@@ -108,4 +147,10 @@ enum BellBehavior: String, CaseIterable, Identifiable {
         case .off: return "bell.slash"
         }
     }
+}
+
+// MARK: - Transport Override Notification
+
+extension Notification.Name {
+    static let transportOverrideChanged = Notification.Name("transportOverrideChanged")
 }
