@@ -293,6 +293,14 @@ export class TerminalSession extends DurableObject {
       return;
     }
 
+    if (rawType === 'transport_preference') {
+      if (getTag(ws)?.role === 'viewer') {
+        this.broadcastToRole(ws, 'desktop', JSON.stringify(msg));
+      }
+
+      return;
+    }
+
     switch (msg.type) {
       case 'hello':
         this.handleHello(ws, msg);

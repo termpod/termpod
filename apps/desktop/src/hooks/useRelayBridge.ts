@@ -113,8 +113,7 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
   const relaySessionIdRef = useRef(relay.sessionId);
   relaySessionIdRef.current = relay.sessionId;
 
-  // Refs to avoid stale closures in PTY data listener
-  const localViewersRef = useRef(0);
+  // Ref to avoid stale closure in PTY data listener
   const webrtcConnectedRef = useRef(false);
 
   const localServer = useLocalServer({
@@ -235,8 +234,7 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
     localClientId: bridgeOptionsRef.current?.deviceClientId ?? relay.clientId,
   });
 
-  // Keep refs in sync on every render so the PTY listener reads fresh values
-  localViewersRef.current = localServer.localViewers;
+  // Keep ref in sync on every render so the PTY listener reads fresh values
   webrtcConnectedRef.current = webrtc.isConnected;
 
   useEffect(() => {
@@ -254,25 +252,18 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
     const listener = (data: Uint8Array | number[]) => {
       const sid = relaySessionIdRef.current;
 
-      // Check both this session's own WebRTC and the shared device-level WebRTC
-      const sharedWrtc = bridgeOptionsRef.current?.getSharedWebRTC?.();
-      const isWebRTCActive = sharedWrtc?.isConnected || webrtcConnectedRef.current;
-      const hasP2PViewers = localViewersRef.current > 0 || isWebRTCActive;
+      // Send through all available transports — the mobile client
+      // filters to the one it wants via its transport override setting.
+      sendTerminalData(data);
 
-      // Skip relay when P2P viewers are connected — they get data directly.
-      // Relay WS stays open for control messages, signaling, and as a fallback.
-      if (!hasP2PViewers) {
-        sendTerminalData(data);
-      }
-
-      // Broadcast to local WS viewers
       if (sid) {
         localServer.broadcastTerminalData(sid, data);
       }
 
-      // Send via WebRTC with multiplexed session framing
+      const sharedWrtc = bridgeOptionsRef.current?.getSharedWebRTC?.();
+      const isWebRTCActive = sharedWrtc?.isConnected || webrtcConnectedRef.current;
+
       if (isWebRTCActive && sid) {
-        // Prefer shared WebRTC (device-level, always connected) over this session's own
         if (sharedWrtc?.isConnected) {
           sharedWrtc.sendTerminalData(sid, data);
         } else if (webrtcConnectedRef.current) {

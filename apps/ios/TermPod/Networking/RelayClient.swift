@@ -163,6 +163,11 @@ final class RelayClient: ObservableObject, Transport {
         webSocket?.send(.string(jsonString)) { _ in }
     }
 
+    func sendTransportPreference() {
+        let override = UserDefaults.standard.string(forKey: "transport.override") ?? "auto"
+        sendSignaling(["type": "transport_preference", "transport": override])
+    }
+
     func sendSignaling(_ msg: [String: Any]) {
         guard let jsonData = try? JSONSerialization.data(withJSONObject: msg),
               let jsonString = String(data: jsonData, encoding: .utf8)
@@ -384,6 +389,7 @@ final class RelayClient: ObservableObject, Transport {
             state = .live
             reconnectionManager.reset()
             startPingLoop()
+            sendTransportPreference()
             onConnected?()
 
         case "pty_resize":

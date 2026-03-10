@@ -97,7 +97,7 @@
 		5F71407A335F2C0BC3162A86 /* MuxFrameParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuxFrameParsingTests.swift; sourceTree = "<group>"; };
 		67E0E7A70B0425BD15A1D034 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		6AD004AA104E14274ECB150D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		6EFA137D6BCE65AB2585ABFD /* TermPod.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TermPod.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6EFA137D6BCE65AB2585ABFD /* TermPod.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TermPod.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6FAD268E70962E4FABA50804 /* TermPodApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermPodApp.swift; sourceTree = "<group>"; };
 		78CD626EAADBF090C1A20B0A /* SpecialKeysBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpecialKeysBar.swift; sourceTree = "<group>"; };
 		792D7A6DFFA33C35A9053F67 /* RelayConnectionStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayConnectionStateTests.swift; sourceTree = "<group>"; };
@@ -117,7 +117,7 @@
 		A6A159A4657C2992A615D8D2 /* RelayClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayClientTests.swift; sourceTree = "<group>"; };
 		A70D9AAC4418354C463392FA /* SessionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionDetailView.swift; sourceTree = "<group>"; };
 		AD1B77E6B191FF527246DAED /* TerminalSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSettings.swift; sourceTree = "<group>"; };
-		AD66FE26C3A93B9C7E8DD75D /* TermPodTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TermPodTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AD66FE26C3A93B9C7E8DD75D /* TermPodTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TermPodTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B5FD9C0B964B0BAD2D902C42 /* LocalTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTransport.swift; sourceTree = "<group>"; };
 		BEA43445BA71CF5515FE46A0 /* DeviceServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceServiceTests.swift; sourceTree = "<group>"; };
 		C11EA916A9631A12DEC0CC2F /* ClipsEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipsEditorView.swift; sourceTree = "<group>"; };
@@ -507,7 +507,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = "$(TERMPOD_TEAM_ID)";
 				INFOPLIST_FILE = TermPod/App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -530,7 +530,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = "$(TERMPOD_TEAM_ID)";
 				INFOPLIST_FILE = TermPod/App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

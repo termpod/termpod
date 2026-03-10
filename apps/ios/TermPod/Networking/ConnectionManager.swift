@@ -330,20 +330,18 @@ final class ConnectionManager: ObservableObject {
         }
     }
 
-    /// During initial connection (connecting/loadingScrollback/connected), accept
-    /// relay data unconditionally — it's the only source of scrollback history.
-    /// Once the session is live, only accept data from the active transport.
-    /// When a transport override is set, only accept data from that transport
-    /// (except relay during initial scrollback — always needed).
+    /// Filter incoming data by transport. When an override is set, only accept
+    /// data from the forced transport (so we can verify each mode end-to-end).
+    /// In auto mode, accept from the best available transport.
     private func shouldAcceptData(from type: TransportType) -> Bool {
-        // Before session is fully live, always accept relay data (scrollback)
-        if type == .relay && state != .live {
+        // Before session is fully live, always accept (scrollback)
+        if state != .live {
             return true
         }
 
         let override = transportOverride
 
-        if override != .auto, let forced = override.transportType, isTransportAvailable(forced) {
+        if override != .auto, let forced = override.transportType {
             return type == forced
         }
 
@@ -363,6 +361,7 @@ final class ConnectionManager: ObservableObject {
             .sink { [weak self] _ in
                 Task { @MainActor in
                     self?.updateActiveTransport()
+                    self?.relay.sendTransportPreference()
                 }
             }
             .store(in: &cancellables)

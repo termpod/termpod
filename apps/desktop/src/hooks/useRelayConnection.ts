@@ -145,7 +145,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
 
       const raw = JSON.parse(event.data) as Record<string, unknown>;
 
-      // Handle E2E key exchange (not in RelayMessage type union)
+      // Handle messages not in RelayMessage type union
       if (raw.type === 'key_exchange_ack') {
         if (e2eKeyPairRef.current && raw.publicKey) {
           deriveSessionKey(
