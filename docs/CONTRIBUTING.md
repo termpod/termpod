@@ -12,7 +12,7 @@
 ## Setup
 
 ```bash
-git clone https://github.com/user/termpod.git
+git clone https://github.com/termpod/termpod.git
 cd termpod
 pnpm install
 cp .env.example .env

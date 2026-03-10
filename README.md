@@ -106,7 +106,7 @@ termpod/
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/user/termpod.git
+git clone https://github.com/termpod/termpod.git
 cd termpod
 pnpm install
 ```
@@ -138,6 +138,14 @@ APPLE_PASSWORD=your-app-specific-password
 # Create at: https://dash.cloudflare.com → Calls → TURN Keys
 # TURN_KEY_ID=your-turn-key-id
 # TURN_KEY_API_TOKEN=your-turn-api-token
+
+# GitHub token (for update proxy — needs repo read access to private releases)
+# Set via: wrangler secret put GITHUB_TOKEN
+# GITHUB_TOKEN=ghp_xxxx
+
+# Tauri updater signing (must be set in shell env, NOT .env file)
+# TAURI_SIGNING_PRIVATE_KEY=content-or-path-to-private-key
+# TAURI_SIGNING_PRIVATE_KEY_PASSWORD=
 ```
 
 ### 3. Run in development
@@ -184,7 +192,6 @@ wrangler deploy
 
 - [Architecture Overview](./docs/ARCHITECTURE.md)
 - [Protocol Specification](./docs/PROTOCOL.md)
-- [Security Plan](./docs/SECURITY_PLAN.md)
 - [Contributing](./docs/CONTRIBUTING.md)
 
 ## License
