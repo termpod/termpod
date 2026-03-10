@@ -1067,6 +1067,11 @@ final class DeviceTransportManager: ObservableObject {
             if let secret = json["secret"] as? String {
                 self.localAuthSecret = secret
                 log("Received local auth secret")
+
+                // Retry local WS if we have a resolved host but skipped earlier
+                if localWS == nil && resolvedHost != nil {
+                    connectLocalWS()
+                }
             }
 
         case "pong":

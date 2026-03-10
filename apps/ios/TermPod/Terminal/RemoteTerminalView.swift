@@ -32,7 +32,6 @@ class RemoteTerminalView: TerminalView {
         _ = Self.swizzleOnce
         self.terminalDelegate = self
         self.optionAsMetaKey = true
-        self.inputAccessoryView = nil
 
         setupScrollGesture()
         setupPinchGesture()

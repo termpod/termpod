@@ -41,18 +41,6 @@ struct SessionDetailView: View {
                 TerminalHostView(connection: connection)
                     .opacity(connection.state == .live ? 1 : 0)
             }
-            .safeAreaInset(edge: .bottom) {
-                SpecialKeysBar(
-                    onSendBytes: { bytes in
-                        connection.sendInput(Data(bytes))
-                    },
-                    onSendString: { string in
-                        if let data = string.data(using: .utf8) {
-                            connection.sendInput(data)
-                        }
-                    }
-                )
-            }
 
             // Connecting overlay — shown until session is live
             if connection.state != .live && connection.state != .disconnected {
