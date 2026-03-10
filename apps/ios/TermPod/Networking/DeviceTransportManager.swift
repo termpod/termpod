@@ -122,9 +122,11 @@ final class DeviceTransportManager: ObservableObject {
 
         if overrideObserver == nil {
             overrideObserver = NotificationCenter.default.publisher(for: .transportOverrideChanged)
-                .sink { [weak self] _ in
+                .sink { [weak self] notification in
                     Task { @MainActor in
-                        self?.updateActiveTransport()
+                        guard let self else { return }
+                        self.updateActiveTransport()
+                        self.handleOverrideChange(notification.userInfo)
                     }
                 }
         }
@@ -1213,6 +1215,31 @@ final class DeviceTransportManager: ObservableObject {
     }
 
     // MARK: - Helpers
+
+    /// When the user switches transport override, attempt to connect the requested transport.
+    private func handleOverrideChange(_ userInfo: [AnyHashable: Any]?) {
+        guard let raw = userInfo?["override"] as? String,
+              let override = TransportOverride(rawValue: raw)
+        else { return }
+
+        switch override {
+        case .local:
+            if !localConnected {
+                log("Override → Local: attempting local reconnect")
+                // Retry local WS if we have a resolved host
+                if localWS == nil && resolvedHost != nil && localAuthSecret != nil {
+                    connectLocalWS()
+                } else if resolvedHost == nil {
+                    // Re-trigger Bonjour discovery
+                    browser?.cancel()
+                    browser = nil
+                    startBonjourDiscovery()
+                }
+            }
+        case .auto, .webrtc, .relay:
+            break
+        }
+    }
 
     private func isTransportAvailable(_ transport: TransportType) -> Bool {
         switch transport {

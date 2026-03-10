@@ -96,8 +96,15 @@ struct SettingsView: View {
                         .tag(override)
                 }
             }
-            .onChange(of: settings.transportOverride) { _, _ in
-                NotificationCenter.default.post(name: .transportOverrideChanged, object: nil)
+            .onChange(of: settings.transportOverride) { _, newValue in
+                // Dispatch async to avoid blocking Picker animation
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(
+                        name: .transportOverrideChanged,
+                        object: nil,
+                        userInfo: ["override": newValue.rawValue]
+                    )
+                }
             }
         } header: {
             Text("Transport")
