@@ -19,7 +19,7 @@ struct SessionDetailView: View {
         self.allSessions = allSessions
         self.onSwitchSession = onSwitchSession
         self.connection = session.connection
-        self._terminalTitle = State(initialValue: session.name)
+        self._terminalTitle = State(initialValue: SessionDetailView.shortTitle(from: session.name))
     }
 
     var body: some View {
@@ -77,7 +77,7 @@ struct SessionDetailView: View {
         .gesture(sessionSwipeGesture)
         .onReceive(NotificationCenter.default.publisher(for: .terminalTitleChanged)) { notif in
             if let title = notif.userInfo?["title"] as? String {
-                terminalTitle = title
+                terminalTitle = Self.shortTitle(from: title)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .terminalBell)) { _ in
@@ -90,6 +90,40 @@ struct SessionDetailView: View {
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
         }
+    }
+
+    // MARK: - Title
+
+    /// Extract just the directory name from shell titles.
+    /// Common formats: "user@host: ~/Code/termpod", "~/Code/termpod", "user@host:~/Code/termpod"
+    private static func shortTitle(from raw: String) -> String {
+        let path: String
+
+        // "user@host: /path" or "user@host: ~/path"
+        if let range = raw.range(of: ": ") {
+            path = String(raw[range.upperBound...])
+        // "user@host:/path" or "user@host:~/path"
+        } else if let atIdx = raw.firstIndex(of: "@"),
+                  let colonIdx = raw[atIdx...].firstIndex(of: ":") {
+            path = String(raw[raw.index(after: colonIdx)...])
+        // Raw path
+        } else if raw.hasPrefix("/") || raw.hasPrefix("~") {
+            path = raw
+        } else {
+            // No recognizable path — try last path-like component anyway
+            let components = raw.split(separator: "/")
+            if components.count > 1 {
+                return String(components.last!)
+            }
+            return raw
+        }
+
+        let trimmed = path.trimmingCharacters(in: .whitespaces)
+        if trimmed == "~" || trimmed == "/" {
+            return trimmed
+        }
+
+        return (trimmed as NSString).lastPathComponent
     }
 
     // MARK: - Bell Handling
