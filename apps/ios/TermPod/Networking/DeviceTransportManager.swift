@@ -1066,7 +1066,10 @@ final class DeviceTransportManager: ObservableObject {
             break
 
         case "client_left":
-            break
+            if let role = json["role"] as? String, role == "desktop" {
+                sessions = []
+                log("Desktop left — cleared sessions")
+            }
 
         case "webrtc_offer":
             log("Signaling: \(type) keys=\(json.keys.sorted())")
