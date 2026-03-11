@@ -223,6 +223,7 @@ export function App() {
   const [showKeybindings, setShowKeybindings] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showDevicesPanel, setShowDevicesPanel] = useState(false);
+  const [confirmClose, setConfirmClose] = useState<{ sessionId: string; processName: string } | null>(null);
   const { bindings } = useKeybindings();
   const initializedRef = useRef(false);
   const [relayMap, setRelayMap] = useState<Map<string, RelayInfo>>(new Map());
@@ -280,10 +281,8 @@ export function App() {
     if (!skipConfirm && settings.confirmCloseRunningProcess) {
       const session = sessions.find((s) => s.id === id);
       if (session && !session.exited && session.processName) {
-        const confirmed = window.confirm(
-          `"${session.processName}" is still running. Close this tab?`,
-        );
-        if (!confirmed) return;
+        setConfirmClose({ sessionId: id, processName: session.processName });
+        return;
       }
     }
 
@@ -877,6 +876,55 @@ export function App() {
           onExecute={(id) => { setShowCommandPalette(false); menuHandlerRef.current(id); }}
         />
       )}
+      {confirmClose && (
+        <ConfirmDialog
+          processName={confirmClose.processName}
+          onConfirm={() => { const id = confirmClose.sessionId; setConfirmClose(null); handleCloseSession(id, true); }}
+          onCancel={() => { setConfirmClose(null); setTimeout(focusActive, 50); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ConfirmDialog({ processName, onConfirm, onCancel }: { processName: string; onConfirm: () => void; onCancel: () => void }) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    closeRef.current?.focus();
+
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onCancel();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        onConfirm();
+      }
+    };
+
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [onConfirm, onCancel]);
+
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+        <div className="confirm-title">
+          Do you want to close this tab?
+        </div>
+        <div className="confirm-message">
+          <span className="confirm-process">{processName}</span> is still running.
+        </div>
+        <div className="confirm-actions">
+          <button type="button" className="confirm-btn confirm-btn-cancel" onClick={onCancel}>
+            Cancel
+          </button>
+          <button ref={closeRef} type="button" className="confirm-btn confirm-btn-close" onClick={onConfirm}>
+            Close Tab
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -584,6 +584,90 @@ body,
   background: var(--border);
 }
 
+/* ── Confirm Dialog ── */
+.confirm-dialog {
+  width: 280px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 16px 12px;
+  animation: modal-in 0.12s ease;
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.4),
+    0 0 0 0.5px rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+.confirm-title {
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.confirm-message {
+  font-size: 11px;
+  font-family: var(--font-sans);
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: 3px;
+  margin-bottom: 16px;
+}
+
+.confirm-process {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.confirm-btn {
+  padding: 4px 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  font-weight: 400;
+  cursor: pointer;
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  transition: filter var(--transition-fast);
+  line-height: 1.4;
+}
+
+.confirm-btn-cancel {
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  color: var(--text-primary);
+}
+
+.confirm-btn-cancel:hover {
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
+}
+
+.confirm-btn-cancel:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 50%, transparent);
+  outline: none;
+}
+
+.confirm-btn-close {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 500;
+}
+
+.confirm-btn-close:hover {
+  filter: brightness(1.1);
+}
+
+.confirm-btn-close:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 50%, transparent);
+  outline: none;
+}
+
 /* ── Keybindings Modal ── */
 .kb-modal {
   width: 460px;
