@@ -147,18 +147,11 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
           return;
         }
 
-        // Reject plaintext frames when E2E is active (prevent downgrade attack)
-        if (e2eRef.current) {
-          console.warn('[Relay] Rejecting plaintext frame — E2E encryption is active');
-          return;
-        }
-
+        // Plaintext terminal data is no longer accepted on relay — all data must be E2E encrypted.
         const frame = decodeBinaryFrame(raw);
 
-        if (frame.channel === Channel.TERMINAL_DATA) {
-          optionsRef.current.onViewerInput?.(new TextDecoder().decode(frame.data));
-        } else if (frame.channel === Channel.SCROLLBACK_CHUNK) {
-          optionsRef.current.onViewerInput?.(new TextDecoder().decode(frame.data));
+        if (frame.channel === Channel.TERMINAL_DATA || frame.channel === Channel.SCROLLBACK_CHUNK) {
+          console.warn('[Relay] Rejecting plaintext frame — E2E encryption required');
         }
 
         return;
@@ -467,9 +460,9 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
         }).catch((err) => {
           console.error('[Relay] E2E encryption failed — dropping frame:', err);
         });
-      } else {
-        ws.send(plainFrame);
       }
+      // No plaintext fallback — terminal data is only sent after E2E is established.
+      // Viewers receive encrypted scrollback from desktop after key exchange completes.
 
       // Also send share-encrypted frame if sharing is active
       if (shareE2eRef.current) {
@@ -488,6 +481,10 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     if (ws?.readyState === WebSocket.OPEN) {
       const plainFrame = encodeTerminalResize(cols, rows);
 
+      // Always send plaintext resize so relay can track PTY dimensions (not sensitive)
+      ws.send(plainFrame);
+
+      // Also send encrypted resize for E2E viewers
       if (e2eRef.current) {
         encryptFrame(e2eRef.current, plainFrame).then((encrypted) => {
           if (ws.readyState === WebSocket.OPEN) {
@@ -499,8 +496,6 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
         }).catch((err) => {
           console.error('[Relay] E2E encryption failed — dropping frame:', err);
         });
-      } else {
-        ws.send(plainFrame);
       }
     }
   }, []);

@@ -111,18 +111,15 @@ final class RelayClient: ObservableObject, Transport {
         var frame = Data([0x00])
         frame.append(data)
 
-        // If E2E is ready, encrypt and wrap in 0xE0 channel; never fall back to plaintext
-        if crypto.isReady {
-            guard let encrypted = try? crypto.encrypt(frame) else {
-                print("[RelayClient] E2E encryption failed — dropping frame")
-                return
-            }
-            var encFrame = Data([0xE0])
-            encFrame.append(encrypted)
-            webSocket?.send(.data(encFrame)) { _ in }
-        } else {
-            webSocket?.send(.data(frame)) { _ in }
+        // Only send encrypted — no plaintext fallback on relay transport
+        guard crypto.isReady else { return }
+        guard let encrypted = try? crypto.encrypt(frame) else {
+            print("[RelayClient] E2E encryption failed — dropping frame")
+            return
         }
+        var encFrame = Data([0xE0])
+        encFrame.append(encrypted)
+        webSocket?.send(.data(encFrame)) { _ in }
     }
 
     func sendResize(cols: Int, rows: Int) {
@@ -134,17 +131,18 @@ final class RelayClient: ObservableObject, Transport {
         frame[3] = UInt8((rows >> 8) & 0xFF)
         frame[4] = UInt8(rows & 0xFF)
 
-        // If E2E is ready, encrypt and wrap in 0xE0 channel; never fall back to plaintext
+        // Always send plaintext resize so relay can track PTY dimensions (not sensitive)
+        webSocket?.send(.data(frame)) { _ in }
+
+        // Also send encrypted resize for E2E desktop
         if crypto.isReady {
             guard let encrypted = try? crypto.encrypt(frame) else {
-                print("[RelayClient] E2E encryption failed — dropping frame")
+                print("[RelayClient] E2E encryption failed — dropping resize frame")
                 return
             }
             var encFrame = Data([0xE0])
             encFrame.append(encrypted)
             webSocket?.send(.data(encFrame)) { _ in }
-        } else {
-            webSocket?.send(.data(frame)) { _ in }
         }
     }
 
@@ -328,12 +326,8 @@ final class RelayClient: ObservableObject, Transport {
                 }
 
             case 0x00:
-                // Reject plaintext frames when E2E is active (prevent downgrade attack)
-                if crypto.isReady {
-                    print("[RelayClient] Rejecting plaintext frame — E2E encryption is active")
-                    break
-                }
-                onTerminalData?(Data(data.dropFirst()))
+                // Plaintext terminal data is no longer accepted on relay transport — all data must be E2E encrypted.
+                print("[RelayClient] Rejecting plaintext 0x00 frame — E2E encryption required")
 
             case 0x02:
                 // Scrollback chunk: [0x02][offset:u32be][data...]

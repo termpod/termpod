@@ -13,74 +13,6 @@ import { verifyJWT } from './jwt';
 const MAX_MESSAGE_SIZE = 64 * 1024; // 64KB
 const SCROLLBACK_BUFFER_SIZE = 512 * 1024; // 512KB
 
-/**
- * Ring buffer for terminal scrollback. Stores raw terminal data in a
- * fixed-size ArrayBuffer. When full, old data is overwritten from the start.
- */
-class ScrollbackBuffer {
-  private buffer: Uint8Array;
-  private writePos = 0;
-  private totalWritten = 0;
-
-  constructor(size: number = SCROLLBACK_BUFFER_SIZE) {
-    this.buffer = new Uint8Array(size);
-  }
-
-  append(data: Uint8Array): void {
-    const len = data.length;
-
-    if (len >= this.buffer.length) {
-      // Data larger than buffer — keep only the tail
-      this.buffer.set(data.subarray(data.length - this.buffer.length));
-      this.writePos = 0;
-      this.totalWritten += len;
-
-      return;
-    }
-
-    const remaining = this.buffer.length - this.writePos;
-
-    if (len <= remaining) {
-      this.buffer.set(data, this.writePos);
-      this.writePos += len;
-    } else {
-      // Split write: fill end, wrap to start
-      this.buffer.set(data.subarray(0, remaining), this.writePos);
-      this.buffer.set(data.subarray(remaining), 0);
-      this.writePos = len - remaining;
-    }
-
-    this.totalWritten += len;
-  }
-
-  /** Returns all buffered data in order (oldest first). */
-  getAll(): Uint8Array {
-    const used = Math.min(this.totalWritten, this.buffer.length);
-
-    if (used === 0) {
-      return new Uint8Array(0);
-    }
-
-    if (this.totalWritten <= this.buffer.length) {
-      // Buffer hasn't wrapped yet
-      return this.buffer.slice(0, this.writePos);
-    }
-
-    // Buffer has wrapped — read from writePos to end, then start to writePos
-    const result = new Uint8Array(this.buffer.length);
-    const tailLen = this.buffer.length - this.writePos;
-    result.set(this.buffer.subarray(this.writePos), 0);
-    result.set(this.buffer.subarray(0, this.writePos), tailLen);
-
-    return result;
-  }
-
-  clear(): void {
-    this.writePos = 0;
-    this.totalWritten = 0;
-  }
-}
-
 // WebSocket tags store client metadata as JSON so it survives hibernation
 interface ClientTag {
   clientId: string;
@@ -105,7 +37,6 @@ export class TerminalSession extends DurableObject {
   private ptyCols = 120;
   private ptyRows = 40;
   private jwtSecret: string | null = null;
-  private scrollback = new ScrollbackBuffer();
   /** Store complete 0xE1 frames for share viewer scrollback replay. */
   private shareFrames: ArrayBuffer[] = [];
   private shareFramesSize = 0;
@@ -202,8 +133,7 @@ export class TerminalSession extends DurableObject {
         ws.close(1000, 'session deleted');
       }
 
-      // Clear owner and scrollback so the session can be reused
-      this.scrollback.clear();
+      // Clear owner and share frames so the session can be reused
       this.shareFrames = [];
       this.shareFramesSize = 0;
       await this.setOwner(null);
@@ -253,20 +183,9 @@ export class TerminalSession extends DurableObject {
     const channel = data[0];
 
     if (channel === Channel.TERMINAL_DATA) {
-      const senderTag = getTag(ws);
-      const senderRole = senderTag?.role ?? 'unknown';
-
-      if (senderRole === 'desktop') {
-        // Append terminal output to scrollback buffer (strip channel byte)
-        this.scrollback.append(data.subarray(1));
-        // Send plaintext only to authenticated viewers, not readonly share viewers
-        // (share viewers receive 0xE1 encrypted frames instead)
-        this.broadcastToNonReadonlyViewers(ws, message);
-      } else if (senderRole === 'viewer' && !senderTag?.readonly) {
-        // Viewer input -> send to desktop only (readonly viewers blocked)
-        this.broadcastToRole(ws, 'desktop', message);
-      }
-      // Unknown roles and readonly viewers are silently dropped
+      // Plaintext terminal data is no longer accepted — all terminal data must be E2E encrypted (0xE0).
+      // Desktop and iOS never send plaintext frames; they buffer locally until E2E is established.
+      console.warn('Rejecting plaintext 0x00 terminal frame — E2E encryption required');
     } else if (channel === Channel.TERMINAL_RESIZE) {
       const senderTag = getTag(ws);
 
@@ -568,12 +487,9 @@ export class TerminalSession extends DurableObject {
         for (const frame of this.shareFrames) {
           ws.send(frame);
         }
-      } else if (tag.readonly) {
-        // No share-encrypted frames buffered — send plaintext scrollback as fallback
-        this.sendScrollbackChunks(ws, this.scrollback.getAll());
       }
-      // Authenticated viewers: no plaintext scrollback — they request E2E-encrypted
-      // scrollback from the desktop after key exchange completes
+      // Authenticated viewers: request E2E-encrypted scrollback from desktop after key exchange.
+      // No plaintext scrollback is stored or served by the relay.
     }
 
     ws.send(JSON.stringify({ type: 'ready' }));
@@ -584,37 +500,6 @@ export class TerminalSession extends DurableObject {
       role: assignedRole,
       device: msg.device,
     });
-  }
-
-  private sendScrollbackChunks(ws: WebSocket, data: Uint8Array): void {
-    if (data.length === 0) return;
-
-    const CHUNK_SIZE = 32 * 1024;
-    let offset = 0;
-
-    while (offset < data.length) {
-      const end = Math.min(offset + CHUNK_SIZE, data.length);
-      const chunk = data.subarray(offset, end);
-      const frame = new Uint8Array(5 + chunk.length);
-      const view = new DataView(frame.buffer);
-      frame[0] = 0x02; // SCROLLBACK_CHUNK
-      view.setUint32(1, offset, false);
-      frame.set(chunk, 5);
-      ws.send(frame.buffer);
-      offset = end;
-    }
-  }
-
-  private broadcastToNonReadonlyViewers(sender: WebSocket, message: string | ArrayBuffer): void {
-    for (const ws of this.ctx.getWebSockets()) {
-      if (ws === sender) continue;
-
-      const tag = getTag(ws);
-
-      if (tag?.role === 'viewer' && !tag.readonly) {
-        ws.send(message);
-      }
-    }
   }
 
   private broadcastToRole(sender: WebSocket, targetRole: ClientRole, message: string | ArrayBuffer): void {
