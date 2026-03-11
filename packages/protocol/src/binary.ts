@@ -51,6 +51,12 @@ export interface MuxTerminalDataFrame {
   data: Uint8Array;
 }
 
+export interface MuxTerminalDataCompressedFrame {
+  channel: typeof Channel.MUX_TERMINAL_DATA_COMPRESSED;
+  sessionId: string;
+  data: Uint8Array; // raw deflate compressed
+}
+
 export interface MuxTerminalResizeFrame {
   channel: typeof Channel.MUX_TERMINAL_RESIZE;
   sessionId: string;
@@ -75,6 +81,7 @@ export type BinaryFrame =
   | TerminalResizeFrame
   | ScrollbackChunkFrame
   | MuxTerminalDataFrame
+  | MuxTerminalDataCompressedFrame
   | MuxTerminalResizeFrame
   | EncryptedFrame
   | ShareEncryptedFrame;
@@ -106,15 +113,26 @@ export function encodeMuxTerminalResize(sessionId: string, cols: number, rows: n
   return frame;
 }
 
+export function encodeMuxTerminalDataCompressed(sessionId: string, compressedData: Uint8Array): Uint8Array {
+  const sidBytes = encoder.encode(sessionId);
+  const frame = new Uint8Array(1 + 1 + sidBytes.length + compressedData.length);
+  frame[0] = Channel.MUX_TERMINAL_DATA_COMPRESSED;
+  frame[1] = sidBytes.length;
+  frame.set(sidBytes, 2);
+  frame.set(compressedData, 2 + sidBytes.length);
+
+  return frame;
+}
+
 export function decodeMuxFrame(
   frame: Uint8Array,
-): MuxTerminalDataFrame | MuxTerminalResizeFrame | null {
+): MuxTerminalDataFrame | MuxTerminalDataCompressedFrame | MuxTerminalResizeFrame | null {
   if (frame.length < 2) {
     return null;
   }
 
   const channel = frame[0];
-  if (channel !== Channel.MUX_TERMINAL_DATA && channel !== Channel.MUX_TERMINAL_RESIZE) {
+  if (channel !== Channel.MUX_TERMINAL_DATA && channel !== Channel.MUX_TERMINAL_RESIZE && channel !== Channel.MUX_TERMINAL_DATA_COMPRESSED) {
     return null;
   }
 
@@ -129,6 +147,14 @@ export function decodeMuxFrame(
   if (channel === Channel.MUX_TERMINAL_DATA) {
     return {
       channel: Channel.MUX_TERMINAL_DATA,
+      sessionId,
+      data: frame.subarray(payloadStart),
+    };
+  }
+
+  if (channel === Channel.MUX_TERMINAL_DATA_COMPRESSED) {
+    return {
+      channel: Channel.MUX_TERMINAL_DATA_COMPRESSED,
       sessionId,
       data: frame.subarray(payloadStart),
     };
@@ -219,6 +245,7 @@ export function decodeBinaryFrame(frame: Uint8Array): BinaryFrame {
       };
 
     case Channel.MUX_TERMINAL_DATA:
+    case Channel.MUX_TERMINAL_DATA_COMPRESSED:
     case Channel.MUX_TERMINAL_RESIZE: {
       const muxFrame = decodeMuxFrame(frame);
       if (!muxFrame) {

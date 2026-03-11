@@ -57,9 +57,16 @@ function getWsTag(ws: WebSocket): DeviceClientTag | null {
     : null;
 }
 
+// Minimum interval between sessions_updated writes per device (ms)
+const SESSIONS_UPDATE_MIN_INTERVAL = 3_000;
+
 export class User extends DurableObject {
   private initialized = false;
   private jwtSecret: string | null = null;
+  /** Last sessions_updated write timestamp per device ID */
+  private lastSessionsUpdate = new Map<string, number>();
+  /** Last heartbeat write timestamp per device ID */
+  private lastHeartbeat = new Map<string, number>();
 
   private ensureSchema(): void {
     if (this.initialized) {
@@ -339,8 +346,8 @@ export class User extends DurableObject {
       )
     `);
 
-    // Mark devices as offline if they haven't sent a heartbeat in 90 seconds
-    const staleThreshold = new Date(Date.now() - 90_000).toISOString();
+    // Mark devices as offline if they haven't sent a heartbeat in 180 seconds
+    const staleThreshold = new Date(Date.now() - 180_000).toISOString();
     this.ctx.storage.sql.exec(
       'UPDATE devices SET is_online = 0 WHERE is_online = 1 AND last_seen_at < ?',
       staleThreshold,
@@ -422,11 +429,18 @@ export class User extends DurableObject {
   }
 
   private handleHeartbeat(deviceId: string): Response {
-    this.ctx.storage.sql.exec(
-      'UPDATE devices SET is_online = 1, last_seen_at = ? WHERE id = ?',
-      new Date().toISOString(),
-      deviceId,
-    );
+    // Skip redundant writes — only update if >30s since last heartbeat write
+    const now = Date.now();
+    const last = this.lastHeartbeat.get(deviceId) ?? 0;
+
+    if (now - last >= 30_000) {
+      this.lastHeartbeat.set(deviceId, now);
+      this.ctx.storage.sql.exec(
+        'UPDATE devices SET is_online = 1, last_seen_at = ? WHERE id = ?',
+        new Date().toISOString(),
+        deviceId,
+      );
+    }
 
     return Response.json({ ok: true });
   }
@@ -540,16 +554,31 @@ export class User extends DurableObject {
       return Response.json({ error: 'Session not found' }, { status: 404 });
     }
 
+    // Build a single UPDATE with all changed fields
+    const setClauses: string[] = [];
+    const values: (string | null)[] = [];
+
     if (body.name !== undefined) {
-      this.ctx.storage.sql.exec('UPDATE sessions SET name = ? WHERE id = ?', body.name, sessionId);
+      setClauses.push('name = ?');
+      values.push(body.name);
     }
 
     if (body.cwd !== undefined) {
-      this.ctx.storage.sql.exec('UPDATE sessions SET cwd = ? WHERE id = ?', body.cwd, sessionId);
+      setClauses.push('cwd = ?');
+      values.push(body.cwd);
     }
 
     if (body.processName !== undefined) {
-      this.ctx.storage.sql.exec('UPDATE sessions SET process_name = ? WHERE id = ?', body.processName, sessionId);
+      setClauses.push('process_name = ?');
+      values.push(body.processName ?? null);
+    }
+
+    if (setClauses.length > 0) {
+      values.push(sessionId);
+      this.ctx.storage.sql.exec(
+        `UPDATE sessions SET ${setClauses.join(', ')} WHERE id = ?`,
+        ...values,
+      );
     }
 
     return Response.json({ ok: true });
@@ -1038,28 +1067,57 @@ export class User extends DurableObject {
       return;
     }
 
-    // Replace all sessions for this device with the new list
-    this.ctx.storage.sql.exec('DELETE FROM sessions WHERE device_id = ?', tag.targetDeviceId);
+    // Rate limit: skip SQLite writes if updated too recently (still broadcast to viewers)
+    const now = Date.now();
+    const lastUpdate = this.lastSessionsUpdate.get(tag.targetDeviceId) ?? 0;
+    const shouldWrite = now - lastUpdate >= SESSIONS_UPDATE_MIN_INTERVAL;
 
-    for (const s of sessions) {
-      if (!s.id || typeof s.id !== 'string' || s.id.length > 64) {
-        continue;
+    if (shouldWrite) {
+      this.lastSessionsUpdate.set(tag.targetDeviceId, now);
+
+      // Upsert sessions and delete stale ones (avoids DELETE-all + re-INSERT)
+      const incomingIds = new Set<string>();
+
+      for (const s of sessions) {
+        if (!s.id || typeof s.id !== 'string' || s.id.length > 64) {
+          continue;
+        }
+
+        incomingIds.add(s.id);
+
+        this.ctx.storage.sql.exec(
+          `INSERT INTO sessions (id, device_id, name, cwd, process_name, pty_cols, pty_rows, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             name = excluded.name,
+             cwd = excluded.cwd,
+             process_name = excluded.process_name,
+             pty_cols = excluded.pty_cols,
+             pty_rows = excluded.pty_rows`,
+          s.id,
+          tag.targetDeviceId,
+          s.name ?? 'shell',
+          s.cwd ?? '',
+          s.processName ?? null,
+          s.ptyCols ?? 120,
+          s.ptyRows ?? 40,
+          new Date().toISOString(),
+        );
       }
 
-      this.ctx.storage.sql.exec(
-        'INSERT OR REPLACE INTO sessions (id, device_id, name, cwd, process_name, pty_cols, pty_rows, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        s.id,
-        tag.targetDeviceId,
-        s.name ?? 'shell',
-        s.cwd ?? '',
-        s.processName ?? null,
-        s.ptyCols ?? 120,
-        s.ptyRows ?? 40,
-        new Date().toISOString(),
-      );
+      // Delete sessions that are no longer in the list
+      const existing = this.ctx.storage.sql
+        .exec('SELECT id FROM sessions WHERE device_id = ?', tag.targetDeviceId)
+        .toArray();
+
+      for (const row of existing) {
+        if (!incomingIds.has(row.id as string)) {
+          this.ctx.storage.sql.exec('DELETE FROM sessions WHERE id = ?', row.id as string);
+        }
+      }
     }
 
-    // Broadcast to viewers of this device
+    // Always broadcast to viewers (even if SQLite write was rate-limited)
     this.forwardToDeviceRole(tag.targetDeviceId, ws, 'viewer', {
       type: 'sessions_updated',
       sessions,

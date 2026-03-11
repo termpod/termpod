@@ -8,6 +8,8 @@ export const Channel = {
   MUX_TERMINAL_DATA: 0x10,
   /** Multiplexed terminal resize: [0x11][sid_len][sid][cols_hi][cols_lo][rows_hi][rows_lo] */
   MUX_TERMINAL_RESIZE: 0x11,
+  /** Compressed multiplexed terminal data: [0x12][sid_len][sid][deflate_payload] */
+  MUX_TERMINAL_DATA_COMPRESSED: 0x12,
   /** E2E encrypted wrapper: [0xE0][nonce:12][ciphertext+tag] */
   ENCRYPTED: 0xe0,
   /** Share-encrypted terminal data: [0xE1][nonce:12][ciphertext+tag] */

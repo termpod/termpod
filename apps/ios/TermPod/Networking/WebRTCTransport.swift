@@ -431,7 +431,7 @@ extension WebRTCTransport: LKRTCDataChannelDelegate {
                 let rows = Int(data[3]) << 8 | Int(data[4])
                 self.onResize?(cols, rows)
             // Multiplexed frames — pass raw data to DeviceTransportManager for demuxing
-            case 0x10, 0x11:
+            case 0x10, 0x11, 0x12:
                 self.onMuxData?(data)
             default: break
             }

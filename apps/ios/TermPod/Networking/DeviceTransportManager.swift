@@ -1,4 +1,5 @@
 import Combine
+import Compression
 import Foundation
 import Network
 import UIKit
@@ -530,15 +531,26 @@ final class DeviceTransportManager: ObservableObject {
         webrtcSessionResizeHandlers.removeValue(forKey: sessionId)
     }
 
-    /// Send terminal input for a specific session over multiplexed WebRTC: [0x10][sid_len][sid][data]
+    /// Send terminal input for a specific session over multiplexed WebRTC.
+    /// Uses compressed frame (0x12) when beneficial, uncompressed (0x10) otherwise.
     func sendWebRTCSessionInput(sessionId: String, data: Data) {
         let sidBytes = Array(sessionId.utf8)
-        var frame = Data(capacity: 2 + sidBytes.count + data.count)
-        frame.append(0x10)
-        frame.append(UInt8(sidBytes.count))
-        frame.append(contentsOf: sidBytes)
-        frame.append(data)
-        webrtcTransport?.sendRawData(frame)
+
+        if let compressed = Self.compressDeflateRaw(data) {
+            var frame = Data(capacity: 2 + sidBytes.count + compressed.count)
+            frame.append(0x12)
+            frame.append(UInt8(sidBytes.count))
+            frame.append(contentsOf: sidBytes)
+            frame.append(compressed)
+            webrtcTransport?.sendRawData(frame)
+        } else {
+            var frame = Data(capacity: 2 + sidBytes.count + data.count)
+            frame.append(0x10)
+            frame.append(UInt8(sidBytes.count))
+            frame.append(contentsOf: sidBytes)
+            frame.append(data)
+            webrtcTransport?.sendRawData(frame)
+        }
     }
 
     /// Send resize for a specific session over multiplexed WebRTC: [0x11][sid_len][sid][cols][rows]
@@ -574,6 +586,13 @@ final class DeviceTransportManager: ObservableObject {
             let payload = data[payloadStart...]
             webrtcSessionDataHandlers[sessionId]?(Data(payload))
 
+        case 0x12:
+            // Compressed terminal data — decompress with raw deflate
+            let compressed = data[payloadStart...]
+            if let decompressed = Self.decompressDeflateRaw(Data(compressed)) {
+                webrtcSessionDataHandlers[sessionId]?(decompressed)
+            }
+
         case 0x11:
             guard data.count >= payloadStart + 4 else { return }
             let cols = Int(data[payloadStart]) << 8 | Int(data[payloadStart + 1])
@@ -583,6 +602,61 @@ final class DeviceTransportManager: ObservableObject {
         default:
             break
         }
+    }
+
+    // MARK: - Compression
+
+    /// Minimum payload size to attempt compression (bytes).
+    private static let minCompressSize = 256
+
+    /// Decompress raw deflate data using Apple's Compression framework.
+    private static func decompressDeflateRaw(_ data: Data) -> Data? {
+        // Raw deflate = COMPRESSION_ZLIB without the zlib header
+        // Use a generous output buffer (8x input as starting point)
+        let sourceSize = data.count
+        let destinationSize = sourceSize * 8
+        var destinationBuffer = Data(count: destinationSize)
+
+        let decompressedSize = data.withUnsafeBytes { sourcePointer in
+            destinationBuffer.withUnsafeMutableBytes { destPointer in
+                compression_decode_buffer(
+                    destPointer.bindMemory(to: UInt8.self).baseAddress!,
+                    destinationSize,
+                    sourcePointer.bindMemory(to: UInt8.self).baseAddress!,
+                    sourceSize,
+                    nil,
+                    COMPRESSION_ZLIB
+                )
+            }
+        }
+
+        guard decompressedSize > 0 else { return nil }
+        return destinationBuffer.prefix(decompressedSize)
+    }
+
+    /// Compress data using raw deflate. Returns nil if too small or compression doesn't help.
+    private static func compressDeflateRaw(_ data: Data) -> Data? {
+        guard data.count >= minCompressSize else { return nil }
+
+        let sourceSize = data.count
+        let destinationSize = sourceSize // compressed should be smaller
+        var destinationBuffer = Data(count: destinationSize)
+
+        let compressedSize = data.withUnsafeBytes { sourcePointer in
+            destinationBuffer.withUnsafeMutableBytes { destPointer in
+                compression_encode_buffer(
+                    destPointer.bindMemory(to: UInt8.self).baseAddress!,
+                    destinationSize,
+                    sourcePointer.bindMemory(to: UInt8.self).baseAddress!,
+                    sourceSize,
+                    nil,
+                    COMPRESSION_ZLIB
+                )
+            }
+        }
+
+        guard compressedSize > 0, compressedSize < sourceSize else { return nil }
+        return destinationBuffer.prefix(compressedSize)
     }
 
     // MARK: - Network Monitor

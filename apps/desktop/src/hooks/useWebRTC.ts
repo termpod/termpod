@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { authFetch } from './useAuth';
+import { compressPayload, decompressPayload } from '@termpod/protocol';
 
 const STUN_ONLY_CONFIG: RTCConfiguration = {
   iceServers: [
@@ -159,6 +160,20 @@ export function useWebRTC(options: UseWebRTCOptions) {
               break;
             }
 
+            // Compressed multiplexed terminal data
+            case 0x12: {
+              const mux = parseMuxFrame(data);
+              if (mux) {
+                decompressPayload(mux.payload).then((decompressed) => {
+                  optionsRef.current.onMuxViewerInput?.(
+                    mux.sessionId,
+                    new TextDecoder().decode(decompressed),
+                  );
+                }).catch(() => {});
+              }
+              break;
+            }
+
             case 0x11: {
               const mux = parseMuxFrame(data);
               if (mux && mux.payload.length >= 4) {
@@ -271,20 +286,45 @@ export function useWebRTC(options: UseWebRTCOptions) {
     [createPeerConnection, updateStatus],
   );
 
-  /** Send multiplexed terminal data: [0x10][sid_len][sid][payload] */
+  // Sequential send queue to maintain frame ordering with async compression
+  const sendQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+  /** Send multiplexed terminal data with compression: [0x12][sid_len][sid][deflate] or [0x10] if small */
   const sendTerminalData = useCallback((sessionId: string, data: Uint8Array | number[]) => {
     const channel = channelRef.current;
 
-    if (channel?.readyState === 'open') {
-      const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
-      const sidBytes = new TextEncoder().encode(sessionId);
-      const frame = new Uint8Array(2 + sidBytes.length + bytes.length);
-      frame[0] = 0x10;
-      frame[1] = sidBytes.length;
-      frame.set(sidBytes, 2);
-      frame.set(bytes, 2 + sidBytes.length);
-      channel.send(frame.buffer);
+    if (channel?.readyState !== 'open') {
+      return;
     }
+
+    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+    const sidBytes = new TextEncoder().encode(sessionId);
+
+    sendQueueRef.current = sendQueueRef.current.then(async () => {
+      if (channelRef.current?.readyState !== 'open') {
+        return;
+      }
+
+      const compressed = await compressPayload(bytes);
+
+      if (compressed) {
+        // Send compressed frame (0x12)
+        const frame = new Uint8Array(2 + sidBytes.length + compressed.length);
+        frame[0] = 0x12;
+        frame[1] = sidBytes.length;
+        frame.set(sidBytes, 2);
+        frame.set(compressed, 2 + sidBytes.length);
+        channelRef.current?.send(frame.buffer);
+      } else {
+        // Send uncompressed frame (0x10)
+        const frame = new Uint8Array(2 + sidBytes.length + bytes.length);
+        frame[0] = 0x10;
+        frame[1] = sidBytes.length;
+        frame.set(sidBytes, 2);
+        frame.set(bytes, 2 + sidBytes.length);
+        channelRef.current?.send(frame.buffer);
+      }
+    });
   }, []);
 
   /** Send multiplexed resize: [0x11][sid_len][sid][cols_hi][cols_lo][rows_hi][rows_lo] */

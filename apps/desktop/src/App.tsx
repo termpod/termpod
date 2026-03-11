@@ -389,10 +389,14 @@ export function App() {
     }
   }, [settings.launchAtLogin]);
 
-  // Sync processName changes (from polling) to the relay
+  // Sync processName changes (from polling) to the relay — debounced to reduce writes
   const prevProcessRef = useRef<Map<string, string | null>>(new Map());
+  const processUpdateTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const pendingProcessUpdatesRef = useRef<Map<string, string | null | undefined>>(new Map());
 
   useEffect(() => {
+    let hasPending = false;
+
     for (const session of sessions) {
       const prev = prevProcessRef.current.get(session.id);
 
@@ -401,9 +405,22 @@ export function App() {
         const relayInfo = relayMapRef.current.get(session.id);
 
         if (relayInfo?.sessionId) {
-          device.updateSession(relayInfo.sessionId, { processName: session.processName });
+          pendingProcessUpdatesRef.current.set(relayInfo.sessionId, session.processName);
+          hasPending = true;
         }
       }
+    }
+
+    if (hasPending && !processUpdateTimerRef.current) {
+      processUpdateTimerRef.current = setTimeout(() => {
+        processUpdateTimerRef.current = undefined;
+
+        for (const [sessionId, processName] of pendingProcessUpdatesRef.current) {
+          device.updateSession(sessionId, { processName });
+        }
+
+        pendingProcessUpdatesRef.current.clear();
+      }, 5_000);
     }
   }, [sessions, device]);
 
@@ -441,15 +458,31 @@ export function App() {
     }
   };
 
-  // Sync session list to local server + device WS
+  // Sync session list to local server + device WS (debounced to avoid excessive relay writes)
+  const sessionsUpdatedTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const lastSentSessionsJsonRef = useRef<string>('');
+
   useEffect(() => {
     const localSessions = buildSessionsList();
 
+    // Always update local server immediately (no relay cost)
     invoke('update_local_sessions', { sessions: localSessions }).catch(() => {});
 
-    // Also push to device WS so relay SQLite stays in sync and mobile viewers get updates
-    deviceWS.sendSessionsUpdated(localSessions);
-  }, [sessions, relayMap, buildSessionsList, deviceWS.sendSessionsUpdated]);
+    // Debounce relay sync: skip if payload is identical, otherwise wait 5s
+    const json = JSON.stringify(localSessions);
+
+    if (json === lastSentSessionsJsonRef.current) {
+      return;
+    }
+
+    clearTimeout(sessionsUpdatedTimerRef.current);
+    sessionsUpdatedTimerRef.current = setTimeout(() => {
+      lastSentSessionsJsonRef.current = json;
+      deviceWS.sendSessionsUpdated(localSessions);
+    }, 5_000);
+
+    return () => clearTimeout(sessionsUpdatedTimerRef.current);
+  }, [sessions, buildSessionsList, deviceWS.sendSessionsUpdated]);
 
   const activeRelay = activeId ? relayMap.get(activeId) : null;
 

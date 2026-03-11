@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { authFetch } from './useAuth';
 
-const HEARTBEAT_INTERVAL = 30_000; // 30 seconds
+const HEARTBEAT_INTERVAL = 60_000; // 60 seconds
 const POLL_INTERVAL = 30_000; // 30 seconds — backup only, primary path is push-based WS
 const DEVICE_ID_KEY = 'termpod-device-id';
 
