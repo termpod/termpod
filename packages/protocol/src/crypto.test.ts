@@ -306,4 +306,45 @@ describe('encryptFrame / decryptFrame', () => {
     const dec2 = await decryptFrame(desktopSession, enc2);
     expect(dec2).toEqual(msg2);
   });
+
+  it('rejects replayed frames', async () => {
+    const { desktopSession, mobileSession } = await createSessionPair();
+
+    const plaintext = new Uint8Array([0x00, 0x41]);
+    const encrypted = await encryptFrame(desktopSession, plaintext);
+
+    // First decrypt succeeds
+    await decryptFrame(mobileSession, encrypted);
+
+    // Replaying the same frame should fail
+    await expect(decryptFrame(mobileSession, encrypted)).rejects.toThrow('Replayed frame');
+  });
+
+  it('rejects frames with older counter', async () => {
+    const { desktopSession, mobileSession } = await createSessionPair();
+
+    const enc1 = await encryptFrame(desktopSession, new Uint8Array([1]));
+    const enc2 = await encryptFrame(desktopSession, new Uint8Array([2]));
+
+    // Decrypt frame 2 first (counter 1)
+    await decryptFrame(mobileSession, enc2);
+
+    // Frame 1 (counter 0) should be rejected — counter < recvCounter
+    await expect(decryptFrame(mobileSession, enc1)).rejects.toThrow('Replayed frame');
+  });
+
+  it('accepts frames with gaps in counter', async () => {
+    const { desktopSession, mobileSession } = await createSessionPair();
+
+    const enc1 = await encryptFrame(desktopSession, new Uint8Array([1]));
+    await encryptFrame(desktopSession, new Uint8Array([2])); // skip this one
+    const enc3 = await encryptFrame(desktopSession, new Uint8Array([3]));
+
+    // Decrypt frame 1
+    await decryptFrame(mobileSession, enc1);
+
+    // Skip frame 2, decrypt frame 3 — should succeed (counter 2 >= recvCounter 1)
+    const dec3 = await decryptFrame(mobileSession, enc3);
+    expect(dec3).toEqual(new Uint8Array([3]));
+  });
 });

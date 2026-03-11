@@ -299,6 +299,24 @@ final class DeviceTransportManagerTests: XCTestCase {
     }
 }
 
+// MARK: - Desktop Online State
+
+final class DesktopOnlineTests: XCTestCase {
+
+    @MainActor
+    func testDesktopOnlineFalseByDefault() {
+        let dtm = DeviceTransportManager()
+        XCTAssertFalse(dtm.desktopOnline)
+    }
+
+    @MainActor
+    func testStopResetsDesktopOnline() {
+        let dtm = DeviceTransportManager()
+        dtm.stop()
+        XCTAssertFalse(dtm.desktopOnline)
+    }
+}
+
 // MARK: - Notification Name
 
 final class NotificationNameTests: XCTestCase {
@@ -307,6 +325,13 @@ final class NotificationNameTests: XCTestCase {
         XCTAssertEqual(
             Notification.Name.networkInterfaceChanged.rawValue,
             "networkInterfaceChanged"
+        )
+    }
+
+    func testDesktopConnectedNotificationName() {
+        XCTAssertEqual(
+            Notification.Name.desktopConnected.rawValue,
+            "desktopConnected"
         )
     }
 }

@@ -122,7 +122,7 @@ struct DeviceListView: View {
     }
 
     private func isConnectingDevice(_ device: DeviceService.Device) -> Bool {
-        device.isOnline && deviceTransport.isConnecting && !deviceTransport.isConnected
+        (device.isOnline || deviceTransport.desktopOnline) && deviceTransport.isConnecting && !deviceTransport.isConnected
     }
 
     private func startTransportForDevice(_ deviceId: String) {
@@ -152,6 +152,14 @@ struct DeviceRow: View {
     var webrtcMode: WebRTCConnectionMode?
     var isConnecting: Bool = false
 
+    /// Use transport presence as the source of truth for online status,
+    /// falling back to the HTTP API's device.isOnline. This ensures the
+    /// card updates immediately when `client_joined` arrives via Device WS
+    /// without waiting for an HTTP refresh.
+    private var isOnline: Bool {
+        transport != nil || isConnecting || device.isOnline
+    }
+
     private var transportColor: Color {
         guard let transport, !isConnecting else { return .secondary }
         return switch transport {
@@ -173,7 +181,7 @@ struct DeviceRow: View {
         HStack(spacing: 12) {
             Image(systemName: device.systemImage)
                 .font(.title2)
-                .foregroundStyle(device.isOnline ? transportColor : .secondary)
+                .foregroundStyle(isOnline ? transportColor : .secondary)
                 .frame(width: 32)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -181,7 +189,7 @@ struct DeviceRow: View {
                     .font(.headline)
 
                 HStack(spacing: 4) {
-                    if device.isOnline {
+                    if isOnline {
                         if isConnecting {
                             ProgressView()
                                 .controlSize(.mini)
@@ -196,19 +204,19 @@ struct DeviceRow: View {
                                 .font(.caption)
                         }
                     } else {
-                        Image(systemName:  "xmark.circle")
+                        Image(systemName: "xmark.circle")
                             .font(.caption2)
                         Text("Offline")
                             .font(.caption)
                     }
                 }
-                .foregroundStyle(device.isOnline ? transportColor : .secondary)
+                .foregroundStyle(isOnline ? transportColor : .secondary)
             }
 
             Spacer()
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(device.displayName), \(isConnecting ? "connecting \(transportLabel)" : device.isOnline ? transportLabel : "offline")")
+        .accessibilityLabel("\(device.displayName), \(isConnecting ? "connecting \(transportLabel)" : isOnline ? transportLabel : "offline")")
     }
 }

@@ -296,6 +296,67 @@ final class CryptoServiceTests: XCTestCase {
         XCTAssertNil(alice.verificationCode())
     }
 
+    // MARK: - Replay Protection
+
+    func testRejectsReplayedFrame() throws {
+        let (alice, bob) = try setupPair(sessionId: "sess-replay")
+
+        let plaintext = Data("secret".utf8)
+        let encrypted = try alice.encrypt(plaintext)
+
+        // First decrypt succeeds
+        XCTAssertEqual(try bob.decrypt(encrypted), plaintext)
+
+        // Replaying the same frame should fail
+        XCTAssertThrowsError(try bob.decrypt(encrypted)) { error in
+            guard let cryptoError = error as? CryptoService.CryptoError else {
+                XCTFail("Expected CryptoError")
+                return
+            }
+            XCTAssertEqual(cryptoError, .replayedFrame)
+        }
+    }
+
+    func testRejectsOlderCounter() throws {
+        let (alice, bob) = try setupPair(sessionId: "sess-old-counter")
+
+        let enc1 = try alice.encrypt(Data("msg1".utf8))
+        let enc2 = try alice.encrypt(Data("msg2".utf8))
+
+        // Decrypt frame 2 first (counter 1)
+        _ = try bob.decrypt(enc2)
+
+        // Frame 1 (counter 0) should be rejected
+        XCTAssertThrowsError(try bob.decrypt(enc1)) { error in
+            guard let cryptoError = error as? CryptoService.CryptoError else {
+                XCTFail("Expected CryptoError")
+                return
+            }
+            XCTAssertEqual(cryptoError, .replayedFrame)
+        }
+    }
+
+    func testAcceptsFramesWithCounterGaps() throws {
+        let (alice, bob) = try setupPair(sessionId: "sess-gap")
+
+        let enc1 = try alice.encrypt(Data("msg1".utf8))
+        _ = try alice.encrypt(Data("msg2".utf8)) // skip this one
+        let enc3 = try alice.encrypt(Data("msg3".utf8))
+
+        // Decrypt frame 1
+        XCTAssertEqual(try bob.decrypt(enc1), Data("msg1".utf8))
+
+        // Skip frame 2, decrypt frame 3 — should succeed
+        XCTAssertEqual(try bob.decrypt(enc3), Data("msg3".utf8))
+    }
+
+    func testReplayedFrameErrorDescription() {
+        XCTAssertEqual(
+            CryptoService.CryptoError.replayedFrame.errorDescription,
+            "Replayed or out-of-order frame"
+        )
+    }
+
     // MARK: - Error Cases
 
     func testEncryptWithoutSessionKeyThrows() {

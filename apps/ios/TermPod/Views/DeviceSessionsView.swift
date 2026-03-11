@@ -92,7 +92,7 @@ struct DeviceSessionsView: View {
                     Label("New Session", systemImage: "plus")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(requestingSession)
+                .disabled(requestingSession || !deviceTransport.desktopOnline)
             }
         } else {
             sessionsGrid
