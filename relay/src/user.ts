@@ -701,10 +701,19 @@ export class User extends DurableObject {
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
 
-    // Check if Worker already validated the token (legacy flow)
+    // Check if Worker already validated the token
     const userId = request.headers.get('X-User-Id');
 
     if (userId) {
+      // Verify the authenticated user matches this DO's owner
+      const ownerRows = this.ctx.storage.sql
+        .exec('SELECT email FROM profile LIMIT 1')
+        .toArray();
+
+      if (ownerRows.length === 0 || (ownerRows[0].email as string) !== userId) {
+        return Response.json({ error: 'User mismatch' }, { status: 403 });
+      }
+
       (server as unknown as { serializeAttachment: (v: unknown) => void }).serializeAttachment({
         userId,
         targetDeviceId: deviceId,
@@ -820,6 +829,17 @@ export class User extends DurableObject {
 
     if (!payload || payload.type !== 'access') {
       ws.close(1008, 'Invalid or expired token');
+
+      return;
+    }
+
+    // Verify the authenticated user matches this DO's owner
+    const ownerRows = this.ctx.storage.sql
+      .exec('SELECT email FROM profile LIMIT 1')
+      .toArray();
+
+    if (ownerRows.length === 0 || (ownerRows[0].email as string) !== payload.sub) {
+      ws.close(1008, 'User mismatch');
 
       return;
     }

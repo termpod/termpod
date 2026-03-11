@@ -161,14 +161,12 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
     ws.onopen = () => {
       reconnectDelayRef.current = RECONNECT.initialDelay;
 
-      // Send hello immediately — auth is via URL token
-      ws.send(JSON.stringify({
-        type: 'hello',
-        role: 'desktop',
-        device: 'macos',
-        clientId: clientIdRef.current,
-        version: 1,
-      }));
+      // Send auth as first message — DO validates JWT before accepting hello
+      const token = getAccessToken();
+
+      if (token) {
+        ws.send(JSON.stringify({ type: 'auth', token }));
+      }
     };
 
     ws.onmessage = (event) => {
@@ -188,7 +186,14 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
 
       switch (type) {
         case 'auth_ok':
-          // No-op: auth is now via URL token, hello sent on open
+          // Auth accepted — now send hello to complete handshake
+          ws.send(JSON.stringify({
+            type: 'hello',
+            role: 'desktop',
+            device: 'macos',
+            clientId: clientIdRef.current,
+            version: 1,
+          }));
           break;
 
         case 'hello_ok':

@@ -1075,15 +1075,8 @@ final class DeviceTransportManager: ObservableObject {
         deviceWS = ws
         ws.resume()
 
-        // Auth is via URL token — send hello immediately
-        let hello: [String: Any] = [
-            "type": "hello",
-            "role": "viewer",
-            "device": UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone",
-            "clientId": clientId,
-            "version": 1,
-        ]
-        sendJSON(ws: ws, msg: hello)
+        // Send auth as first message — DO validates JWT before accepting hello
+        sendJSON(ws: ws, msg: ["type": "auth", "token": token])
         startDeviceWSReceiving(generation: generation)
     }
 
@@ -1118,8 +1111,17 @@ final class DeviceTransportManager: ObservableObject {
 
         switch type {
         case "auth_ok":
-            // No-op: auth is now via URL token, hello sent on connect
-            break
+            // Auth accepted — now send hello to complete handshake
+            if let ws = deviceWS {
+                let hello: [String: Any] = [
+                    "type": "hello",
+                    "role": "viewer",
+                    "device": UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone",
+                    "clientId": clientId,
+                    "version": 1,
+                ]
+                sendJSON(ws: ws, msg: hello)
+            }
 
         case "hello_ok":
             deviceWSConnected = true

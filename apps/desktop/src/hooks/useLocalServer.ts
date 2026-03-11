@@ -264,7 +264,9 @@ export function useLocalServer(options: UseLocalServerOptions) {
           });
         }
       } else {
-        invoke('local_server_broadcast', { sessionId, data: Array.from(bytes) }).catch(() => {});
+        // No E2E sessions established yet — drop terminal data rather than sending plaintext.
+        // Terminal output will only be sent after key exchange completes and E2E is active.
+        // Viewers receive encrypted scrollback after key exchange anyway.
       }
     },
     [],

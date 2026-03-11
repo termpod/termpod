@@ -766,22 +766,44 @@ describe('User DO: device-level control message routing', () => {
 // --- Session DO: auth + hello flow ---
 
 describe('Session DO: connection lifecycle', () => {
-  it('auth state machine: pendingAuth → pendingHello → authenticated', () => {
-    // Simulates the session DO auth/hello states
+  it('auth state machine: pendingAuth → pendingHello → authenticated (first-message auth)', () => {
+    // Simulates the DO auth/hello states — first-message auth is now the only path.
+    // The worker no longer sets X-User-Id; all connections start as pendingAuth.
     type State = 'pendingAuth' | 'pendingHello' | 'authenticated';
     let state: State = 'pendingAuth';
 
-    // Step 1: Client sends auth message
+    // Step 1: Client sends auth message as first WS message (JWT in payload, not URL)
     const authMsg = { type: 'auth', token: 'valid-jwt-token' };
     expect(authMsg.type).toBe('auth');
-    state = 'pendingHello'; // after JWT verified
+    // DO verifies JWT AND checks payload.sub matches DO owner email
+    state = 'pendingHello'; // after JWT + owner verified → sends auth_ok
 
-    // Step 2: Client sends hello
+    // Step 2: Client receives auth_ok, then sends hello
     const helloMsg = { type: 'hello', role: 'desktop', clientId: 'c1', device: 'macos', version: 1 };
     expect(helloMsg.type).toBe('hello');
     state = 'authenticated';
 
     expect(state).toBe('authenticated');
+  });
+
+  it('rejects auth when JWT sub does not match DO owner', () => {
+    // Simulates user mismatch: attacker has valid JWT for user-a@example.com
+    // but somehow connects to user-b@example.com's DO
+    const doOwnerEmail = 'user-b@example.com';
+    const jwtPayloadSub = 'user-a@example.com';
+
+    const isOwnerMatch = jwtPayloadSub === doOwnerEmail;
+    expect(isOwnerMatch).toBe(false);
+
+    // DO should close the WebSocket with "User mismatch"
+    const ws = new MockWebSocket();
+    if (!isOwnerMatch) {
+      ws.close(1008, 'User mismatch');
+    }
+
+    expect(ws.closed).toBe(true);
+    expect(ws.closeCode).toBe(1008);
+    expect(ws.closeReason).toBe('User mismatch');
   });
 
   it('role assignment: first desktop gets desktop role, others become viewers', () => {

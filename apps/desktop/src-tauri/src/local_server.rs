@@ -360,9 +360,19 @@ pub async fn update_local_sessions(sessions: Vec<SessionInfo>) -> Result<(), Str
     *state.sessions.write().await = sessions.clone();
 
     // Broadcast sessions_updated to all connected clients
+    // Only send non-sensitive fields — full metadata (name, cwd, processName)
+    // is delivered via encrypted_control after E2E key exchange
+    let safe_sessions: Vec<serde_json::Value> = sessions
+        .iter()
+        .map(|s| serde_json::json!({
+            "id": s.id,
+            "ptyCols": s.pty_cols,
+            "ptyRows": s.pty_rows,
+        }))
+        .collect();
     let notification = serde_json::json!({
         "type": "sessions_updated",
-        "sessions": sessions,
+        "sessions": safe_sessions,
     });
     let msg = Message::Text(notification.to_string().into());
     let clients = state.clients.read().await;
@@ -592,9 +602,19 @@ async fn handle_connection(
 
                         Some("list_sessions") => {
                             let list = sessions.read().await;
+                            // Only send non-sensitive fields — full metadata (name, cwd, processName)
+                            // is delivered via encrypted_control after E2E key exchange
+                            let safe: Vec<serde_json::Value> = list
+                                .iter()
+                                .map(|s| serde_json::json!({
+                                    "id": s.id,
+                                    "ptyCols": s.pty_cols,
+                                    "ptyRows": s.pty_rows,
+                                }))
+                                .collect();
                             let response = serde_json::json!({
                                 "type": "sessions_list",
-                                "sessions": *list,
+                                "sessions": safe,
                             });
                             let _ = tx.send(Message::Text(response.to_string().into()));
                         }

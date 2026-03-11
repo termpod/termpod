@@ -677,7 +677,8 @@ async function handleDeviceWebSocket(request: Request, env: Env, deviceId: strin
   const headers = new Headers(request.headers);
   headers.set('X-JWT-Secret', env.JWT_SECRET);
 
-  // Try Authorization header for DO routing
+  // Extract userId for DO routing only — actual auth is always via first-message in the DO.
+  // This avoids leaking the JWT in URL query strings to logs/proxies.
   const auth = request.headers.get('Authorization');
   let userId: string | null = null;
 
@@ -687,11 +688,10 @@ async function handleDeviceWebSocket(request: Request, env: Env, deviceId: strin
 
     if (payload?.type === 'access') {
       userId = payload.sub;
-      headers.set('X-User-Id', userId);
     }
   }
 
-  // Try URL token as fallback
+  // Fallback: extract userId from URL token for routing (but do NOT mark as authenticated)
   if (!userId) {
     const url = new URL(request.url);
     const urlToken = url.searchParams.get('token');
@@ -701,22 +701,12 @@ async function handleDeviceWebSocket(request: Request, env: Env, deviceId: strin
 
       if (payload?.type === 'access') {
         userId = payload.sub;
-        headers.set('X-User-Id', userId);
       }
     }
   }
 
-  // If we couldn't determine the user from headers/URL, the DO will handle
-  // first-message auth. But we need a userId to route to the correct DO.
-  // For first-message auth, the client must provide a userId hint.
   if (!userId) {
-    // Check for userId query param (used for routing only, auth still via first message)
-    const url = new URL(request.url);
-    userId = url.searchParams.get('userId');
-
-    if (!userId) {
-      return corsJson({ error: 'Authentication required' }, { status: 401 });
-    }
+    return corsJson({ error: 'Authentication required' }, { status: 401 });
   }
 
   const stub = getUserDO(env, userId);
@@ -871,7 +861,7 @@ function buildViewerHtml(wsUrl: string, sessionId: string, shareToken: string): 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TermPod — Shared Session</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css" integrity="sha384-tStR1zLfWgsiXCF3IgfB3lBa8KmBe/lG287CL9WCeKgQYcp1bjb4/+mwN6oti4Co" crossorigin="anonymous">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; background: #1a1b26; color: #c0caf5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
@@ -895,8 +885,8 @@ function buildViewerHtml(wsUrl: string, sessionId: string, shareToken: string): 
     <div id="terminal-container"></div>
     <div id="readonly-banner">Read-only session viewer</div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js" integrity="sha384-J4qzUjBl1FxyLsl/kQPQIOeINsmp17OHYXDOMpMxlKX53ZfYsL+aWHpgArvOuof9" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js" integrity="sha384-XGqKrV8Jrukp1NITJbOEHwg01tNkuXr6uB6YEj69ebpYU3v7FvoGgEg23C1Gcehk" crossorigin="anonymous"></script>
   <script>
     (function() {
       var container = document.getElementById('terminal-container');
