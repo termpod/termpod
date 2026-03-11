@@ -23,6 +23,7 @@ import { getTermifyPayload } from './termify';
 import { useWorkflows } from './hooks/useWorkflows';
 import { WorkflowsPanel } from './components/WorkflowsPanel';
 import { authFetch } from './hooks/useAuth';
+import { ShareDialog } from './components/ShareDialog';
 import { enable as enableAutostart, disable as disableAutostart } from '@tauri-apps/plugin-autostart';
 
 export function App() {
@@ -228,6 +229,8 @@ export function App() {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showDevicesPanel, setShowDevicesPanel] = useState(false);
   const [showWorkflows, setShowWorkflows] = useState(false);
+  const [shareMap, setShareMap] = useState<Map<string, { shareUrl: string; expiresAt: string }>>(new Map());
+  const [showShareDialog, setShowShareDialog] = useState(false);
   const [confirmClose, setConfirmClose] = useState<{ sessionId: string; processName: string } | null>(null);
   const { bindings } = useKeybindings();
   const { workflows, add: addWorkflow, remove: removeWorkflow, edit: editWorkflow } = useWorkflows();
@@ -302,6 +305,14 @@ export function App() {
       deviceWS.sendSessionClosed(relayInfo.sessionId);
       device.removeSession(relayInfo.sessionId);
     }
+
+    // Clean up share state
+    setShareMap((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Map(prev);
+      next.delete(id);
+      return next;
+    });
 
     const { wasLast } = closeSession(id);
 
@@ -536,6 +547,13 @@ export function App() {
 
       case 'share_session': {
         if (!activeId) break;
+
+        // If already shared, show the dialog
+        if (shareMap.has(activeId)) {
+          setShowShareDialog(true);
+          break;
+        }
+
         const relayInfo = relayMapRef.current.get(activeId);
         const relaySessionId = relayInfo?.sessionId;
 
@@ -543,11 +561,21 @@ export function App() {
           break;
         }
 
+        const capturedActiveId = activeId;
         authFetch(`/sessions/${relaySessionId}/share`, { method: 'POST' })
           .then((res) => res.json())
           .then((body: Record<string, unknown>) => {
             if (body.shareUrl) {
               invoke('copy_to_clipboard', { text: body.shareUrl as string });
+              setShareMap((prev) => {
+                const next = new Map(prev);
+                next.set(capturedActiveId, {
+                  shareUrl: body.shareUrl as string,
+                  expiresAt: body.expiresAt as string,
+                });
+                return next;
+              });
+              setShowShareDialog(true);
             }
           })
           .catch(() => {});
@@ -790,6 +818,7 @@ export function App() {
       <TabBar
         sessions={sessions}
         activeId={activeId}
+        sharedSessionIds={useMemo(() => new Set(shareMap.keys()), [shareMap])}
         onSelect={switchSession}
         onClose={handleCloseSession}
         onCreate={() => createSession({
@@ -909,6 +938,29 @@ export function App() {
       )}
       {showKeybindings && (
         <KeybindingsPanel onClose={() => { setShowKeybindings(false); setTimeout(focusActive, 50); }} />
+      )}
+      {showShareDialog && activeId && shareMap.has(activeId) && (
+        <ShareDialog
+          shareUrl={shareMap.get(activeId)!.shareUrl}
+          expiresAt={shareMap.get(activeId)!.expiresAt}
+          onStopSharing={() => {
+            const relayInfo = relayMapRef.current.get(activeId);
+            const relaySessionId = relayInfo?.sessionId;
+
+            if (relaySessionId) {
+              authFetch(`/sessions/${relaySessionId}/share`, { method: 'DELETE' }).catch(() => {});
+            }
+
+            setShareMap((prev) => {
+              const next = new Map(prev);
+              next.delete(activeId);
+              return next;
+            });
+            setShowShareDialog(false);
+            setTimeout(focusActive, 50);
+          }}
+          onClose={() => { setShowShareDialog(false); setTimeout(focusActive, 50); }}
+        />
       )}
       {showWorkflows && (
         <WorkflowsPanel

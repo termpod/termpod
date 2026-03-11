@@ -2236,6 +2236,92 @@ body,
   color: var(--accent);
 }
 
+/* ── Share Dialog ── */
+
+.share-dialog {
+  width: 380px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  animation: modal-in 0.12s ease;
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.4),
+    0 0 0 0.5px rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.share-dialog-title {
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+}
+
+.share-dialog-subtitle {
+  font-size: 11px;
+  font-family: var(--font-sans);
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: -6px;
+}
+
+.share-dialog-link-row {
+  display: flex;
+  gap: 6px;
+}
+
+.share-dialog-input {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  outline: none;
+  min-width: 0;
+}
+
+.share-dialog-input:focus {
+  border-color: var(--accent);
+}
+
+.share-dialog-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.share-dialog-stop {
+  font-size: 11px;
+  font-family: var(--font-sans);
+  color: var(--danger);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+  opacity: 0.7;
+  transition: opacity 0.1s;
+}
+
+.share-dialog-stop:hover {
+  opacity: 1;
+}
+
+/* Tab share badge */
+.tab-share-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
 /* ── Workflows Panel ── */
 
 .wf-modal {
