@@ -7,6 +7,9 @@ extension Notification.Name {
     /// Posted when the network interface changes (WiFi ↔ cellular).
     /// Session-level relays should reconnect immediately.
     static let networkInterfaceChanged = Notification.Name("networkInterfaceChanged")
+
+    /// Posted when a desktop client connects to the Device WS.
+    static let desktopConnected = Notification.Name("desktopConnected")
 }
 
 /// Session info returned by the device transport layer.
@@ -40,6 +43,9 @@ final class DeviceTransportManager: ObservableObject {
 
     /// Called when the desktop disconnects (all sessions are gone).
     var onDesktopDisconnected: (() -> Void)?
+
+    /// Called when a desktop client connects (device came online).
+    var onDesktopConnected: (() -> Void)?
 
     private func log(_ message: String) {
         let entry = "\(Self.logFormatter.string(from: Date())) \(message)"
@@ -1065,8 +1071,11 @@ final class DeviceTransportManager: ObservableObject {
             }
 
         case "client_joined":
-            // Desktop or another viewer joined — could trigger WebRTC signaling
-            break
+            if let role = json["role"] as? String, role == "desktop" {
+                log("Desktop joined")
+                onDesktopConnected?()
+                NotificationCenter.default.post(name: .desktopConnected, object: nil)
+            }
 
         case "client_left":
             if let role = json["role"] as? String, role == "desktop" {

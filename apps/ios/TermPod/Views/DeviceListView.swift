@@ -100,6 +100,9 @@ struct DeviceListView: View {
                 // established before the user navigates to a session.
                 autoConnectFirstDevice()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .desktopConnected)) { _ in
+                Task { await deviceService.fetchDevices(auth: auth) }
+            }
         }
     }
 
