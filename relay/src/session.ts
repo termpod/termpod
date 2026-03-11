@@ -9,6 +9,7 @@ import type {
 } from '@termpod/protocol';
 import { Channel } from '@termpod/protocol';
 import { verifyJWT } from './jwt';
+import { getTerminalSessionRouteRateLimitRule, type RequestRateLimitRule } from './rate-limit';
 
 const MAX_MESSAGE_SIZE = 64 * 1024; // 64KB
 const SCROLLBACK_BUFFER_SIZE = 512 * 1024; // 512KB
@@ -21,6 +22,11 @@ interface ClientTag {
   userId: string;
   connectedAt: string;
   readonly?: boolean;
+}
+
+interface RateLimitWindow {
+  count: number;
+  resetAt: number;
 }
 
 function setTag(ws: WebSocket, tag: ClientTag): void {
@@ -40,6 +46,8 @@ export class TerminalSession extends DurableObject {
   /** Store complete 0xE1 frames for share viewer scrollback replay. */
   private shareFrames: ArrayBuffer[] = [];
   private shareFramesSize = 0;
+  /** Fixed-window counters for connection bursts */
+  private requestWindows = new Map<string, RateLimitWindow>();
 
   private async getOwner(): Promise<string | null> {
     return (await this.ctx.storage.get<string>('ownerUserId')) ?? null;
@@ -55,6 +63,11 @@ export class TerminalSession extends DurableObject {
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    const limited = this.applyRouteRateLimit(url.pathname, request.method);
+
+    if (limited) {
+      return limited;
+    }
 
     if (url.pathname === '/ws') {
       // Store JWT secret for first-message auth validation
@@ -142,6 +155,37 @@ export class TerminalSession extends DurableObject {
     }
 
     return new Response('Not found', { status: 404 });
+  }
+
+  private applyRouteRateLimit(path: string, method: string): Response | null {
+    const rule = getTerminalSessionRouteRateLimitRule(path, method);
+
+    if (!rule) {
+      return null;
+    }
+
+    return this.consumeRateLimit(rule);
+  }
+
+  private consumeRateLimit(rule: RequestRateLimitRule): Response | null {
+    const now = Date.now();
+    const existing = this.requestWindows.get(rule.key);
+
+    if (!existing || existing.resetAt <= now) {
+      this.requestWindows.set(rule.key, { count: 1, resetAt: now + rule.windowMs });
+      return null;
+    }
+
+    if (existing.count >= rule.max) {
+      const retryAfter = Math.max(1, Math.ceil((existing.resetAt - now) / 1000));
+      return new Response('Too many requests', {
+        status: 429,
+        headers: { 'Retry-After': String(retryAfter) },
+      });
+    }
+
+    existing.count += 1;
+    return null;
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {

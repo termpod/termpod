@@ -1,4 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import {
+  getInternalRateLimitRule,
+  getTerminalSessionRouteRateLimitRule,
+  getUserRouteRateLimitRule,
+} from './rate-limit';
 
 /**
  * Tests for User DO validation logic and SQLite query contracts.
@@ -521,5 +526,69 @@ describe('Device offline behavior', () => {
 
     expect(remaining.length).toBe(2);
     expect(remaining.map((d) => d.id)).toEqual(['new-mac', 'iphone-1']);
+  });
+});
+
+describe('Request rate-limit policies', () => {
+  it('caps heartbeat and polling endpoints to defend against request loops', () => {
+    expect(getUserRouteRateLimitRule('/devices/dev-1/heartbeat', 'POST')).toEqual({
+      key: 'devices.heartbeat',
+      max: 20,
+      windowMs: 60_000,
+    });
+    expect(getUserRouteRateLimitRule('/devices/dev-1/pending-requests', 'GET')).toEqual({
+      key: 'sessions.pending.list',
+      max: 120,
+      windowMs: 60_000,
+    });
+    expect(getUserRouteRateLimitRule('/devices/dev-1/sessions', 'GET')).toEqual({
+      key: 'sessions.list',
+      max: 120,
+      windowMs: 60_000,
+    });
+  });
+
+  it('caps mutation routes to prevent high-frequency session churn', () => {
+    expect(getUserRouteRateLimitRule('/devices', 'POST')).toEqual({
+      key: 'devices.register',
+      max: 20,
+      windowMs: 60_000,
+    });
+    expect(getUserRouteRateLimitRule('/devices/dev-1/sessions', 'POST')).toEqual({
+      key: 'sessions.register',
+      max: 60,
+      windowMs: 60_000,
+    });
+    expect(getUserRouteRateLimitRule('/devices/dev-1/request-session', 'POST')).toEqual({
+      key: 'sessions.request',
+      max: 30,
+      windowMs: 60_000,
+    });
+    expect(getUserRouteRateLimitRule('/sessions/s1/share', 'POST')).toEqual({
+      key: 'sessions.share',
+      max: 20,
+      windowMs: 60_000,
+    });
+  });
+
+  it('defines worker-side limits for refresh and TURN credentials', () => {
+    expect(getInternalRateLimitRule('auth.refresh')).toEqual({
+      key: 'auth.refresh',
+      max: 12,
+      windowMs: 60_000,
+    });
+    expect(getInternalRateLimitRule('turn.credentials')).toEqual({
+      key: 'turn.credentials',
+      max: 6,
+      windowMs: 60_000,
+    });
+  });
+
+  it('caps session websocket upgrade bursts per session', () => {
+    expect(getTerminalSessionRouteRateLimitRule('/ws', 'GET')).toEqual({
+      key: 'session.ws',
+      max: 30,
+      windowMs: 60_000,
+    });
   });
 });

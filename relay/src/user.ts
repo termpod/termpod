@@ -1,6 +1,11 @@
 import { DurableObject } from 'cloudflare:workers';
 import { hashPassword, verifyPassword } from './auth';
 import { verifyJWT } from './jwt';
+import {
+  getInternalRateLimitRule,
+  getUserRouteRateLimitRule,
+  type RequestRateLimitRule,
+} from './rate-limit';
 
 export interface UserProfile {
   email: string;
@@ -58,6 +63,11 @@ function getWsTag(ws: WebSocket): DeviceClientTag | null {
 // Minimum interval between sessions_updated writes per device (ms)
 const SESSIONS_UPDATE_MIN_INTERVAL = 3_000;
 
+interface RateLimitWindow {
+  count: number;
+  resetAt: number;
+}
+
 export class User extends DurableObject {
   private initialized = false;
   private jwtSecret: string | null = null;
@@ -65,6 +75,8 @@ export class User extends DurableObject {
   private lastSessionsUpdate = new Map<string, number>();
   /** Last heartbeat write timestamp per device ID */
   private lastHeartbeat = new Map<string, number>();
+  /** Fixed-window request counters keyed by rate-limit rule + scope */
+  private requestWindows = new Map<string, RateLimitWindow>();
 
   private ensureSchema(): void {
     if (this.initialized) {
@@ -150,6 +162,16 @@ export class User extends DurableObject {
     const path = url.pathname;
 
     this.ensureSchema();
+
+    if (path === '/rate-limit' && request.method === 'POST') {
+      return this.handleConsumeRateLimit(request);
+    }
+
+    const rateLimitResponse = this.applyRouteRateLimit(path, request.method);
+
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
 
     // Device WebSocket upgrade
     const deviceWsMatch = path.match(/^\/devices\/([^/]+)\/ws$/);
@@ -257,6 +279,73 @@ export class User extends DurableObject {
     }
 
     return new Response('Not found', { status: 404 });
+  }
+
+  private applyRouteRateLimit(path: string, method: string): Response | null {
+    const rule = getUserRouteRateLimitRule(path, method);
+
+    if (!rule) {
+      return null;
+    }
+
+    return this.consumeRateLimit(rule, path);
+  }
+
+  private consumeRateLimit(rule: RequestRateLimitRule, scope = ''): Response | null {
+    const now = Date.now();
+    const key = scope ? `${rule.key}:${scope}` : rule.key;
+
+    if (this.requestWindows.size > 128) {
+      for (const [windowKey, window] of this.requestWindows) {
+        if (window.resetAt <= now) {
+          this.requestWindows.delete(windowKey);
+        }
+      }
+    }
+
+    const existing = this.requestWindows.get(key);
+
+    if (!existing || existing.resetAt <= now) {
+      this.requestWindows.set(key, { count: 1, resetAt: now + rule.windowMs });
+      return null;
+    }
+
+    if (existing.count >= rule.max) {
+      const retryAfter = Math.max(1, Math.ceil((existing.resetAt - now) / 1000));
+
+      return Response.json(
+        { error: 'Too many requests. Try again later.', retryAfter },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(retryAfter) },
+        },
+      );
+    }
+
+    existing.count += 1;
+    return null;
+  }
+
+  private async handleConsumeRateLimit(request: Request): Promise<Response> {
+    const { name, scope } = (await request.json()) as { name?: string; scope?: string };
+
+    if (!name) {
+      return Response.json({ error: 'Rate limit name required' }, { status: 400 });
+    }
+
+    const rule = getInternalRateLimitRule(name);
+
+    if (!rule) {
+      return Response.json({ error: 'Unknown rate limit' }, { status: 404 });
+    }
+
+    const limited = this.consumeRateLimit(rule, scope);
+
+    if (limited) {
+      return limited;
+    }
+
+    return Response.json({ ok: true });
   }
 
   // --- Auth ---

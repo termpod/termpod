@@ -43,6 +43,48 @@ function corsResponse(status: number): Response {
   return new Response(null, { status, headers });
 }
 
+async function corsJsonFromUpstream(res: Response): Promise<Response> {
+  const body = await res.json();
+  return corsJsonWithRetryAfter(body, res);
+}
+
+function corsJsonWithRetryAfter(body: unknown, res: Response, status = res.status): Response {
+  const response = corsJson(body, { status });
+  const retryAfter = res.headers.get('Retry-After');
+
+  if (retryAfter) {
+    response.headers.set('Retry-After', retryAfter);
+  }
+
+  return response;
+}
+
+async function consumeUserRateLimit(
+  env: Env,
+  email: string,
+  name: string,
+  scope?: string,
+): Promise<Response | null> {
+  const stub = getUserDO(env, email);
+  const res = await stub.fetch(
+    new Request('http://internal/rate-limit', {
+      method: 'POST',
+      body: JSON.stringify({ name, scope }),
+    }),
+  );
+
+  if (res.ok) {
+    return null;
+  }
+
+  if (res.status === 429) {
+    return corsJsonFromUpstream(res);
+  }
+
+  console.error('Rate-limit check failed:', name, res.status);
+  return corsJson({ error: 'Internal server error' }, { status: 500 });
+}
+
 async function requireAuth(request: Request, env: Env): Promise<string | Response> {
   const auth = request.headers.get('Authorization');
 
@@ -230,9 +272,7 @@ async function handleSignup(request: Request, env: Env): Promise<Response> {
   );
 
   if (!res.ok) {
-    const body = await res.json() as { error: string };
-
-    return corsJson(body, { status: res.status });
+    return corsJsonFromUpstream(res);
   }
 
   // Auto-login after signup
@@ -258,7 +298,7 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
   );
 
   if (!res.ok) {
-    return corsJson({ error: 'Invalid credentials' }, { status: 401 });
+    return corsJsonFromUpstream(res);
   }
 
   const accessToken = await signJWT(email.toLowerCase(), env.JWT_SECRET, 'access');
@@ -278,6 +318,12 @@ async function handleRefresh(request: Request, env: Env): Promise<Response> {
 
   if (!payload || payload.type !== 'refresh') {
     return corsJson({ error: 'Invalid refresh token' }, { status: 401 });
+  }
+
+  const limited = await consumeUserRateLimit(env, payload.sub, 'auth.refresh');
+
+  if (limited) {
+    return limited;
   }
 
   // Verify user still exists before issuing new tokens
@@ -308,7 +354,7 @@ async function handleDevices(request: Request, env: Env): Promise<Response> {
   if (request.method === 'GET') {
     const res = await stub.fetch(new Request('http://internal/devices'));
 
-    return corsJson(await res.json());
+    return corsJsonFromUpstream(res);
   }
 
   // POST — register device
@@ -320,7 +366,7 @@ async function handleDevices(request: Request, env: Env): Promise<Response> {
     }),
   );
 
-  return corsJson(await res.json(), { status: res.status });
+  return corsJsonFromUpstream(res);
 }
 
 async function handleDeviceAction(
@@ -340,7 +386,7 @@ async function handleDeviceAction(
     new Request(`http://internal/devices/${deviceId}/${action}`, { method: 'POST' }),
   );
 
-  return corsJson(await res.json());
+  return corsJsonFromUpstream(res);
 }
 
 async function handleDeviceDelete(
@@ -359,7 +405,7 @@ async function handleDeviceDelete(
     new Request(`http://internal/devices/${deviceId}`, { method: 'DELETE' }),
   );
 
-  return corsJson(await res.json());
+  return corsJsonFromUpstream(res);
 }
 
 // --- Session handlers ---
@@ -382,7 +428,7 @@ async function handleDeviceSessions(
       new Request(`http://internal/devices/${deviceId}/sessions`),
     );
 
-    return corsJson(await res.json());
+    return corsJsonFromUpstream(res);
   }
 
   // POST — register session
@@ -394,7 +440,7 @@ async function handleDeviceSessions(
     }),
   );
 
-  return corsJson(await res.json(), { status: res.status });
+  return corsJsonFromUpstream(res);
 }
 
 async function handleSessionDelete(
@@ -418,7 +464,7 @@ async function handleSessionDelete(
   const sessionStub = env.TERMINAL_SESSION.get(sessionDOId);
   await sessionStub.fetch(new Request('http://internal/close', { method: 'POST' })).catch(() => {});
 
-  return corsJson(await res.json());
+  return corsJsonFromUpstream(res);
 }
 
 async function handleSessionUpdate(
@@ -440,7 +486,7 @@ async function handleSessionUpdate(
     }),
   );
 
-  return corsJson(await res.json(), { status: res.status });
+  return corsJsonFromUpstream(res);
 }
 
 // --- Pending session request handlers ---
@@ -465,7 +511,7 @@ async function handleRequestSession(
     }),
   );
 
-  return corsJson(await res.json(), { status: res.status });
+  return corsJsonFromUpstream(res);
 }
 
 async function handlePendingRequests(
@@ -486,7 +532,7 @@ async function handlePendingRequests(
       new Request(`http://internal/devices/${deviceId}/pending-requests`),
     );
 
-    return corsJson(await res.json());
+    return corsJsonFromUpstream(res);
   }
 
   if (request.method === 'DELETE') {
@@ -494,7 +540,7 @@ async function handlePendingRequests(
       new Request(`http://internal/devices/${deviceId}/pending-requests`, { method: 'DELETE' }),
     );
 
-    return corsJson(await res.json());
+    return corsJsonFromUpstream(res);
   }
 
   return corsJson({ error: 'Method not allowed' }, { status: 405 });
@@ -631,6 +677,12 @@ async function handleTurnCredentials(request: Request, env: Env): Promise<Respon
     return corsJson({ error: 'TURN not configured' }, { status: 503 });
   }
 
+  const limited = await consumeUserRateLimit(env, userId, 'turn.credentials');
+
+  if (limited) {
+    return limited;
+  }
+
   const res = await fetch(
     `https://rtc.live.cloudflare.com/v1/turn/keys/${env.TURN_KEY_ID}/credentials/generate-ice-servers`,
     {
@@ -732,7 +784,7 @@ async function handleSessionShare(request: Request, env: Env, sessionId: string)
     const body = await res.json() as Record<string, unknown>;
 
     if (!res.ok) {
-      return corsJson(body, { status: res.status });
+      return corsJsonWithRetryAfter(body, res);
     }
 
     // Build the share URL: /share/:sessionId/:token
@@ -750,7 +802,7 @@ async function handleSessionShare(request: Request, env: Env, sessionId: string)
     const sessionStub = env.TERMINAL_SESSION.get(sessionDOId);
     await sessionStub.fetch(new Request('http://internal/kick-readonly', { method: 'POST' }));
 
-    return corsJson(body);
+    return corsJsonWithRetryAfter(body, res);
   }
 
   return corsJson({ error: 'Method not allowed' }, { status: 405 });
