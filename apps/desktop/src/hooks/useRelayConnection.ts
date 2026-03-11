@@ -405,6 +405,10 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     }
   }, []);
 
+  const setShareCrypto = useCallback((session: ShareCryptoSession | null) => {
+    shareE2eRef.current = session;
+  }, []);
+
   const sendSignaling = useCallback((msg: Record<string, unknown>) => {
     const ws = wsRef.current;
 
@@ -458,8 +462,6 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     sendResize,
     sendSignaling,
     sendSessionCreated,
-    setShareCrypto: (session: ShareCryptoSession | null) => {
-      shareE2eRef.current = session;
-    },
+    setShareCrypto,
   };
 }
