@@ -34,7 +34,6 @@ __termpod_prompt_command() {
     # D marker: previous command finished (with exit code)
     if [[ -n "$_termpod_executing" ]]; then
         printf '\e]133;D;%d\a' "$ret"
-        printf '\n'
     fi
     _termpod_executing=""
 

@@ -21,7 +21,6 @@ _termpod_save_status() {
 _termpod_precmd() {
     if [[ -n "$_termpod_executing" ]]; then
         builtin printf '\e]133;D;%d\a' "$_termpod_last_status"
-        builtin printf '\n'
     fi
     _termpod_executing=""
 

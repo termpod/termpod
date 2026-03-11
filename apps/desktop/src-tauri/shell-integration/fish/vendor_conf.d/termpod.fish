@@ -9,10 +9,6 @@ set -g TERMPOD_SHELL_INTEGRATION 1
 
 # A marker: prompt start
 function __termpod_prompt_start --on-event fish_prompt
-    if test -n "$_termpod_executing"
-        printf '\n'
-    end
-    set -g _termpod_executing ""
     printf '\e]133;A\a'
 end
 

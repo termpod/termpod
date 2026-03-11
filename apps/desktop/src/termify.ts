@@ -16,7 +16,7 @@
 const ZSH_INTEGRATION = `
 typeset -g TERMPOD_SHELL_INTEGRATION=1 _termpod_executing=""
 _termpod_save_status(){ typeset -g _termpod_last_status=$? }
-_termpod_precmd(){ [[ -n "$_termpod_executing" ]] && printf '\\e]133;D;%d\\a\\n' "$_termpod_last_status"; _termpod_executing=""; printf '\\e]133;A\\a' }
+_termpod_precmd(){ [[ -n "$_termpod_executing" ]] && printf '\\e]133;D;%d\\a' "$_termpod_last_status"; _termpod_executing=""; printf '\\e]133;A\\a' }
 _termpod_update_ps1(){ [[ "$PS1" != *'133;B'* ]] && PS1="$PS1%{$(printf '\\e]133;B\\a')%}" }
 _termpod_preexec(){ printf '\\e]133;C\\a'; _termpod_executing=1 }
 precmd_functions=(_termpod_save_status _termpod_precmd "\${precmd_functions[@]}" _termpod_update_ps1)
@@ -26,7 +26,7 @@ preexec_functions=(_termpod_preexec "\${preexec_functions[@]}")
 // Compact bash integration (single-line eval)
 const BASH_INTEGRATION = `
 TERMPOD_SHELL_INTEGRATION=1; _termpod_executing=""; _termpod_in_pc=""
-__termpod_prompt_command(){ local ret=$?; _termpod_in_pc=1; if [[ -n "$_termpod_executing" ]]; then printf '\\e]133;D;%d\\a\\n' "$ret"; fi; _termpod_executing=""; printf '\\e]133;A\\a'; [[ "$PS1" != *'133;B'* ]] && PS1="$PS1\\[\\e]133;B\\a\\]"; _termpod_in_pc=""; }
+__termpod_prompt_command(){ local ret=$?; _termpod_in_pc=1; if [[ -n "$_termpod_executing" ]]; then printf '\\e]133;D;%d\\a' "$ret"; fi; _termpod_executing=""; printf '\\e]133;A\\a'; [[ "$PS1" != *'133;B'* ]] && PS1="$PS1\\[\\e]133;B\\a\\]"; _termpod_in_pc=""; }
 __termpod_debug_trap(){ [[ -n "$_termpod_in_pc" ]] && return; [[ -n "$_termpod_executing" ]] && return; [[ "$BASH_COMMAND" == __termpod_* ]] && return; printf '\\e]133;C\\a'; _termpod_executing=1; }
 if [[ -z "$PROMPT_COMMAND" ]]; then PROMPT_COMMAND="__termpod_prompt_command"; elif [[ "$PROMPT_COMMAND" != *"__termpod_prompt_command"* ]]; then PROMPT_COMMAND="__termpod_prompt_command;$PROMPT_COMMAND"; fi
 trap '__termpod_debug_trap' DEBUG
