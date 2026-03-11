@@ -120,6 +120,10 @@ final class DeviceTransportManager: ObservableObject {
     private var localWSPendingAuth = false
     /// E2E crypto for local transport
     private var localCrypto = CryptoService()
+    /// E2E crypto for device-level relay transport
+    private var deviceCrypto = CryptoService()
+    /// The desktop's device ID (target of the device WS connection)
+    private var targetDeviceId: String = ""
 
     // MARK: - Lifecycle
 
@@ -182,6 +186,7 @@ final class DeviceTransportManager: ObservableObject {
         deviceWSReconnectTask?.cancel()
         deviceWSReconnectTask = nil
         stopDeviceWSPingLoop()
+        deviceCrypto.reset()
 
         webrtcTransport?.disconnect()
         webrtcTransport = nil
@@ -404,7 +409,7 @@ final class DeviceTransportManager: ObservableObject {
         } else if let webrtc = webrtcTransport, webrtc.isConnected {
             webrtc.sendControlMessage(msg)
         } else if deviceWSConnected {
-            sendDeviceWSControl(msg)
+            sendEncryptedControl(msg)
         }
     }
 
@@ -1042,6 +1047,9 @@ final class DeviceTransportManager: ObservableObject {
             return
         }
 
+        // Capture device ID for E2E key derivation
+        targetDeviceId = deviceId
+
         let wsBase = relayBase
             .replacingOccurrences(of: "https://", with: "wss://")
             .replacingOccurrences(of: "http://", with: "ws://")
@@ -1138,6 +1146,82 @@ final class DeviceTransportManager: ObservableObject {
                 dispatchSessionsList(parsed)
             }
 
+        case "device_key_exchange":
+            if let peerKeyDict = json["publicKey"] as? [String: Any],
+               let keyDeviceId = json["deviceId"] as? String {
+                targetDeviceId = keyDeviceId
+                let ourPublicKey = deviceCrypto.generateKeyPair()
+                do {
+                    try deviceCrypto.deriveSessionKey(peerPublicKeyJwk: peerKeyDict, sessionId: keyDeviceId)
+                    sendDeviceWSControl([
+                        "type": "device_key_exchange_ack",
+                        "publicKey": ourPublicKey,
+                        "deviceId": keyDeviceId
+                    ])
+                    log("Device E2E key exchange complete")
+                } catch {
+                    log("Device E2E key exchange failed: \(error)")
+                }
+            }
+
+        case "encrypted_control":
+            guard deviceCrypto.isReady,
+                  let payloadStr = json["payload"] as? String
+            else {
+                log("Cannot decrypt control message — E2E not ready")
+                break
+            }
+            // base64url decode
+            let padded = payloadStr
+                .replacingOccurrences(of: "-", with: "+")
+                .replacingOccurrences(of: "_", with: "/")
+                .padding(toLength: ((payloadStr.count + 3) / 4) * 4, withPad: "=", startingAt: 0)
+            guard let encrypted = Data(base64Encoded: padded) else { break }
+            do {
+                let plaintext = try deviceCrypto.decrypt(encrypted)
+                if let innerJson = try? JSONSerialization.jsonObject(with: plaintext) as? [String: Any],
+                   let innerType = innerJson["type"] as? String {
+                    log("Decrypted control: \(innerType)")
+                    handleDecryptedControlMessage(innerJson)
+                }
+            } catch {
+                log("Failed to decrypt control message: \(error)")
+            }
+
+        case "client_joined":
+            if let role = json["role"] as? String, role == "desktop" {
+                desktopOnline = true
+                log("Desktop joined")
+                onDesktopConnected?()
+                NotificationCenter.default.post(name: .desktopConnected, object: nil)
+            }
+
+        case "client_left":
+            if let role = json["role"] as? String, role == "desktop" {
+                desktopOnline = false
+                sessions = []
+                deviceCrypto.reset()
+                webrtcTransport?.disconnect()
+                webrtcTransport = nil
+                webrtcMode = nil
+                updateActiveTransport()
+                log("Desktop left — cleared sessions, tore down WebRTC, reset device E2E")
+                onDesktopDisconnected?()
+            }
+
+        case "pong":
+            deviceWSAwaitingPong = false
+
+        default:
+            break
+        }
+    }
+
+    /// Handle decrypted control messages from the desktop (received via encrypted_control envelope).
+    private func handleDecryptedControlMessage(_ json: [String: Any]) {
+        guard let type = json["type"] as? String else { return }
+
+        switch type {
         case "sessions_updated":
             if let sessionsArray = json["sessions"] as? [[String: Any]] {
                 let parsed = parseSessionsList(sessionsArray)
@@ -1156,31 +1240,18 @@ final class DeviceTransportManager: ObservableObject {
                 sessions.removeAll { $0.id == sessionId }
             }
 
-        case "client_joined":
-            if let role = json["role"] as? String, role == "desktop" {
-                desktopOnline = true
-                log("Desktop joined")
-                onDesktopConnected?()
-                NotificationCenter.default.post(name: .desktopConnected, object: nil)
-            }
-
-        case "client_left":
-            if let role = json["role"] as? String, role == "desktop" {
-                desktopOnline = false
-                sessions = []
-                webrtcTransport?.disconnect()
-                webrtcTransport = nil
-                webrtcMode = nil
-                updateActiveTransport()
-                log("Desktop left — cleared sessions, tore down WebRTC")
-                onDesktopDisconnected?()
+        case "local_auth_secret":
+            if let secret = json["secret"] as? String {
+                self.localAuthSecret = secret
+                log("Received local auth secret (encrypted)")
+                if localWS == nil && resolvedHost != nil {
+                    connectLocalWS()
+                }
             }
 
         case "webrtc_offer":
-            log("Signaling: \(type) keys=\(json.keys.sorted())")
-            // Fetch TURN credentials synchronously if not yet cached
+            log("Signaling (encrypted): \(type)")
             if cachedIceServerConfigs == nil {
-                log("Deferring webrtc_offer until TURN credentials fetched")
                 let deferredJson = json
                 fetchTurnCredentialsSync { [weak self] in
                     self?.ensureWebRTCTransport().handleSignaling(deferredJson)
@@ -1190,25 +1261,11 @@ final class DeviceTransportManager: ObservableObject {
             }
 
         case "webrtc_answer", "webrtc_ice":
-            log("Signaling: \(type) keys=\(json.keys.sorted())")
+            log("Signaling (encrypted): \(type)")
             ensureWebRTCTransport().handleSignaling(json)
 
-        case "local_auth_secret":
-            if let secret = json["secret"] as? String {
-                self.localAuthSecret = secret
-                log("Received local auth secret")
-
-                // Retry local WS if we have a resolved host but skipped earlier
-                if localWS == nil && resolvedHost != nil {
-                    connectLocalWS()
-                }
-            }
-
-        case "pong":
-            deviceWSAwaitingPong = false
-
         default:
-            break
+            log("Unknown decrypted control type: \(type)")
         }
     }
 
@@ -1216,6 +1273,7 @@ final class DeviceTransportManager: ObservableObject {
         stopDeviceWSPingLoop()
         deviceWS = nil
         deviceWSConnected = false
+        deviceCrypto.reset()
         updateActiveTransport()
 
         guard !intentionalClose else { return }
@@ -1234,9 +1292,33 @@ final class DeviceTransportManager: ObservableObject {
         sendJSON(ws: ws, msg: msg)
     }
 
-    /// Send WebRTC signaling through device WS.
+    /// Encrypt a control message and send it through the device WS as an encrypted_control envelope.
+    private func sendEncryptedControl(_ msg: [String: Any]) {
+        guard deviceCrypto.isReady else {
+            log("Cannot send encrypted control — E2E not ready")
+            return
+        }
+        guard let plaintext = try? JSONSerialization.data(withJSONObject: msg) else { return }
+        guard let encrypted = try? deviceCrypto.encrypt(plaintext) else {
+            log("Failed to encrypt control message")
+            return
+        }
+        // base64url encode
+        let base64 = encrypted.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .trimmingCharacters(in: CharacterSet(charactersIn: "="))
+
+        sendDeviceWSControl(["type": "encrypted_control", "payload": base64])
+    }
+
+    /// Send WebRTC signaling through device WS (encrypted when E2E is ready).
     func sendSignaling(_ msg: [String: Any]) {
-        sendDeviceWSControl(msg)
+        if deviceCrypto.isReady {
+            sendEncryptedControl(msg)
+        } else {
+            sendDeviceWSControl(msg)
+        }
     }
 
     // MARK: - Device WS Keepalive
@@ -1278,6 +1360,7 @@ final class DeviceTransportManager: ObservableObject {
         deviceWS?.cancel(with: .goingAway, reason: nil)
         deviceWS = nil
         deviceWSConnected = false
+        deviceCrypto.reset()
         deviceWSReconnect.reset()
         updateActiveTransport()
         connectDeviceWS()

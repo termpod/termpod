@@ -953,59 +953,41 @@ export class User extends DurableObject {
         this.handleWsListSessions(ws, tag);
         break;
 
-      case 'create_session_request':
-        // Forward from viewer to desktop
-        if (tag.role === 'viewer') {
-          this.forwardToDeviceRole(tag.targetDeviceId, ws, 'desktop', msg);
-        }
-        break;
-
-      case 'session_created':
-        // Forward from desktop to viewers (or to specific requestor)
-        if (tag.role === 'desktop') {
-          if (msg.toClientId) {
-            this.forwardToClient(msg.toClientId as string, msg);
-          } else {
-            this.forwardToDeviceRole(tag.targetDeviceId, ws, 'viewer', msg);
-          }
-        }
-        break;
-
-      case 'delete_session':
-        // Forward to desktop; also remove from SQLite
-        if (tag.role === 'viewer') {
-          this.forwardToDeviceRole(tag.targetDeviceId, ws, 'desktop', msg);
-
-          if (msg.sessionId) {
-            this.ctx.storage.sql.exec('DELETE FROM sessions WHERE id = ?', msg.sessionId as string);
-          }
-        }
-        break;
-
-      case 'session_closed':
-        // Forward from desktop to all viewers
-        if (tag.role === 'desktop') {
-          this.forwardToDeviceRole(tag.targetDeviceId, ws, 'viewer', msg);
-
-          if (msg.sessionId) {
-            this.ctx.storage.sql.exec('DELETE FROM sessions WHERE id = ?', msg.sessionId as string);
-          }
-        }
-        break;
-
       case 'sessions_updated':
-        // Desktop sends updated session list — update SQLite and broadcast to viewers
+        // Desktop sends non-sensitive session data (IDs + dimensions) — update SQLite
         if (tag.role === 'desktop') {
           this.handleWsSessionsUpdated(ws, tag, msg);
         }
         break;
 
-      case 'session_property_changed':
-        // Desktop sends lightweight property change — forward to viewers only (no SQL write)
+      // --- Device-level E2E key exchange ---
+
+      case 'device_key_exchange':
+        // Desktop sends E2E public key to viewers
         if (tag.role === 'desktop') {
           this.forwardToDeviceRole(tag.targetDeviceId, ws, 'viewer', msg);
         }
         break;
+
+      case 'device_key_exchange_ack':
+        // Viewer sends E2E public key back to desktop (add fromClientId for multi-viewer tracking)
+        if (tag.role === 'viewer') {
+          this.forwardToDeviceRole(tag.targetDeviceId, ws, 'desktop', { ...msg, fromClientId: tag.clientId });
+        }
+        break;
+
+      case 'encrypted_control':
+        // Forward encrypted envelope — relay cannot read the payload
+        if (msg.toClientId) {
+          this.forwardToClient(msg.toClientId as string, { ...msg, fromClientId: tag.clientId });
+        } else if (tag.role === 'desktop') {
+          this.forwardToDeviceRole(tag.targetDeviceId, ws, 'viewer', { ...msg, fromClientId: tag.clientId });
+        } else if (tag.role === 'viewer') {
+          this.forwardToDeviceRole(tag.targetDeviceId, ws, 'desktop', { ...msg, fromClientId: tag.clientId });
+        }
+        break;
+
+      // --- Session-level E2E key exchange (TerminalSession DO) ---
 
       case 'key_exchange':
         // Desktop sends E2E public key to viewers
@@ -1096,16 +1078,13 @@ export class User extends DurableObject {
           `INSERT INTO sessions (id, device_id, name, cwd, process_name, pty_cols, pty_rows, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(id) DO UPDATE SET
-             name = excluded.name,
-             cwd = excluded.cwd,
-             process_name = excluded.process_name,
              pty_cols = excluded.pty_cols,
              pty_rows = excluded.pty_rows`,
           s.id,
           tag.targetDeviceId,
-          s.name ?? 'shell',
-          s.cwd ?? '',
-          s.processName ?? null,
+          'encrypted',  // real name is E2E encrypted
+          '',            // real cwd is E2E encrypted
+          null,          // real processName is E2E encrypted
           s.ptyCols ?? 120,
           s.ptyRows ?? 40,
           new Date().toISOString(),
@@ -1124,11 +1103,8 @@ export class User extends DurableObject {
       }
     }
 
-    // Always broadcast to viewers (even if SQLite write was rate-limited)
-    this.forwardToDeviceRole(tag.targetDeviceId, ws, 'viewer', {
-      type: 'sessions_updated',
-      sessions,
-    });
+    // NOTE: Desktop sends E2E encrypted session metadata directly to viewers via encrypted_control.
+    // The relay no longer broadcasts sessions_updated — it only stores non-sensitive fields in SQLite.
   }
 
   // --- Device WS helpers ---

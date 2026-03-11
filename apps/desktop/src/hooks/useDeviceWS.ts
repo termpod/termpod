@@ -3,18 +3,63 @@ import { RECONNECT, RELAY_URL } from '@termpod/shared';
 import { getAccessToken, getValidAccessToken } from './useAuth';
 import { getSettingsSnapshot } from './useSettings';
 import { getLocalAuthSecret } from './localAuthSecret';
+import {
+  generateKeyPair,
+  deriveSessionKey,
+  encryptFrame,
+  decryptFrame,
+  type E2EKeyPair,
+  type E2ESession,
+} from '@termpod/protocol';
 
 const PING_INTERVAL = 30_000;
 
-// Module-level WS ref so sendLocalAuthSecretToRelay can access the active connection
+// Module-level refs for sendLocalAuthSecretToRelay
 let _deviceWS: WebSocket | null = null;
+let _e2eSessions: Map<string, E2ESession> | null = null;
+let _deviceId: string | null = null;
+let _keyPair: E2EKeyPair | null = null;
+
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+
+function base64urlEncode(data: Uint8Array): string {
+  const binary = Array.from(data, (b) => String.fromCharCode(b)).join('');
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function base64urlDecode(str: string): Uint8Array {
+  const padded = str.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - (str.length % 4)) % 4);
+  const binary = atob(padded);
+  return new Uint8Array(Array.from(binary, (c) => c.charCodeAt(0)));
+}
+
+async function sendEncrypted(ws: WebSocket, e2eSessions: Map<string, E2ESession>, msg: Record<string, unknown>, toClientId?: string): Promise<void> {
+  const plaintext = encoder.encode(JSON.stringify(msg));
+
+  if (toClientId) {
+    // Send to specific viewer
+    const session = e2eSessions.get(toClientId);
+
+    if (session) {
+      const encrypted = await encryptFrame(session, plaintext);
+      ws.send(JSON.stringify({ type: 'encrypted_control', payload: base64urlEncode(encrypted), toClientId }));
+    }
+  } else {
+    // Broadcast to all viewers
+    for (const [clientId, session] of e2eSessions) {
+      const encrypted = await encryptFrame(session, plaintext);
+      ws.send(JSON.stringify({ type: 'encrypted_control', payload: base64urlEncode(encrypted), toClientId: clientId }));
+    }
+  }
+}
 
 /** Called by useLocalServer when the local server finishes starting and the auth secret is available. */
 export function sendLocalAuthSecretToRelay(): void {
   const secret = getLocalAuthSecret();
 
-  if (secret && _deviceWS?.readyState === WebSocket.OPEN) {
-    _deviceWS.send(JSON.stringify({ type: 'local_auth_secret', secret }));
+  if (secret && _deviceWS?.readyState === WebSocket.OPEN && _e2eSessions && _e2eSessions.size > 0) {
+    sendEncrypted(_deviceWS, _e2eSessions, { type: 'local_auth_secret', secret });
   }
 }
 
@@ -44,6 +89,8 @@ interface DeviceWSOptions {
  * Persistent device-level WebSocket to the relay's User DO.
  * Used for control messages (list/create/delete sessions),
  * WebRTC signaling, and heartbeat (replaces HTTP polling).
+ *
+ * All sensitive messages are E2E encrypted (ECDH P-256 + AES-256-GCM).
  */
 export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, options: DeviceWSOptions = {}) {
   const [status, setStatus] = useState<DeviceWSStatus>('disconnected');
@@ -56,12 +103,29 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
+  // E2E state: one session per connected viewer
+  const keyPairRef = useRef<E2EKeyPair | null>(null);
+  const e2eSessionsRef = useRef<Map<string, E2ESession>>(new Map());
+  // Queue messages until E2E is established with at least one viewer
+  const pendingEncryptedRef = useRef<{ msg: Record<string, unknown>; toClientId?: string }[]>([]);
+
   const connectRef = useRef<() => void>(() => {});
 
   const stopPing = useCallback(() => {
     if (pingIntervalRef.current) {
       clearInterval(pingIntervalRef.current);
       pingIntervalRef.current = undefined;
+    }
+  }, []);
+
+  const flushPendingEncrypted = useCallback(async (ws: WebSocket, sessions: Map<string, E2ESession>) => {
+    const pending = pendingEncryptedRef.current;
+    pendingEncryptedRef.current = [];
+
+    for (const { msg, toClientId } of pending) {
+      if (ws.readyState === WebSocket.OPEN) {
+        await sendEncrypted(ws, sessions, msg, toClientId);
+      }
     }
   }, []);
 
@@ -79,11 +143,19 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
       wsRef.current = null;
     }
 
+    // Reset E2E state on reconnect
+    keyPairRef.current = null;
+    e2eSessionsRef.current = new Map();
+    _e2eSessions = e2eSessionsRef.current;
+    _keyPair = null;
+    pendingEncryptedRef.current = [];
+
     const token = getAccessToken();
     const wsUrl = `${getRelayBase()}/devices/${deviceId}/ws${token ? `?token=${encodeURIComponent(token)}` : ''}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
     _deviceWS = ws;
+    _deviceId = deviceId;
     intentionalCloseRef.current = false;
 
     ws.onopen = () => {
@@ -129,14 +201,84 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
             }
           }, PING_INTERVAL);
 
-          // Share local auth secret with any existing viewers
-          if (getLocalAuthSecret() && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-              type: 'local_auth_secret',
-              secret: getLocalAuthSecret(),
-            }));
+          // Generate E2E key pair for device-level encryption
+          generateKeyPair().then((kp) => {
+            keyPairRef.current = kp;
+            _keyPair = kp;
+
+            // Send public key to any existing viewers
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({
+                type: 'device_key_exchange',
+                publicKey: kp.publicKeyJwk,
+                deviceId,
+              }));
+            }
+          });
+          break;
+
+        case 'device_key_exchange_ack': {
+          // Viewer responded with their public key
+          const fromClientId = msg.fromClientId as string;
+          const peerKey = msg.publicKey as JsonWebKey;
+          const kp = keyPairRef.current;
+
+          if (kp && peerKey && fromClientId && deviceId) {
+            deriveSessionKey(kp.privateKey, peerKey, deviceId).then(async (e2e) => {
+              e2eSessionsRef.current.set(fromClientId, e2e);
+              _e2eSessions = e2eSessionsRef.current;
+
+              // Flush queued messages to this viewer
+              if (ws.readyState === WebSocket.OPEN) {
+                await flushPendingEncrypted(ws, e2eSessionsRef.current);
+
+                // Send local auth secret now that E2E is established
+                const secret = getLocalAuthSecret();
+
+                if (secret) {
+                  await sendEncrypted(ws, e2eSessionsRef.current, { type: 'local_auth_secret', secret }, fromClientId);
+                }
+              }
+            });
           }
           break;
+        }
+
+        case 'encrypted_control': {
+          // Viewer sent an encrypted message — decrypt and dispatch
+          const fromClientId = msg.fromClientId as string;
+          const payload = msg.payload as string;
+          const session = e2eSessionsRef.current.get(fromClientId);
+
+          if (session && payload) {
+            const encrypted = base64urlDecode(payload);
+            decryptFrame(session, encrypted).then((plaintext) => {
+              const inner = JSON.parse(decoder.decode(plaintext)) as Record<string, unknown>;
+              const innerType = inner.type as string;
+
+              switch (innerType) {
+                case 'create_session_request':
+                  if (inner.requestId) {
+                    optionsRef.current.onCreateSessionRequest?.(inner.requestId as string);
+                  }
+                  break;
+
+                case 'delete_session':
+                  if (inner.sessionId) {
+                    optionsRef.current.onDeleteSession?.(inner.sessionId as string);
+                  }
+                  break;
+
+                case 'webrtc_offer':
+                case 'webrtc_answer':
+                case 'webrtc_ice':
+                  optionsRef.current.onSignaling?.(inner);
+                  break;
+              }
+            }).catch(() => {});
+          }
+          break;
+        }
 
         case 'client_joined':
           optionsRef.current.onClientJoined?.(
@@ -144,40 +286,29 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
             msg.device as string,
           );
 
-          // Share local auth secret with new viewer
-          if (getLocalAuthSecret() && ws.readyState === WebSocket.OPEN) {
+          // Re-send key exchange to new viewer so they can set up E2E
+          if (keyPairRef.current && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({
-              type: 'local_auth_secret',
-              secret: getLocalAuthSecret(),
+              type: 'device_key_exchange',
+              publicKey: keyPairRef.current.publicKeyJwk,
+              deviceId,
             }));
           }
           break;
 
-        case 'client_left':
-          optionsRef.current.onClientLeft?.(msg.clientId as string);
+        case 'client_left': {
+          const leftClientId = msg.clientId as string;
+          e2eSessionsRef.current.delete(leftClientId);
+          _e2eSessions = e2eSessionsRef.current;
+          optionsRef.current.onClientLeft?.(leftClientId);
           break;
+        }
 
         case 'list_sessions':
           // Mobile requested session list — this shouldn't normally happen
-          // (User DO responds from SQLite), but handle as fallback
           break;
 
-        case 'create_session_request':
-          if (msg.requestId) {
-            optionsRef.current.onCreateSessionRequest?.(msg.requestId as string);
-          }
-          break;
-
-        case 'delete_session':
-          if (msg.sessionId) {
-            optionsRef.current.onDeleteSession?.(msg.sessionId as string);
-          }
-          break;
-
-        case 'webrtc_offer':
-        case 'webrtc_answer':
-        case 'webrtc_ice':
-          optionsRef.current.onSignaling?.(msg);
+        case 'pong':
           break;
       }
     };
@@ -185,7 +316,14 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
     ws.onclose = () => {
       wsRef.current = null;
       _deviceWS = null;
+      _e2eSessions = null;
+      _keyPair = null;
       stopPing();
+
+      // Reset E2E state
+      keyPairRef.current = null;
+      e2eSessionsRef.current = new Map();
+      pendingEncryptedRef.current = [];
 
       if (!intentionalCloseRef.current && deviceId) {
         setStatus('reconnecting');
@@ -229,52 +367,107 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
       wsRef.current?.close();
       wsRef.current = null;
       _deviceWS = null;
+      _e2eSessions = null;
+      _keyPair = null;
       setStatus('disconnected');
     };
   }, [isAuthenticated, deviceId, stopPing]);
 
-  /** Send sessions_updated to relay (updates SQLite + broadcasts to mobile viewers) */
+  /** Send sessions_updated — non-sensitive fields go plaintext (for relay SQLite), sensitive fields encrypted */
   const sendSessionsUpdated = useCallback((sessions: Record<string, unknown>[]) => {
     const ws = wsRef.current;
 
-    if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'sessions_updated', sessions }));
+    if (ws?.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    // Plaintext: only IDs and dimensions (relay needs these for SQLite routing)
+    ws.send(JSON.stringify({
+      type: 'sessions_updated',
+      sessions: sessions.map((s) => ({
+        id: s.id,
+        ptyCols: s.ptyCols,
+        ptyRows: s.ptyRows,
+      })),
+    }));
+
+    // Encrypted: full session metadata
+    const e2e = e2eSessionsRef.current;
+
+    if (e2e.size > 0) {
+      sendEncrypted(ws, e2e, { type: 'sessions_updated', sessions });
+    } else {
+      pendingEncryptedRef.current.push({ msg: { type: 'sessions_updated', sessions } });
     }
   }, []);
 
-  /** Send session_created response to mobile viewer */
+  /** Send session_created response to mobile viewer (encrypted) */
   const sendSessionCreated = useCallback((msg: Record<string, unknown>) => {
     const ws = wsRef.current;
 
-    if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'session_created', ...msg }));
+    if (ws?.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    const e2e = e2eSessionsRef.current;
+    const toClientId = msg.toClientId as string | undefined;
+
+    if (e2e.size > 0) {
+      sendEncrypted(ws, e2e, { type: 'session_created', ...msg }, toClientId);
+    } else {
+      pendingEncryptedRef.current.push({ msg: { type: 'session_created', ...msg }, toClientId });
     }
   }, []);
 
-  /** Send session_closed notification */
+  /** Send session_closed notification (encrypted) */
   const sendSessionClosed = useCallback((sessionId: string) => {
     const ws = wsRef.current;
 
-    if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'session_closed', sessionId }));
+    if (ws?.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    const e2e = e2eSessionsRef.current;
+
+    if (e2e.size > 0) {
+      sendEncrypted(ws, e2e, { type: 'session_closed', sessionId });
+    } else {
+      pendingEncryptedRef.current.push({ msg: { type: 'session_closed', sessionId } });
     }
   }, []);
 
-  /** Send lightweight session property change (forwarded to viewers, no SQL write) */
+  /** Send lightweight session property change (encrypted) */
   const sendSessionPropertyChanged = useCallback((sessionId: string, updates: Record<string, unknown>) => {
     const ws = wsRef.current;
 
-    if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'session_property_changed', sessionId, ...updates }));
+    if (ws?.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    const e2e = e2eSessionsRef.current;
+
+    if (e2e.size > 0) {
+      sendEncrypted(ws, e2e, { type: 'session_property_changed', sessionId, ...updates });
+    } else {
+      pendingEncryptedRef.current.push({ msg: { type: 'session_property_changed', sessionId, ...updates } });
     }
   }, []);
 
-  /** Send WebRTC signaling message */
+  /** Send WebRTC signaling message (encrypted) */
   const sendSignaling = useCallback((msg: Record<string, unknown>) => {
     const ws = wsRef.current;
 
-    if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(msg));
+    if (ws?.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    const e2e = e2eSessionsRef.current;
+    const toClientId = msg.toClientId as string | undefined;
+
+    if (e2e.size > 0) {
+      sendEncrypted(ws, e2e, msg, toClientId);
+    } else {
+      pendingEncryptedRef.current.push({ msg, toClientId });
     }
   }, []);
 
