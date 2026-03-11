@@ -7,6 +7,13 @@ import UIKit
 /// Feeds relay data immediately (no batching delay) for responsive typing,
 /// and coalesces setNeedsDisplay() once per frame to fix cursor ghosting.
 class RemoteTerminalView: TerminalView {
+    private static let clearSequences: [[UInt8]] = [
+        [0x1B, 0x5B, 0x48, 0x1B, 0x5B, 0x4A],
+        [0x1B, 0x5B, 0x48, 0x1B, 0x5B, 0x32, 0x4A],
+        [0x1B, 0x5B, 0x48, 0x1B, 0x5B, 0x33, 0x4A],
+        [0x1B, 0x5B, 0x32, 0x4A, 0x1B, 0x5B, 0x48],
+        [0x1B, 0x5B, 0x33, 0x4A, 0x1B, 0x5B, 0x48],
+    ]
 
     private var connection: ConnectionManager?
     weak var settingsRef: TerminalSettings?
@@ -222,7 +229,13 @@ class RemoteTerminalView: TerminalView {
     private func wireConnection(_ connection: ConnectionManager) {
         connection.onTerminalData = { [weak self] data in
             guard let self else { return }
+            let shouldResetViewport = Self.containsClearSequence(in: data)
             self.feed(byteArray: ArraySlice<UInt8>(data))
+            if shouldResetViewport {
+                // After a clear-screen sequence, jump back to the live screen
+                // so the fresh prompt is visible at the top of the viewport.
+                self.scroll(toPosition: 1)
+            }
             self.scheduleFullRedraw()
         }
 
@@ -268,6 +281,31 @@ class RemoteTerminalView: TerminalView {
             self.needsFullRedraw = false
             self.setNeedsDisplay()
         }
+    }
+
+    static func containsClearSequence(in data: Data) -> Bool {
+        let bytes = Array(data)
+        guard !bytes.isEmpty else { return false }
+
+        for sequence in clearSequences where bytes.containsSubsequence(sequence) {
+            return true
+        }
+
+        return false
+    }
+}
+
+private extension [UInt8] {
+    func containsSubsequence(_ subsequence: [UInt8]) -> Bool {
+        guard !subsequence.isEmpty, count >= subsequence.count else { return false }
+
+        for startIndex in 0...(count - subsequence.count) {
+            if self[startIndex..<(startIndex + subsequence.count)].elementsEqual(subsequence) {
+                return true
+            }
+        }
+
+        return false
     }
 }
 
