@@ -106,6 +106,21 @@ export class TerminalSession extends DurableObject {
       return Response.json({ owner });
     }
 
+    if (url.pathname === '/kick-readonly' && request.method === 'POST') {
+      const json = JSON.stringify({ type: 'share_revoked' });
+
+      for (const ws of this.ctx.getWebSockets()) {
+        const tag = getTag(ws);
+
+        if (tag?.readonly) {
+          ws.send(json);
+          ws.close(1000, 'share revoked');
+        }
+      }
+
+      return Response.json({ ok: true });
+    }
+
     if (url.pathname === '/close' && request.method === 'POST') {
       const json = JSON.stringify({ type: 'session_closed' });
 

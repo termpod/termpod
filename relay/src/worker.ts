@@ -755,6 +755,11 @@ async function handleSessionShare(request: Request, env: Env, sessionId: string)
     const res = await stub.fetch(new Request(`http://internal/sessions/${sessionId}/share`, { method: 'DELETE' }));
     const body = await res.json();
 
+    // Kick all readonly share viewers from the session
+    const sessionDOId = env.TERMINAL_SESSION.idFromName(sessionId);
+    const sessionStub = env.TERMINAL_SESSION.get(sessionDOId);
+    await sessionStub.fetch(new Request('http://internal/kick-readonly', { method: 'POST' }));
+
     return corsJson(body);
   }
 
@@ -926,6 +931,7 @@ function buildViewerHtml(wsUrl: string, sessionId: string, shareToken: string): 
 
       var ws = null;
       var reconnectTimer = null;
+      var terminated = false;
 
       function setStatus(text, cls) {
         statusEl.textContent = text;
@@ -959,14 +965,20 @@ function buildViewerHtml(wsUrl: string, sessionId: string, shareToken: string): 
               if (msg.type === 'pty_resize') {
                 term.resize(msg.cols, msg.rows);
               } else if (msg.type === 'session_closed') {
+                terminated = true;
                 setStatus('Session ended', 'disconnected');
                 term.write('\\r\\n  Session has ended.\\r\\n');
+              } else if (msg.type === 'share_revoked') {
+                terminated = true;
+                setStatus('Sharing stopped', 'disconnected');
+                term.write('\\r\\n  The session owner has stopped sharing.\\r\\n');
               }
             } catch(e) {}
           }
         };
 
         ws.onclose = function() {
+          if (terminated) return;
           setStatus('Disconnected', 'disconnected');
           scheduleReconnect();
         };

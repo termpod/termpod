@@ -8,7 +8,6 @@ import type { TabIcon } from '@termpod/shared';
 interface TabBarProps {
   sessions: TerminalSession[];
   activeId: string | null;
-  sharedSessionIds?: Set<string>;
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
   onCreate: () => void;
@@ -19,7 +18,7 @@ interface TabBarProps {
   devicesPanelOpen?: boolean;
 }
 
-export function TabBar({ sessions, activeId, sharedSessionIds, onSelect, onClose, onCreate, onReorder, relayStatus, connectedDevices, onToggleDevices, devicesPanelOpen }: TabBarProps) {
+export function TabBar({ sessions, activeId, onSelect, onClose, onCreate, onReorder, relayStatus, connectedDevices, onToggleDevices, devicesPanelOpen }: TabBarProps) {
   const handleDrag = useCallback((e: React.MouseEvent) => {
     // Only drag if clicking directly on the tab-bar (not on child buttons/tabs)
     if (e.target === e.currentTarget) {
@@ -144,7 +143,6 @@ export function TabBar({ sessions, activeId, sharedSessionIds, onSelect, onClose
             key={session.id}
             session={session}
             isActive={session.id === activeId}
-            isShared={sharedSessionIds?.has(session.id) ?? false}
             isDragging={dragging === index}
             isDropTarget={dropTarget === index && dragging !== null && dragging !== index}
             dropSide={dropSide}
@@ -165,7 +163,6 @@ export function TabBar({ sessions, activeId, sharedSessionIds, onSelect, onClose
 interface TabProps {
   session: TerminalSession;
   isActive: boolean;
-  isShared: boolean;
   isDragging: boolean;
   isDropTarget: boolean;
   dropSide: 'left' | 'right';
@@ -174,7 +171,7 @@ interface TabProps {
   onMouseDown: (e: React.MouseEvent) => void;
 }
 
-function Tab({ session, isActive, isShared, isDragging, isDropTarget, dropSide, onSelect, onClose, onMouseDown }: TabProps) {
+function Tab({ session, isActive, isDragging, isDropTarget, dropSide, onSelect, onClose, onMouseDown }: TabProps) {
   const handleClose = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -194,7 +191,6 @@ function Tab({ session, isActive, isShared, isDragging, isDropTarget, dropSide, 
     >
       <TabIconView icon={session.icon ?? folderIcon} />
       <span className="tab-name">{session.name}</span>
-      {isShared && <span className="tab-share-dot" title="Shared" />}
       <span
         className="tab-close"
         onClick={handleClose}

@@ -231,6 +231,7 @@ export function App() {
   const [showWorkflows, setShowWorkflows] = useState(false);
   const [shareMap, setShareMap] = useState<Map<string, { shareUrl: string; expiresAt: string }>>(new Map());
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [confirmShare, setConfirmShare] = useState(false);
   const [confirmClose, setConfirmClose] = useState<{ sessionId: string; processName: string } | null>(null);
   const { bindings } = useKeybindings();
   const { workflows, add: addWorkflow, remove: removeWorkflow, edit: editWorkflow } = useWorkflows();
@@ -548,37 +549,14 @@ export function App() {
       case 'share_session': {
         if (!activeId) break;
 
-        // If already shared, show the dialog
+        // If already shared, show the link dialog
         if (shareMap.has(activeId)) {
           setShowShareDialog(true);
           break;
         }
 
-        const relayInfo = relayMapRef.current.get(activeId);
-        const relaySessionId = relayInfo?.sessionId;
-
-        if (!relaySessionId) {
-          break;
-        }
-
-        const capturedActiveId = activeId;
-        authFetch(`/sessions/${relaySessionId}/share`, { method: 'POST' })
-          .then((res) => res.json())
-          .then((body: Record<string, unknown>) => {
-            if (body.shareUrl) {
-              invoke('copy_to_clipboard', { text: body.shareUrl as string });
-              setShareMap((prev) => {
-                const next = new Map(prev);
-                next.set(capturedActiveId, {
-                  shareUrl: body.shareUrl as string,
-                  expiresAt: body.expiresAt as string,
-                });
-                return next;
-              });
-              setShowShareDialog(true);
-            }
-          })
-          .catch(() => {});
+        // Ask for confirmation before sharing
+        setConfirmShare(true);
         break;
       }
 
@@ -818,7 +796,6 @@ export function App() {
       <TabBar
         sessions={sessions}
         activeId={activeId}
-        sharedSessionIds={useMemo(() => new Set(shareMap.keys()), [shareMap])}
         onSelect={switchSession}
         onClose={handleCloseSession}
         onCreate={() => createSession({
@@ -833,6 +810,39 @@ export function App() {
       />
       <UpdateBanner {...updater} />
       <FullDiskAccessBanner />
+      {activeId && shareMap.has(activeId) && (
+        <div className="share-bar">
+          <div className="share-bar-dot" />
+          <span className="share-bar-text">This session is being shared</span>
+          <button
+            className="share-bar-link"
+            onClick={() => setShowShareDialog(true)}
+            type="button"
+          >
+            Copy link
+          </button>
+          <button
+            className="share-bar-stop"
+            onClick={() => {
+              const relayInfo = relayMapRef.current.get(activeId);
+              const relaySessionId = relayInfo?.sessionId;
+
+              if (relaySessionId) {
+                authFetch(`/sessions/${relaySessionId}/share`, { method: 'DELETE' }).catch(() => {});
+              }
+
+              setShareMap((prev) => {
+                const next = new Map(prev);
+                next.delete(activeId);
+                return next;
+              });
+            }}
+            type="button"
+          >
+            Stop sharing
+          </button>
+        </div>
+      )}
       <div className="terminal-area">
         {sessions.map((session) => (
           <TerminalPanel
@@ -943,22 +953,6 @@ export function App() {
         <ShareDialog
           shareUrl={shareMap.get(activeId)!.shareUrl}
           expiresAt={shareMap.get(activeId)!.expiresAt}
-          onStopSharing={() => {
-            const relayInfo = relayMapRef.current.get(activeId);
-            const relaySessionId = relayInfo?.sessionId;
-
-            if (relaySessionId) {
-              authFetch(`/sessions/${relaySessionId}/share`, { method: 'DELETE' }).catch(() => {});
-            }
-
-            setShareMap((prev) => {
-              const next = new Map(prev);
-              next.delete(activeId);
-              return next;
-            });
-            setShowShareDialog(false);
-            setTimeout(focusActive, 50);
-          }}
           onClose={() => { setShowShareDialog(false); setTimeout(focusActive, 50); }}
         />
       )}
@@ -983,6 +977,51 @@ export function App() {
           onClose={() => { setShowCommandPalette(false); setTimeout(focusActive, 50); }}
           onExecute={(id) => { setShowCommandPalette(false); menuHandlerRef.current(id); }}
         />
+      )}
+      {confirmShare && activeId && (
+        <div className="modal-overlay" onClick={() => { setConfirmShare(false); setTimeout(focusActive, 50); }}>
+          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="confirm-title">Share this session?</div>
+            <div className="confirm-message">
+              Anyone with the link will be able to see your terminal output in real time. The link expires in 24 hours.
+            </div>
+            <div className="confirm-actions">
+              <button className="confirm-btn confirm-btn-cancel" onClick={() => { setConfirmShare(false); setTimeout(focusActive, 50); }} type="button">Cancel</button>
+              <button
+                className="confirm-btn confirm-btn-danger"
+                onClick={() => {
+                  setConfirmShare(false);
+                  const relayInfo = relayMapRef.current.get(activeId);
+                  const relaySessionId = relayInfo?.sessionId;
+
+                  if (!relaySessionId) return;
+
+                  const capturedActiveId = activeId;
+                  authFetch(`/sessions/${relaySessionId}/share`, { method: 'POST' })
+                    .then((res) => res.json())
+                    .then((body: Record<string, unknown>) => {
+                      if (body.shareUrl) {
+                        invoke('copy_to_clipboard', { text: body.shareUrl as string });
+                        setShareMap((prev) => {
+                          const next = new Map(prev);
+                          next.set(capturedActiveId, {
+                            shareUrl: body.shareUrl as string,
+                            expiresAt: body.expiresAt as string,
+                          });
+                          return next;
+                        });
+                        setShowShareDialog(true);
+                      }
+                    })
+                    .catch(() => {});
+                }}
+                type="button"
+              >
+                Share
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {confirmClose && (
         <ConfirmDialog
