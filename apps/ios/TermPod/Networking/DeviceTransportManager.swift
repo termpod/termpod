@@ -152,6 +152,11 @@ final class DeviceTransportManager: ObservableObject {
     /// Safe to call multiple times — won't tear down an existing connection.
     func start(deviceId: String, relayBaseURL: String, token: String) {
         let deviceChanged = self.deviceId != deviceId
+
+        if deviceChanged {
+            resetConnectionsForDeviceChange()
+        }
+
         self.deviceId = deviceId
         self.relayBaseURL = relayBaseURL
         self.authToken = token
@@ -163,6 +168,31 @@ final class DeviceTransportManager: ObservableObject {
         if deviceChanged || (!deviceWSConnected && deviceWS == nil) {
             connectDeviceWS()
         }
+    }
+
+    private func resetConnectionsForDeviceChange() {
+        localWS?.cancel(with: .goingAway, reason: nil)
+        localWS = nil
+        localConnected = false
+        localWSPendingAuth = false
+
+        deviceWS?.cancel(with: .goingAway, reason: nil)
+        deviceWS = nil
+        deviceWSConnected = false
+        deviceWSReconnectTask?.cancel()
+        deviceWSReconnectTask = nil
+        stopDeviceWSPingLoop()
+        deviceCrypto.reset()
+
+        webrtcTransport?.disconnect()
+        webrtcTransport = nil
+        webrtcMode = nil
+
+        isConnected = false
+        isConnecting = false
+        desktopOnline = false
+        sessions = []
+        updateActiveTransport()
     }
 
     func stop() {
@@ -1495,13 +1525,11 @@ final class DeviceTransportManager: ObservableObject {
 
     private func parseSessionsList(_ sessionsArray: [[String: Any]]) -> [DeviceSessionInfo] {
         sessionsArray.compactMap { json in
-            guard let id = json["id"] as? String,
-                  let name = json["name"] as? String
-            else { return nil }
+            guard let id = json["id"] as? String else { return nil }
 
             return DeviceSessionInfo(
                 id: id,
-                name: name,
+                name: json["name"] as? String ?? "Shell",
                 cwd: json["cwd"] as? String ?? "~",
                 processName: json["processName"] as? String ?? json["process_name"] as? String,
                 ptyCols: json["ptyCols"] as? Int ?? json["pty_cols"] as? Int ?? 80,

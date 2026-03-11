@@ -81,6 +81,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
   // Local scrollback buffer — raw PTY output kept for E2E scrollback replay
   const scrollbackRef = useRef<Uint8Array[]>([]);
   const scrollbackSizeRef = useRef(0);
+  const pendingScrollbackRequestsRef = useRef<string[]>([]);
 
   // Use a ref for connectWebSocket so onclose can always call the latest version
   const connectWebSocketRef = useRef<(session: RelaySession) => void>(() => {});
@@ -163,8 +164,12 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
       if (raw.type === 'scrollback_request') {
         const fromClientId = raw.fromClientId as string;
 
-        if (fromClientId && e2eRef.current) {
-          sendEncryptedScrollbackToViewer(ws, fromClientId);
+        if (fromClientId) {
+          if (e2eRef.current) {
+            sendEncryptedScrollbackToViewer(ws, fromClientId);
+          } else if (!pendingScrollbackRequestsRef.current.includes(fromClientId)) {
+            pendingScrollbackRequestsRef.current.push(fromClientId);
+          }
         }
 
         return;
@@ -179,6 +184,13 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
           ).then((e2eSession) => {
             e2eRef.current = e2eSession;
             console.log('[Relay] E2E encryption active for session', session.sessionId);
+
+            const pending = pendingScrollbackRequestsRef.current;
+            pendingScrollbackRequestsRef.current = [];
+
+            for (const viewerClientId of pending) {
+              sendEncryptedScrollbackToViewer(ws, viewerClientId);
+            }
           }).catch((err) => {
             console.error('[Relay] E2E key derivation failed:', err);
           });
@@ -292,6 +304,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     ws.onclose = () => {
       wsRef.current = null;
       connectingRef.current = false;
+      pendingScrollbackRequestsRef.current = [];
       stopPing();
 
       if (!intentionalCloseRef.current && sessionRef.current) {
@@ -415,6 +428,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     e2eKeyPairRef.current = null;
     scrollbackRef.current = [];
     scrollbackSizeRef.current = 0;
+    pendingScrollbackRequestsRef.current = [];
 
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);

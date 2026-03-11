@@ -8,18 +8,22 @@ struct DeviceListView: View {
     @EnvironmentObject private var deviceTransport: DeviceTransportManager
     @State private var showSettings = false
 
+    private var hostDevices: [DeviceService.Device] {
+        deviceService.devices.filter { $0.deviceType == "desktop" }
+    }
+
     var body: some View {
         NavigationStack {
             List {
                 // Registered devices
                 Section {
-                    if deviceService.loading && deviceService.devices.isEmpty {
+                    if deviceService.loading && hostDevices.isEmpty {
                         HStack {
                             Spacer()
                             ProgressView()
                             Spacer()
                         }
-                    } else if deviceService.devices.isEmpty {
+                    } else if hostDevices.isEmpty {
                         ContentUnavailableView {
                             Label("No Devices", systemImage: "desktopcomputer")
                         } description: {
@@ -27,7 +31,7 @@ struct DeviceListView: View {
                         }
                         .listRowBackground(Color.clear)
                     } else {
-                        ForEach(deviceService.devices) { device in
+                        ForEach(hostDevices) { device in
                             NavigationLink(value: device.id) {
                                 DeviceRow(
                                     device: device,
@@ -81,7 +85,7 @@ struct DeviceListView: View {
                 SettingsView()
             }
             .navigationDestination(for: String.self) { deviceId in
-                if let device = deviceService.devices.first(where: { $0.id == deviceId }) {
+                if let device = hostDevices.first(where: { $0.id == deviceId }) {
                     DeviceSessionsView(device: device)
                         .onAppear {
                             startTransportForDevice(deviceId)
@@ -136,7 +140,7 @@ struct DeviceListView: View {
     /// establish before the user taps into a session.
     private func autoConnectFirstDevice() {
         guard !deviceTransport.isConnected,
-              let device = deviceService.devices.first(where: { $0.isOnline })
+              let device = hostDevices.first(where: { $0.isOnline })
         else { return }
 
         startTransportForDevice(device.id)

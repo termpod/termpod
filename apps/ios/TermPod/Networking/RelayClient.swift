@@ -38,6 +38,7 @@ final class RelayClient: ObservableObject, Transport {
     // E2E scrollback state
     private var awaitingScrollback = false
     private var pendingLiveData: [Data] = []
+    private var scrollbackFallbackTask: Task<Void, Never>?
 
     // Keepalive ping
     private var pingTask: Task<Void, Never>?
@@ -100,6 +101,8 @@ final class RelayClient: ObservableObject, Transport {
         crypto.reset()
         awaitingScrollback = false
         pendingLiveData.removeAll()
+        scrollbackFallbackTask?.cancel()
+        scrollbackFallbackTask = nil
         webSocket?.cancel(with: .goingAway, reason: nil)
         webSocket = nil
     }
@@ -394,6 +397,7 @@ final class RelayClient: ObservableObject, Transport {
                     awaitingScrollback = true
                     state = .loadingScrollback
                     sendSignaling(["type": "scrollback_request"])
+                    scheduleScrollbackFallback()
                 } catch {
                     print("[RelayClient] E2E key exchange failed: \(error)")
                 }
@@ -474,6 +478,8 @@ final class RelayClient: ObservableObject, Transport {
             }
 
         case "scrollback_complete":
+            scrollbackFallbackTask?.cancel()
+            scrollbackFallbackTask = nil
             awaitingScrollback = false
             // Flush any live data that arrived during scrollback replay
             for liveData in pendingLiveData {
@@ -506,6 +512,25 @@ final class RelayClient: ObservableObject, Transport {
             base64.append(String(repeating: "=", count: 4 - remainder))
         }
         return Data(base64Encoded: base64)
+    }
+
+    private func scheduleScrollbackFallback() {
+        scrollbackFallbackTask?.cancel()
+        scrollbackFallbackTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard let self, self.awaitingScrollback else { return }
+
+            self.awaitingScrollback = false
+            for liveData in self.pendingLiveData {
+                self.handleBinaryFrame(liveData)
+            }
+            self.pendingLiveData.removeAll()
+
+            if self.state != .live {
+                self.state = .live
+                self.onConnected?()
+            }
+        }
     }
 
     // MARK: - Reconnection

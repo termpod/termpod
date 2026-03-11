@@ -54,6 +54,18 @@ final class DeviceModelTests: XCTestCase {
         XCTAssertEqual(device.systemImage, "iphone")
     }
 
+    func testDeviceSystemImageIpad() {
+        let device = DeviceService.Device(
+            id: "d4b",
+            name: "iPad",
+            deviceType: "mobile",
+            platform: "ipad",
+            isOnline: true,
+            lastSeenAt: nil
+        )
+        XCTAssertEqual(device.systemImage, "ipad")
+    }
+
     func testDeviceSystemImageUnknownPlatform() {
         let device = DeviceService.Device(
             id: "d5",
@@ -153,5 +165,35 @@ final class DeviceModelTests: XCTestCase {
         let data = try JSONEncoder().encode(session)
         let decoded = try JSONDecoder().decode(DeviceService.DeviceSession.self, from: data)
         XCTAssertNil(decoded.processName)
+    }
+
+    func testDeviceSessionDecodesRelayMinimalPayload() throws {
+        let data = """
+        {
+          "sessions": [
+            {
+              "id": "sess-1",
+              "deviceId": "dev-1",
+              "ptyCols": 132,
+              "ptyRows": 43,
+              "createdAt": "2026-03-11T18:00:00Z"
+            }
+          ]
+        }
+        """.data(using: .utf8)!
+
+        struct SessionsResponse: Codable {
+            let sessions: [DeviceService.DeviceSession]
+        }
+
+        let decoded = try JSONDecoder().decode(SessionsResponse.self, from: data)
+
+        XCTAssertEqual(decoded.sessions.count, 1)
+        XCTAssertEqual(decoded.sessions[0].id, "sess-1")
+        XCTAssertEqual(decoded.sessions[0].name, "Shell")
+        XCTAssertEqual(decoded.sessions[0].cwd, "~")
+        XCTAssertNil(decoded.sessions[0].processName)
+        XCTAssertEqual(decoded.sessions[0].ptyCols, 132)
+        XCTAssertEqual(decoded.sessions[0].ptyRows, 43)
     }
 }
