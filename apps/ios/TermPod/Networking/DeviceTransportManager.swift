@@ -629,7 +629,7 @@ final class DeviceTransportManager: ObservableObject {
         guard browser == nil else { return }
 
         let params = NWParameters()
-        params.includePeerToPeer = true
+        params.includePeerToPeer = false
 
         browser = NWBrowser(for: .bonjour(type: "_termpod._tcp", domain: "local."), using: params)
 
@@ -677,6 +677,15 @@ final class DeviceTransportManager: ObservableObject {
                 if let path = connection.currentPath,
                    let endpoint = path.remoteEndpoint,
                    case .hostPort(let host, let port) = endpoint {
+                    // Reject non-WiFi paths (e.g. anpi0 Apple Nearby P2P)
+                    if !path.usesInterfaceType(.wifi) && !path.usesInterfaceType(.wiredEthernet) {
+                        Task { @MainActor in
+                            self.log("Rejecting local endpoint — not on WiFi/Ethernet")
+                        }
+                        connection.cancel()
+                        return
+                    }
+
                     let hostStr: String
 
                     switch host {
