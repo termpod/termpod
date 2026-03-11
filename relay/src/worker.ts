@@ -160,6 +160,30 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
       return handlePendingRequests(request, env, pendingRequestsMatch[1]);
     }
 
+    // Share token routes
+    const shareMatch = url.pathname.match(/^\/sessions\/([^/]+)\/share$/);
+
+    if (shareMatch) {
+      return handleSessionShare(request, env, shareMatch[1]);
+    }
+
+    // Web viewer: /share/:sessionId/:token (public)
+    const viewerMatch = url.pathname.match(/^\/share\/([^/]+)\/([^/]+)$/);
+
+    if (viewerMatch && request.method === 'GET') {
+      // Validate token before serving the page
+      const valid = await validateShareToken(env, viewerMatch[2], viewerMatch[1]);
+
+      if (!valid) {
+        return new Response(buildExpiredHtml(), {
+          status: 410,
+          headers: { 'Content-Type': 'text/html; charset=utf-8', ...SECURITY_HEADERS },
+        });
+      }
+
+      return serveWebViewer(url.origin, viewerMatch[1], viewerMatch[2]);
+    }
+
     // TURN credentials for WebRTC
     if (url.pathname === '/turn-credentials' && request.method === 'GET') {
       return handleTurnCredentials(request, env);
@@ -702,6 +726,89 @@ async function handleDeviceWebSocket(request: Request, env: Env, deviceId: strin
 
 // --- WebSocket handler ---
 
+// --- Share handlers ---
+
+async function handleSessionShare(request: Request, env: Env, sessionId: string): Promise<Response> {
+  const userIdOrError = await requireAuth(request, env);
+
+  if (userIdOrError instanceof Response) {
+    return userIdOrError;
+  }
+
+  const stub = getUserDO(env, userIdOrError);
+
+  if (request.method === 'POST') {
+    const res = await stub.fetch(new Request(`http://internal/sessions/${sessionId}/share`, { method: 'POST' }));
+    const body = await res.json() as Record<string, unknown>;
+
+    if (!res.ok) {
+      return corsJson(body, { status: res.status });
+    }
+
+    // Build the share URL: /share/:sessionId/:token
+    const shareUrl = `${new URL(request.url).origin}/share/${sessionId}/${body.token}`;
+
+    return corsJson({ ...body, shareUrl }, { status: 201 });
+  }
+
+  if (request.method === 'DELETE') {
+    const res = await stub.fetch(new Request(`http://internal/sessions/${sessionId}/share`, { method: 'DELETE' }));
+    const body = await res.json();
+
+    return corsJson(body);
+  }
+
+  return corsJson({ error: 'Method not allowed' }, { status: 405 });
+}
+
+async function validateShareToken(env: Env, token: string, sessionId: string): Promise<boolean> {
+  // Look up the session owner from the TerminalSession DO, then validate
+  // the share token against that user's DO.
+  const sessionDOId = env.TERMINAL_SESSION.idFromName(sessionId);
+  const sessionStub = env.TERMINAL_SESSION.get(sessionDOId);
+
+  const ownerRes = await sessionStub.fetch(new Request('http://internal/owner'));
+
+  if (!ownerRes.ok) {
+    return false;
+  }
+
+  const { owner } = await ownerRes.json() as { owner: string | null };
+
+  if (!owner) {
+    return false;
+  }
+
+  const userStub = getUserDO(env, owner);
+  const validateRes = await userStub.fetch(new Request('http://internal/validate-share-token', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  }));
+
+  if (!validateRes.ok) {
+    return false;
+  }
+
+  const result = await validateRes.json() as { valid: boolean; sessionId?: string };
+
+  return result.valid && result.sessionId === sessionId;
+}
+
+function serveWebViewer(origin: string, sessionId: string, shareToken: string): Response {
+  const wsUrl = origin.replace(/^http/, 'ws');
+  const html = buildViewerHtml(wsUrl, sessionId, shareToken);
+
+  return new Response(html, {
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      ...SECURITY_HEADERS,
+      'X-Frame-Options': 'SAMEORIGIN',
+    },
+  });
+}
+
+// --- WebSocket handlers ---
+
 async function handleWebSocket(request: Request, env: Env, sessionId: string): Promise<Response> {
   const upgradeHeader = request.headers.get('Upgrade');
 
@@ -711,20 +818,34 @@ async function handleWebSocket(request: Request, env: Env, sessionId: string): P
 
   const headers = new Headers(request.headers);
 
-  // Support both legacy (URL token) and new (first-message) auth flows.
-  // Legacy: token in URL query param → validate here, pass userId to DO.
-  // New: no URL token → DO handles first-message auth.
   const url = new URL(request.url);
-  const urlToken = url.searchParams.get('token');
+  const shareToken = url.searchParams.get('share_token');
 
-  if (urlToken) {
-    const payload = await verifyJWT(urlToken, env.JWT_SECRET);
+  if (shareToken) {
+    // Share token auth — validate via all User DOs (broadcast check)
+    const valid = await validateShareToken(env, shareToken, sessionId);
 
-    if (!payload || payload.type !== 'access') {
-      return corsJson({ error: 'Invalid or expired token' }, { status: 401 });
+    if (!valid) {
+      return corsJson({ error: 'Invalid or expired share token' }, { status: 401 });
     }
 
-    headers.set('X-User-Id', payload.sub);
+    // Mark as readonly share viewer — bypass ownership check
+    headers.set('X-Share-Readonly', '1');
+  } else {
+    // Support both legacy (URL token) and new (first-message) auth flows.
+    // Legacy: token in URL query param → validate here, pass userId to DO.
+    // New: no URL token → DO handles first-message auth.
+    const urlToken = url.searchParams.get('token');
+
+    if (urlToken) {
+      const payload = await verifyJWT(urlToken, env.JWT_SECRET);
+
+      if (!payload || payload.type !== 'access') {
+        return corsJson({ error: 'Invalid or expired token' }, { status: 401 });
+      }
+
+      headers.set('X-User-Id', payload.sub);
+    }
   }
 
   // Always pass JWT secret so DO can handle first-message auth for new clients
@@ -734,4 +855,163 @@ async function handleWebSocket(request: Request, env: Env, sessionId: string): P
   const stub = env.TERMINAL_SESSION.get(id);
 
   return stub.fetch(new Request('http://internal/ws', { headers }));
+}
+
+// --- Web Viewer ---
+
+function buildViewerHtml(wsUrl: string, sessionId: string, shareToken: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TermPod — Shared Session</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; background: #1a1b26; color: #c0caf5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    #app { display: flex; flex-direction: column; height: 100%; }
+    #header { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
+    #header h1 { font-size: 13px; font-weight: 600; opacity: 0.7; }
+    #status { font-size: 11px; padding: 3px 8px; border-radius: 10px; background: rgba(255,255,255,0.06); }
+    #status.connected { color: #9ece6a; }
+    #status.disconnected { color: #f7768e; }
+    #status.connecting { color: #e0af68; }
+    #terminal-container { flex: 1; padding: 8px; overflow: hidden; }
+    #readonly-banner { text-align: center; padding: 4px; font-size: 11px; color: rgba(255,255,255,0.35); background: rgba(255,255,255,0.02); border-top: 1px solid rgba(255,255,255,0.04); flex-shrink: 0; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="header">
+      <h1>TermPod</h1>
+      <span id="status" class="connecting">Connecting...</span>
+    </div>
+    <div id="terminal-container"></div>
+    <div id="readonly-banner">Read-only session viewer</div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+  <script>
+    (function() {
+      var container = document.getElementById('terminal-container');
+      var statusEl = document.getElementById('status');
+
+      var term = new Terminal({
+        cursorBlink: false,
+        cursorStyle: 'block',
+        disableStdin: true,
+        fontSize: 14,
+        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+        theme: {
+          background: '#1a1b26',
+          foreground: '#c0caf5',
+          cursor: '#c0caf5',
+          selectionBackground: '#33467c',
+          black: '#15161e', red: '#f7768e', green: '#9ece6a', yellow: '#e0af68',
+          blue: '#7aa2f7', magenta: '#bb9af7', cyan: '#7dcfff', white: '#a9b1d6',
+          brightBlack: '#414868', brightRed: '#f7768e', brightGreen: '#9ece6a',
+          brightYellow: '#e0af68', brightBlue: '#7aa2f7', brightMagenta: '#bb9af7',
+          brightCyan: '#7dcfff', brightWhite: '#c0caf5',
+        },
+      });
+
+      var fitAddon = new FitAddon.FitAddon();
+      term.loadAddon(fitAddon);
+      term.open(container);
+      fitAddon.fit();
+
+      window.addEventListener('resize', function() { fitAddon.fit(); });
+      new ResizeObserver(function() { fitAddon.fit(); }).observe(container);
+
+      var ws = null;
+      var reconnectTimer = null;
+
+      function setStatus(text, cls) {
+        statusEl.textContent = text;
+        statusEl.className = cls;
+      }
+
+      function connect() {
+        var url = ${JSON.stringify(wsUrl)} + '/sessions/' + ${JSON.stringify(sessionId)} + '/ws?share_token=' + ${JSON.stringify(shareToken)};
+        ws = new WebSocket(url);
+        ws.binaryType = 'arraybuffer';
+
+        ws.onopen = function() {
+          setStatus('Connected', 'connected');
+          ws.send(JSON.stringify({
+            type: 'hello',
+            clientId: 'share-' + Math.random().toString(36).slice(2, 10),
+            role: 'viewer',
+            device: 'web',
+          }));
+        };
+
+        ws.onmessage = function(event) {
+          if (event.data instanceof ArrayBuffer) {
+            var data = new Uint8Array(event.data);
+            if (data[0] === 0x00) {
+              term.write(data.slice(1));
+            }
+          } else {
+            try {
+              var msg = JSON.parse(event.data);
+              if (msg.type === 'pty_resize') {
+                term.resize(msg.cols, msg.rows);
+              } else if (msg.type === 'session_closed') {
+                setStatus('Session ended', 'disconnected');
+                term.write('\\r\\n  Session has ended.\\r\\n');
+              }
+            } catch(e) {}
+          }
+        };
+
+        ws.onclose = function() {
+          setStatus('Disconnected', 'disconnected');
+          scheduleReconnect();
+        };
+
+        ws.onerror = function() {
+          setStatus('Connection error', 'disconnected');
+        };
+      }
+
+      function scheduleReconnect() {
+        if (reconnectTimer) return;
+        reconnectTimer = setTimeout(function() {
+          reconnectTimer = null;
+          setStatus('Reconnecting...', 'connecting');
+          connect();
+        }, 3000);
+      }
+
+      connect();
+    })();
+  </script>
+</body>
+</html>`;
+}
+
+function buildExpiredHtml(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TermPod — Link Expired</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; background: #1a1b26; color: #c0caf5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; }
+    .msg { text-align: center; }
+    h1 { font-size: 20px; margin-bottom: 8px; }
+    p { font-size: 14px; color: rgba(192, 202, 245, 0.5); }
+  </style>
+</head>
+<body>
+  <div class="msg">
+    <h1>Link Expired</h1>
+    <p>This shared session link is no longer valid.</p>
+  </div>
+</body>
+</html>`;
 }

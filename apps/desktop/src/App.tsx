@@ -22,6 +22,7 @@ import { useDeviceWS } from './hooks/useDeviceWS';
 import { getTermifyPayload } from './termify';
 import { useWorkflows } from './hooks/useWorkflows';
 import { WorkflowsPanel } from './components/WorkflowsPanel';
+import { authFetch } from './hooks/useAuth';
 import { enable as enableAutostart, disable as disableAutostart } from '@tauri-apps/plugin-autostart';
 
 export function App() {
@@ -532,6 +533,26 @@ export function App() {
           activeSession.pty.write(getTermifyPayload());
         }
         break;
+
+      case 'share_session': {
+        if (!activeId) break;
+        const relayInfo = relayMapRef.current.get(activeId);
+        const relaySessionId = relayInfo?.sessionId;
+
+        if (!relaySessionId) {
+          break;
+        }
+
+        authFetch(`/sessions/${relaySessionId}/share`, { method: 'POST' })
+          .then((res) => res.json())
+          .then((body: Record<string, unknown>) => {
+            if (body.shareUrl) {
+              navigator.clipboard.writeText(body.shareUrl as string);
+            }
+          })
+          .catch(() => {});
+        break;
+      }
 
       case 'clear':
         if (activeSession) {

@@ -108,6 +108,13 @@ export class User extends DurableObject {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         attempted_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS share_tokens (
+        token TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+      );
     `);
 
     // Migrate: add process_name column if missing (table was created before this column existed)
@@ -208,6 +215,21 @@ export class User extends DurableObject {
 
     if (pendingMatch && request.method === 'DELETE') {
       return this.handleClearPendingRequests(pendingMatch[1]);
+    }
+
+    // Share token routes
+    const shareMatch = path.match(/^\/sessions\/([^/]+)\/share$/);
+
+    if (shareMatch && request.method === 'POST') {
+      return this.handleCreateShareToken(shareMatch[1]);
+    }
+
+    if (shareMatch && request.method === 'DELETE') {
+      return this.handleRevokeShareToken(shareMatch[1]);
+    }
+
+    if (path === '/validate-share-token' && request.method === 'POST') {
+      return this.handleValidateShareToken(request);
     }
 
     // Access check
@@ -612,6 +634,74 @@ export class User extends DurableObject {
       .toArray();
 
     return Response.json({ allowed: rows.length > 0 });
+  }
+
+  // --- Share tokens ---
+
+  private handleCreateShareToken(sessionId: string): Response {
+    // Verify session belongs to this user
+    const rows = this.ctx.storage.sql
+      .exec('SELECT id FROM sessions WHERE id = ?', sessionId)
+      .toArray();
+
+    if (rows.length === 0) {
+      return Response.json({ error: 'Session not found' }, { status: 404 });
+    }
+
+    // Revoke any existing token for this session
+    this.ctx.storage.sql.exec('DELETE FROM share_tokens WHERE session_id = ?', sessionId);
+
+    // Generate random token
+    const bytes = new Uint8Array(24);
+    crypto.getRandomValues(bytes);
+    const token = Array.from(bytes, (b) => b.toString(36).padStart(2, '0')).join('').slice(0, 32);
+
+    const now = new Date();
+    const expires = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+
+    this.ctx.storage.sql.exec(
+      'INSERT INTO share_tokens (token, session_id, created_at, expires_at) VALUES (?, ?, ?, ?)',
+      token,
+      sessionId,
+      now.toISOString(),
+      expires.toISOString(),
+    );
+
+    return Response.json({ token, sessionId, expiresAt: expires.toISOString() }, { status: 201 });
+  }
+
+  private handleRevokeShareToken(sessionId: string): Response {
+    this.ctx.storage.sql.exec('DELETE FROM share_tokens WHERE session_id = ?', sessionId);
+
+    return Response.json({ ok: true });
+  }
+
+  private async handleValidateShareToken(request: Request): Promise<Response> {
+    const { token } = (await request.json()) as { token: string };
+
+    if (!token) {
+      return Response.json({ valid: false }, { status: 400 });
+    }
+
+    const rows = this.ctx.storage.sql
+      .exec('SELECT session_id, expires_at FROM share_tokens WHERE token = ?', token)
+      .toArray();
+
+    if (rows.length === 0) {
+      return Response.json({ valid: false }, { status: 404 });
+    }
+
+    const row = rows[0];
+    const expiresAt = new Date(row.expires_at as string);
+
+    if (expiresAt < new Date()) {
+      // Clean up expired token
+      this.ctx.storage.sql.exec('DELETE FROM share_tokens WHERE token = ?', token);
+
+      return Response.json({ valid: false, reason: 'expired' }, { status: 410 });
+    }
+
+    return Response.json({ valid: true, sessionId: row.session_id });
   }
 
   // --- Device WebSocket ---

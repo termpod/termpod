@@ -19,6 +19,7 @@ interface ClientTag {
   device: string;
   userId: string;
   connectedAt: string;
+  readonly?: boolean;
 }
 
 function setTag(ws: WebSocket, tag: ClientTag): void {
@@ -64,9 +65,16 @@ export class TerminalSession extends DurableObject {
 
       // Legacy clients pass X-User-Id (validated by Worker from URL token).
       // New clients send auth as their first WebSocket message.
+      const isShareReadonly = request.headers.get('X-Share-Readonly') === '1';
       const userId = request.headers.get('X-User-Id');
 
-      if (userId) {
+      if (isShareReadonly) {
+        // Share token viewer — skip ownership, assign readonly directly
+        (server as unknown as { serializeAttachment: (v: unknown) => void }).serializeAttachment({
+          shareReadonly: true,
+          pendingHello: true,
+        });
+      } else if (userId) {
         // Legacy flow: ownership check, then wait for hello
         const owner = await this.getOwner();
 
@@ -90,6 +98,12 @@ export class TerminalSession extends DurableObject {
       this.ctx.acceptWebSocket(server);
 
       return new Response(null, { status: 101, webSocket: client });
+    }
+
+    if (url.pathname === '/owner' && request.method === 'GET') {
+      const owner = await this.getOwner();
+
+      return Response.json({ owner });
     }
 
     if (url.pathname === '/close' && request.method === 'POST') {
@@ -153,11 +167,11 @@ export class TerminalSession extends DurableObject {
 
       if (senderRole === 'desktop') {
         this.broadcastToRole(ws, 'viewer', message);
-      } else if (senderRole === 'viewer') {
-        // Viewer input -> send to desktop only
+      } else if (senderRole === 'viewer' && !senderTag?.readonly) {
+        // Viewer input -> send to desktop only (readonly viewers blocked)
         this.broadcastToRole(ws, 'desktop', message);
       }
-      // Unknown roles are silently dropped
+      // Unknown roles and readonly viewers are silently dropped
     } else if (channel === Channel.TERMINAL_RESIZE) {
       const senderTag = getTag(ws);
 
@@ -354,10 +368,12 @@ export class TerminalSession extends DurableObject {
       return t?.role === 'desktop';
     });
 
-    const assignedRole: ClientRole = (!existingDesktop && msg.role === 'desktop') ? 'desktop' : 'viewer';
+    // Retrieve attachment stored during WS accept
+    const pending = (ws as unknown as { deserializeAttachment: () => { userId?: string; shareReadonly?: boolean } }).deserializeAttachment();
 
-    // Retrieve userId that was stored during WS accept
-    const pending = (ws as unknown as { deserializeAttachment: () => { userId?: string } }).deserializeAttachment();
+    const assignedRole: ClientRole = pending?.shareReadonly
+      ? 'viewer'
+      : (!existingDesktop && msg.role === 'desktop') ? 'desktop' : 'viewer';
 
     const tag: ClientTag = {
       clientId: msg.clientId,
@@ -365,6 +381,7 @@ export class TerminalSession extends DurableObject {
       device: msg.device,
       userId: pending?.userId ?? '',
       connectedAt: new Date().toISOString(),
+      readonly: pending?.shareReadonly ?? false,
     };
 
     setTag(ws, tag);

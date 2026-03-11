@@ -221,6 +221,10 @@ pub fn run() {
                 .accelerator("CmdOrCtrl+Shift+I")
                 .build(app)?;
 
+            let share_session = MenuItemBuilder::with_id("share_session", "Share Session\u{2026}")
+                .accelerator("CmdOrCtrl+Shift+S")
+                .build(app)?;
+
             let find = MenuItemBuilder::with_id("find", "Find...")
                 .accelerator("CmdOrCtrl+F")
                 .build(app)?;
@@ -344,6 +348,7 @@ pub fn run() {
                 .separator()
                 .item(&workflows)
                 .item(&termify)
+                .item(&share_session)
                 .separator()
                 .item(&next_tab)
                 .item(&prev_tab)
