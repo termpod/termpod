@@ -103,12 +103,14 @@ For iOS, run `pnpm ios:config` to generate `Config.xcconfig` from your `.env`.
 
 ## Security
 
-TermPod uses E2E encryption on the relay transport so the relay server cannot read terminal data. Key things to know:
+TermPod uses E2E encryption on all transports. The relay is zero-knowledge — it cannot read terminal data or session metadata. Key things to know:
 
-- **Relay changes**: Never inspect or modify `0xE0` binary frame contents — the relay must forward them blindly. Only plaintext `0x00` frames should be appended to scrollback.
+- **Relay is zero-knowledge**: The relay only forwards `0xE0` (authenticated E2E) and `0xE1` (share E2E) encrypted frames blindly. Plaintext `0x00` terminal data is rejected. No plaintext scrollback is stored. Session metadata (name, cwd, processName) is never stored — relay only persists non-sensitive fields (IDs, PTY dimensions).
+- **Never send sensitive data in plaintext to the relay**: Terminal data, session names, cwds, and process names must always go through E2E encrypted channels (`encrypted_control` on Device WS, `0xE0` frames on Session WS).
 - **Crypto implementations**: Desktop uses Web Crypto API (`packages/protocol/src/crypto.ts`), iOS uses CryptoKit (`apps/ios/TermPod/Services/CryptoService.swift`). Changes to the encryption protocol must be updated in both.
 - **Key exchange**: ECDH P-256 via `key_exchange`/`key_exchange_ack` control messages, AES-256-GCM with HKDF-SHA256 derived keys. See [PROTOCOL.md](./PROTOCOL.md) for the full spec.
-- **Local auth**: Bonjour connections require an auth secret (shared via relay Device WS). The desktop Rust server (`local_server.rs`) validates it before accepting any messages.
+- **Local transport**: Bonjour connections require an auth secret (shared E2E encrypted via relay Device WS) + same ECDH/AES-256-GCM encryption as relay. Desktop initiates key exchange on viewer join.
+- **WebRTC**: Inherently E2E encrypted via DTLS on DataChannel.
 
 ## Pull Requests
 

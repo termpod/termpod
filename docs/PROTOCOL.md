@@ -29,13 +29,17 @@ Client                          Relay (Worker → TerminalSession DO)
   ├─── TEXT: { type: "hello", ... } ──────►│
   │                                        │
   │◄── TEXT: { type: "session_info", ... } ┤
-  │◄── BINARY: [0x00] + scrollback data ──┤
   │◄── TEXT: { type: "ready" } ───────────┤
   │                                        │
-  │    ═══ real-time streaming begins ═══  │
+  │    ═══ E2E key exchange ═══            │
   │                                        │
-  │◄── BINARY: [0x00] + terminal output ──┤  (from desktop PTY)
-  ├─── BINARY: [0x00] + terminal input ──►│  (from mobile keyboard)
+  │◄── TEXT: { type: "key_exchange" } ────┤  (desktop's public key)
+  ├─── TEXT: { type: "key_exchange_ack" } ►│  (viewer's public key)
+  │                                        │
+  │    ═══ encrypted streaming begins ═══  │
+  │                                        │
+  │◄── BINARY: [0xE0] + encrypted data ──┤  (from desktop PTY, E2E encrypted)
+  ├─── BINARY: [0xE0] + encrypted input ─►│  (from mobile keyboard, E2E encrypted)
   │                                        │
 ```
 
@@ -72,20 +76,21 @@ Used on Session WS (`/sessions/:id/ws`). All frames start with a 1-byte channel 
 
 | Channel | Direction | Description |
 |---------|-----------|-------------|
-| `0x00` | bidirectional | Terminal data (stdout from desktop, stdin from viewers) |
-| `0x01` | desktop → relay | Terminal resize: `[0x01][cols:u16be][rows:u16be]` |
-| `0x02` | relay → viewer | Scrollback chunk: `[0x02][offset:u32be][data...]` |
+| `0x00` | _(rejected)_ | Plaintext terminal data — no longer accepted on relay; all data must be E2E encrypted |
+| `0x01` | desktop → relay | Terminal resize: `[0x01][cols:u16be][rows:u16be]` (non-sensitive metadata) |
+| `0x02` | desktop → viewer | Encrypted scrollback chunk (sent via `encrypted_scrollback_chunk` JSON, not binary) |
 | `0xE0` | bidirectional | E2E encrypted data: `[0xE0][nonce:12][ciphertext+tag]` |
+| `0xE1` | desktop → share viewers | Share-encrypted data: `[0xE1][nonce:12][ciphertext+tag]` |
 
-#### Terminal Data (0x00)
+#### Terminal Data (0x00) — Deprecated on Relay
 
 ```
 [0x00][raw terminal bytes...]
 ```
 
-- From desktop: PTY stdout (ANSI escape codes, UTF-8 text, binary data)
-- From viewer: keyboard input to forward to PTY stdin
-- No length prefix — WebSocket framing handles message boundaries
+- **No longer accepted on the relay** — all terminal data must be E2E encrypted (`0xE0`)
+- Still used on local (Bonjour) transport before E2E key exchange completes (rejected once E2E is active)
+- Desktop and iOS never send plaintext `0x00` frames over relay; they drop frames until E2E is established
 - Maximum frame size: 64KB (split larger output into multiple frames)
 
 #### Terminal Resize (0x01)
@@ -104,10 +109,9 @@ Used on Session WS (`/sessions/:id/ws`). All frames start with a 1-byte channel 
 [0x02][offset:u32be][raw terminal bytes...]
 ```
 
-- Sent by relay to a newly connected viewer
-- `offset` is the byte position in the session's total output history
-- May be sent in multiple chunks if scrollback is large
-- After all scrollback is sent, relay sends a `ready` control message
+- Used inside E2E encrypted scrollback delivery (desktop → viewer after key exchange)
+- Desktop buffers scrollback locally and sends it encrypted via `encrypted_scrollback_chunk` JSON messages
+- The relay does not store or serve scrollback — it is a pure forwarder of encrypted frames
 
 #### E2E Encrypted Data (0xE0)
 
@@ -239,8 +243,8 @@ Sent after `hello` is received. Provides session metadata.
 {
   "type": "session_info",
   "sessionId": "session-abc123",
-  "name": "termpod/apps/desktop",
-  "cwd": "/Users/dev/code/termpod/apps/desktop",
+  "name": "",
+  "cwd": "",
   "ptySize": { "cols": 120, "rows": 40 },
   "createdAt": "2026-03-05T10:00:00Z",
   "clients": [
@@ -249,6 +253,8 @@ Sent after `hello` is received. Provides session metadata.
   ]
 }
 ```
+
+Note: `name` and `cwd` are always empty strings on the relay — real session metadata is delivered E2E encrypted via `encrypted_control` on the Device WS.
 
 ##### `ready`
 
@@ -412,9 +418,6 @@ These are forwarded between desktop and mobile clients by the User DO.
   "sessions": [
     {
       "id": "uuid",
-      "name": "my-project",
-      "cwd": "/path",
-      "processName": "claude",
       "ptyCols": 120,
       "ptyRows": 40,
       "createdAt": "ISO-8601"
@@ -423,9 +426,11 @@ These are forwarded between desktop and mobile clients by the User DO.
 }
 ```
 
+Note: The relay only returns non-sensitive fields (ID, dimensions, timestamps). Session metadata (name, cwd, processName) is delivered E2E encrypted via `encrypted_control`.
+
 ##### `sessions_updated`
 
-Broadcast by desktop when the session list changes (same structure as `sessions_list`). The User DO also persists this to SQLite for offline device queries.
+Sent by desktop when the session list changes. Contains only non-sensitive fields (IDs, dimensions). The User DO persists these to SQLite. Real session metadata is sent separately via `encrypted_control`.
 
 ##### `create_session_request`
 
@@ -437,6 +442,8 @@ Broadcast by desktop when the session list changes (same structure as `sessions_
 ```
 
 ##### `session_created`
+
+Sent E2E encrypted via `encrypted_control` — the relay forwards the opaque ciphertext without reading it.
 
 ```json
 {
@@ -524,7 +531,7 @@ The User DO forwards these messages between clients without inspecting them.
 
 ##### `local_auth_secret`
 
-Sent by desktop to mobile viewers via Device WS. Contains the auth secret required to connect to the desktop's local Bonjour WebSocket server.
+Sent by desktop to mobile viewers via Device WS, wrapped in `encrypted_control` (E2E encrypted — the relay cannot read it). Contains the auth secret required to connect to the desktop's local Bonjour WebSocket server.
 
 ```json
 {
@@ -679,7 +686,7 @@ Delete a session.
 
 #### `PATCH /sessions/:sessionId`
 
-Update session metadata (name, cwd, processName).
+No-op — session metadata is now delivered E2E encrypted via Device WS. This endpoint exists for backward compatibility but does not update any fields.
 
 ### WebSocket Endpoints (Authenticated)
 

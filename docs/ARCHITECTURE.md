@@ -78,12 +78,14 @@ Cloudflare Edge
     │   ├── Device WS connections (desktop + N mobile viewers)
     │   ├── Forwards control messages between desktop ↔ mobile
     │   ├── WebRTC signaling relay (offer/answer/ICE)
-    │   ├── Persists device list + session metadata in SQLite
+    │   ├── Persists device list + non-sensitive session fields (ID, dimensions) in SQLite
+    │   ├── Session metadata (name, cwd, processName) delivered E2E encrypted only
     │   └── Hibernatable WebSockets (cost efficient)
-    └── TerminalSession (one per session) — binary data relay
+    └── TerminalSession (one per session) — zero-knowledge binary relay
         ├── Session WS connections (desktop + N viewers)
-        ├── Scrollback buffer (circular, persisted in SQLite)
-        ├── Session metadata (name, cwd, pty_size)
+        ├── Forwards 0xE0 (E2E encrypted) and 0xE1 (share encrypted) frames blindly
+        ├── No plaintext terminal data stored or forwarded
+        ├── PTY dimensions tracked from plaintext 0x01 resize (non-sensitive)
         └── Hibernation (sleeps when idle, wakes on message)
 ```
 
@@ -194,7 +196,7 @@ Terminal output is raw bytes — ANSI escape codes, UTF-8 text, control characte
 
 Each transport has its own security model:
 
-- **Relay**: E2E encrypted. Desktop and viewer perform an ECDH P-256 key exchange (via `key_exchange`/`key_exchange_ack` control messages), derive a shared AES-256-GCM key using HKDF-SHA256 (with session ID as info), and encrypt all terminal data as `[0xE0][nonce:12][ciphertext+tag]` frames. The relay forwards these frames blindly — it cannot read terminal data. The relay stores no terminal data (no scrollback). Desktop uses Web Crypto (`packages/protocol/src/crypto.ts`), iOS uses CryptoKit (`CryptoService.swift`). Both peers derive a 6-digit verification code from the shared secret for MITM detection.
+- **Relay**: E2E encrypted, zero-knowledge. Desktop and viewer perform an ECDH P-256 key exchange (via `key_exchange`/`key_exchange_ack` control messages), derive a shared AES-256-GCM key using HKDF-SHA256 (with session ID as info), and encrypt all terminal data as `[0xE0][nonce:12][ciphertext+tag]` frames. The relay forwards these frames blindly — it cannot read terminal data or session metadata. Desktop never sends plaintext terminal data; frames are dropped until E2E is established. Desktop buffers scrollback locally and delivers it encrypted to viewers after key exchange. Session metadata (name, cwd, processName) is sent via `encrypted_control` on the Device WS — the relay only stores non-sensitive fields (ID, dimensions). Desktop uses Web Crypto (`packages/protocol/src/crypto.ts`), iOS uses CryptoKit (`CryptoService.swift`). Both peers derive a 6-digit verification code from the shared secret for MITM detection.
 - **Local (Bonjour)**: Authenticated via shared secret + E2E encrypted. Desktop generates a random auth secret on startup and shares it with iOS through the authenticated relay Device WS. After auth, desktop initiates ECDH key exchange, and all subsequent data is encrypted with AES-256-GCM (same protocol as relay). The mDNS service name is randomized to avoid leaking the hostname.
 - **WebRTC**: E2E encrypted by design — DTLS secures the DataChannel at the transport layer.
 
