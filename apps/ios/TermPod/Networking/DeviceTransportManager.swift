@@ -449,7 +449,10 @@ final class DeviceTransportManager: ObservableObject {
             // Encrypt: inner frame [0x00][data], then wrap as [0xE0][sid_len][sid][encrypted]
             var plainFrame = Data([0x00])
             plainFrame.append(data)
-            guard let encrypted = try? localCrypto.encrypt(plainFrame) else { return }
+            guard let encrypted = try? localCrypto.encrypt(plainFrame) else {
+                print("[DeviceTransport] E2E encryption failed — dropping frame")
+                return
+            }
             var frame = Data(capacity: 2 + sidBytes.count + encrypted.count)
             frame.append(0xE0)
             frame.append(UInt8(sidBytes.count))
@@ -479,7 +482,10 @@ final class DeviceTransportManager: ObservableObject {
             plainFrame.append(UInt8(cols & 0xFF))
             plainFrame.append(UInt8((rows >> 8) & 0xFF))
             plainFrame.append(UInt8(rows & 0xFF))
-            guard let encrypted = try? localCrypto.encrypt(plainFrame) else { return }
+            guard let encrypted = try? localCrypto.encrypt(plainFrame) else {
+                print("[DeviceTransport] E2E encryption failed — dropping resize frame")
+                return
+            }
             var frame = Data(capacity: 2 + sidBytes.count + encrypted.count)
             frame.append(0xE0)
             frame.append(UInt8(sidBytes.count))
@@ -855,6 +861,11 @@ final class DeviceTransportManager: ObservableObject {
 
         switch channel {
         case 0x00:
+            // Reject plaintext frames when E2E is active (prevent downgrade attack)
+            if localCrypto.isReady {
+                print("[DeviceTransport] Rejecting plaintext frame — E2E encryption is active")
+                break
+            }
             let payload = data[payloadStart...]
             sessionDataHandlers[sessionId]?(Data(payload))
 

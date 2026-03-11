@@ -121,6 +121,13 @@ class CryptoService {
         let ciphertext = ciphertextAndTag[ciphertextAndTag.startIndex..<tagStart]
         let tag = ciphertextAndTag[tagStart...]
 
+        // Validate nonce matches expected counter (replay protection)
+        let receivedCounter = nonceToCounter(nonce)
+
+        if receivedCounter < recvCounter {
+            throw CryptoError.replayedFrame
+        }
+
         let aad = Data(sessionId.utf8)
         let sealedBox = try AES.GCM.SealedBox(
             nonce: AES.GCM.Nonce(data: nonce),
@@ -129,7 +136,7 @@ class CryptoService {
         )
 
         let plaintext = try AES.GCM.open(sealedBox, using: key, authenticating: aad)
-        recvCounter += 1
+        recvCounter = receivedCounter + 1
 
         return plaintext
     }
@@ -151,6 +158,13 @@ class CryptoService {
     }
 
     // MARK: - Helpers
+
+    private func nonceToCounter(_ nonce: Data) -> UInt64 {
+        let high = UInt64(nonce[4]) << 24 | UInt64(nonce[5]) << 16 | UInt64(nonce[6]) << 8 | UInt64(nonce[7])
+        let low = UInt64(nonce[8]) << 24 | UInt64(nonce[9]) << 16 | UInt64(nonce[10]) << 8 | UInt64(nonce[11])
+
+        return high << 32 | low
+    }
 
     private func counterToNonce(_ counter: UInt64) -> Data {
         var nonce = Data(count: 12)
@@ -192,6 +206,7 @@ class CryptoService {
         case invalidPeerKey
         case noSessionKey
         case frameTooShort
+        case replayedFrame
 
         var errorDescription: String? {
             switch self {
@@ -199,6 +214,7 @@ class CryptoService {
             case .invalidPeerKey: return "Invalid peer public key"
             case .noSessionKey: return "No session key derived"
             case .frameTooShort: return "Encrypted frame too short"
+            case .replayedFrame: return "Replayed or out-of-order frame"
             }
         }
     }

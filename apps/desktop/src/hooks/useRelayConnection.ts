@@ -134,6 +134,12 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
           return;
         }
 
+        // Reject plaintext frames when E2E is active (prevent downgrade attack)
+        if (e2eRef.current) {
+          console.warn('[Relay] Rejecting plaintext frame — E2E encryption is active');
+          return;
+        }
+
         const frame = decodeBinaryFrame(raw);
 
         if (frame.channel === Channel.TERMINAL_DATA) {
@@ -353,6 +359,8 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
             frame.set(encrypted, 1);
             ws.send(frame);
           }
+        }).catch((err) => {
+          console.error('[Relay] E2E encryption failed — dropping frame:', err);
         });
       } else {
         ws.send(plainFrame);
@@ -374,6 +382,8 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
             frame.set(encrypted, 1);
             ws.send(frame);
           }
+        }).catch((err) => {
+          console.error('[Relay] E2E encryption failed — dropping frame:', err);
         });
       } else {
         ws.send(plainFrame);

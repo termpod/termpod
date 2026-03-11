@@ -201,7 +201,7 @@ Sent by desktop to initiate E2E encryption with a viewer.
 ```json
 {
   "type": "key_exchange",
-  "publicKey": "base64-encoded ECDH P-256 public key (raw format)",
+  "publicKey": { "kty": "EC", "crv": "P-256", "x": "base64url", "y": "base64url" },
   "toClientId": "viewer-uuid"
 }
 ```
@@ -213,7 +213,7 @@ Sent by viewer in response to `key_exchange`. After both sides have exchanged pu
 ```json
 {
   "type": "key_exchange_ack",
-  "publicKey": "base64-encoded ECDH P-256 public key (raw format)",
+  "publicKey": { "kty": "EC", "crv": "P-256", "x": "base64url", "y": "base64url" },
   "toClientId": "desktop-uuid"
 }
 ```
@@ -501,7 +501,7 @@ Sent by desktop to a viewer via Device WS to initiate E2E encryption for relay t
 ```json
 {
   "type": "key_exchange",
-  "publicKey": "base64-encoded ECDH P-256 public key (raw format)",
+  "publicKey": { "kty": "EC", "crv": "P-256", "x": "base64url", "y": "base64url" },
   "toClientId": "viewer-uuid"
 }
 ```
@@ -513,7 +513,7 @@ Sent by viewer in response.
 ```json
 {
   "type": "key_exchange_ack",
-  "publicKey": "base64-encoded ECDH P-256 public key (raw format)",
+  "publicKey": { "kty": "EC", "crv": "P-256", "x": "base64url", "y": "base64url" },
   "toClientId": "desktop-uuid"
 }
 ```

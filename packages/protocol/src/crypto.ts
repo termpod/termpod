@@ -112,6 +112,14 @@ function counterToNonce(counter: number): Uint8Array {
   return nonce;
 }
 
+function nonceToCounter(nonce: Uint8Array): number {
+  const view = new DataView(nonce.buffer, nonce.byteOffset, nonce.byteLength);
+  const high = view.getUint32(4, false);
+  const low = view.getUint32(8, false);
+
+  return high * 0x100000000 + low;
+}
+
 export async function encryptFrame(
   session: E2ESession,
   plaintext: Uint8Array,
@@ -143,6 +151,14 @@ export async function decryptFrame(
 
   const nonce = encrypted.subarray(0, NONCE_SIZE);
   const ciphertext = encrypted.subarray(NONCE_SIZE);
+
+  // Validate nonce matches expected counter (replay protection)
+  const receivedCounter = nonceToCounter(nonce);
+
+  if (receivedCounter < session.recvCounter) {
+    throw new Error(`Replayed frame: received counter ${receivedCounter}, expected >= ${session.recvCounter}`);
+  }
+
   const aad = encoder.encode(session.sessionId);
 
   const plaintext = await subtle.decrypt(
@@ -151,7 +167,7 @@ export async function decryptFrame(
     ciphertext as Uint8Array<ArrayBuffer>,
   );
 
-  session.recvCounter++;
+  session.recvCounter = receivedCounter + 1;
 
   return new Uint8Array(plaintext);
 }

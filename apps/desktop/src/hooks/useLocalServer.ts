@@ -149,6 +149,12 @@ export function useLocalServer(options: UseLocalServerOptions) {
       const sid = optionsRef.current.sessionId;
 
       if (event.payload.sessionId === sid) {
+        // Reject plaintext frames when any local E2E session is active (prevent downgrade attack)
+        if (localE2ESessions.size > 0) {
+          console.warn('[LocalServer] Rejecting plaintext frame — E2E encryption is active');
+          return;
+        }
+
         const bytes = new Uint8Array(event.payload.data);
         optionsRef.current.onViewerInput?.(new TextDecoder().decode(bytes));
       }
@@ -253,6 +259,8 @@ export function useLocalServer(options: UseLocalServerOptions) {
             frame.set(sidBytes, 2);
             frame.set(encrypted, 2 + sidBytes.length);
             invoke('local_server_broadcast_raw', { sessionId, data: Array.from(frame) }).catch(() => {});
+          }).catch((err) => {
+            console.error('[LocalServer] E2E encryption failed — dropping frame:', err);
           });
         }
       } else {

@@ -105,8 +105,12 @@ final class RelayClient: ObservableObject, Transport {
         var frame = Data([0x00])
         frame.append(data)
 
-        // If E2E is ready, encrypt and wrap in 0xE0 channel
-        if crypto.isReady, let encrypted = try? crypto.encrypt(frame) {
+        // If E2E is ready, encrypt and wrap in 0xE0 channel; never fall back to plaintext
+        if crypto.isReady {
+            guard let encrypted = try? crypto.encrypt(frame) else {
+                print("[RelayClient] E2E encryption failed — dropping frame")
+                return
+            }
             var encFrame = Data([0xE0])
             encFrame.append(encrypted)
             webSocket?.send(.data(encFrame)) { _ in }
@@ -124,8 +128,12 @@ final class RelayClient: ObservableObject, Transport {
         frame[3] = UInt8((rows >> 8) & 0xFF)
         frame[4] = UInt8(rows & 0xFF)
 
-        // If E2E is ready, encrypt and wrap in 0xE0 channel
-        if crypto.isReady, let encrypted = try? crypto.encrypt(frame) {
+        // If E2E is ready, encrypt and wrap in 0xE0 channel; never fall back to plaintext
+        if crypto.isReady {
+            guard let encrypted = try? crypto.encrypt(frame) else {
+                print("[RelayClient] E2E encryption failed — dropping frame")
+                return
+            }
             var encFrame = Data([0xE0])
             encFrame.append(encrypted)
             webSocket?.send(.data(encFrame)) { _ in }
@@ -309,7 +317,11 @@ final class RelayClient: ObservableObject, Transport {
                 handleBinaryFrame(plaintext)
 
             case 0x00:
-                // Terminal data — strip channel byte
+                // Reject plaintext frames when E2E is active (prevent downgrade attack)
+                if crypto.isReady {
+                    print("[RelayClient] Rejecting plaintext frame — E2E encryption is active")
+                    break
+                }
                 onTerminalData?(Data(data.dropFirst()))
 
             case 0x02:
