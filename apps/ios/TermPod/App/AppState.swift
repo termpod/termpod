@@ -9,6 +9,15 @@ final class AppState: ObservableObject {
     /// Device-level transport manager — persists across all screens.
     let deviceTransport = DeviceTransportManager()
 
+    init() {
+        deviceTransport.onDesktopDisconnected = { [weak self] in
+            guard let self else { return }
+            for session in self.sessions {
+                session.connection.onSessionClosed?()
+            }
+        }
+    }
+
     func removeSession(_ session: Session) {
         session.connection.disconnect()
         sessions.removeAll { $0.id == session.id }

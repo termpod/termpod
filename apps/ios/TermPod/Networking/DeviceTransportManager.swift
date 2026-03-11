@@ -38,6 +38,9 @@ final class DeviceTransportManager: ObservableObject {
     @Published var webrtcMode: WebRTCConnectionMode?
     @Published var debugLog: [String] = []
 
+    /// Called when the desktop disconnects (all sessions are gone).
+    var onDesktopDisconnected: (() -> Void)?
+
     private func log(_ message: String) {
         let entry = "\(Self.logFormatter.string(from: Date())) \(message)"
         print("[DeviceTransport] \(message)")
@@ -1069,6 +1072,7 @@ final class DeviceTransportManager: ObservableObject {
             if let role = json["role"] as? String, role == "desktop" {
                 sessions = []
                 log("Desktop left — cleared sessions")
+                onDesktopDisconnected?()
             }
 
         case "webrtc_offer":

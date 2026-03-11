@@ -207,7 +207,10 @@ struct DeviceSessionsView: View {
     // MARK: - Device Transport Sync
 
     private func handleDeviceTransportSessionsUpdate(_ newSessions: [DeviceSessionInfo]) {
-        guard !newSessions.isEmpty else { return }
+        if newSessions.isEmpty {
+            sessions = []
+            return
+        }
 
         let updated = newSessions.map { info in
             DeviceService.DeviceSession(
