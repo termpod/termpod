@@ -547,7 +547,7 @@ export function App() {
           .then((res) => res.json())
           .then((body: Record<string, unknown>) => {
             if (body.shareUrl) {
-              navigator.clipboard.writeText(body.shareUrl as string);
+              invoke('copy_to_clipboard', { text: body.shareUrl as string });
             }
           })
           .catch(() => {});

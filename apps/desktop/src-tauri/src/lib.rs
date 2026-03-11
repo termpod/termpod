@@ -136,6 +136,20 @@ fn check_full_disk_access() -> bool {
 }
 
 #[tauri::command]
+fn copy_to_clipboard(text: String) {
+    use std::io::Write;
+    if let Ok(mut child) = std::process::Command::new("pbcopy")
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+    {
+        if let Some(stdin) = child.stdin.as_mut() {
+            let _ = stdin.write_all(text.as_bytes());
+        }
+        let _ = child.wait();
+    }
+}
+
+#[tauri::command]
 fn open_url(url: String) {
     if !url.starts_with("http://") && !url.starts_with("https://") {
         return;
@@ -156,6 +170,7 @@ pub fn run() {
             get_foreground_process,
             get_shell_children,
             check_full_disk_access,
+            copy_to_clipboard,
             open_url,
             pty::pty_spawn,
             pty::pty_write,
