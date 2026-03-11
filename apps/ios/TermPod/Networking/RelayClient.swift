@@ -35,6 +35,10 @@ final class RelayClient: ObservableObject, Transport {
     // Generation counter to ignore stale receive callbacks after reconnect
     private var wsGeneration: UInt64 = 0
 
+    // E2E scrollback state
+    private var awaitingScrollback = false
+    private var pendingLiveData: [Data] = []
+
     // Keepalive ping
     private var pingTask: Task<Void, Never>?
     private var pongVerifyTask: Task<Void, Never>?
@@ -94,6 +98,8 @@ final class RelayClient: ObservableObject, Transport {
         reconnectionManager.reset()
         stopPingLoop()
         crypto.reset()
+        awaitingScrollback = false
+        pendingLiveData.removeAll()
         webSocket?.cancel(with: .goingAway, reason: nil)
         webSocket = nil
     }
@@ -313,8 +319,13 @@ final class RelayClient: ObservableObject, Transport {
                     print("[RelayClient] E2E decryption failed")
                     break
                 }
-                // Process decrypted frame recursively
-                handleBinaryFrame(plaintext)
+
+                if awaitingScrollback {
+                    // Buffer live data until scrollback replay completes
+                    pendingLiveData.append(plaintext)
+                } else {
+                    handleBinaryFrame(plaintext)
+                }
 
             case 0x00:
                 // Reject plaintext frames when E2E is active (prevent downgrade attack)
@@ -384,6 +395,11 @@ final class RelayClient: ObservableObject, Transport {
                     ]
                     sendSignaling(ackMsg)
                     print("[RelayClient] E2E key exchange complete for session \(sid)")
+
+                    // Request encrypted scrollback from desktop
+                    awaitingScrollback = true
+                    state = .loadingScrollback
+                    sendSignaling(["type": "scrollback_request"])
                 } catch {
                     print("[RelayClient] E2E key exchange failed: \(error)")
                 }
@@ -398,11 +414,25 @@ final class RelayClient: ObservableObject, Transport {
             }
 
         case "ready":
-            state = .live
+            // If E2E key exchange is pending, stay in loadingScrollback until scrollback arrives.
+            // Key exchange happens quickly after ready — the desktop re-sends key_exchange on client_joined.
+            if !crypto.isReady && !awaitingScrollback {
+                // E2E not yet established — wait briefly for key exchange before going live
+                state = .loadingScrollback
+                Task {
+                    try? await Task.sleep(for: .seconds(3))
+                    guard self.state == .loadingScrollback, !self.awaitingScrollback else { return }
+                    // Key exchange didn't happen — go live without scrollback
+                    self.state = .live
+                    self.onConnected?()
+                }
+            } else if !awaitingScrollback {
+                state = .live
+                onConnected?()
+            }
             reconnectionManager.reset()
             startPingLoop()
             sendTransportPreference()
-            onConnected?()
 
         case "pty_resize":
             if let cols = json["cols"] as? Int, let rows = json["rows"] as? Int {
@@ -441,12 +471,47 @@ final class RelayClient: ObservableObject, Transport {
                 onSessionCreated?(requestId, sessionId, name, cwd, ptyCols, ptyRows)
             }
 
+        case "encrypted_scrollback_chunk":
+            if let payload = json["payload"] as? String,
+               crypto.isReady,
+               let encrypted = base64urlDecode(payload),
+               let plaintext = try? crypto.decrypt(encrypted) {
+                handleBinaryFrame(plaintext)
+            }
+
+        case "scrollback_complete":
+            awaitingScrollback = false
+            // Flush any live data that arrived during scrollback replay
+            for liveData in pendingLiveData {
+                handleBinaryFrame(liveData)
+            }
+            pendingLiveData.removeAll()
+            if state != .live {
+                state = .live
+                onConnected?()
+            }
+
         case "webrtc_offer", "webrtc_answer", "webrtc_ice":
             onSignaling?(json)
 
         default:
             break
         }
+    }
+
+    // MARK: - Reconnection
+
+    // MARK: - Base64URL
+
+    private func base64urlDecode(_ string: String) -> Data? {
+        var base64 = string
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        let remainder = base64.count % 4
+        if remainder > 0 {
+            base64.append(String(repeating: "=", count: 4 - remainder))
+        }
+        return Data(base64Encoded: base64)
     }
 
     // MARK: - Reconnection

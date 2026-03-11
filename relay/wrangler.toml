@@ -2,6 +2,10 @@ name = "termpod-relay"
 main = "src/worker.ts"
 compatibility_date = "2025-03-05"
 
+[observability]
+enabled = true
+head_sampling_rate = 0.1
+
 [durable_objects]
 bindings = [
   { name = "TERMINAL_SESSION", class_name = "TerminalSession" },

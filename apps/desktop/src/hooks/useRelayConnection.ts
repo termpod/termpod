@@ -52,6 +52,12 @@ function getRelayBase(): string {
   return custom || import.meta.env.VITE_RELAY_URL || RELAY_URL.production;
 }
 const PING_INTERVAL = 30_000;
+const SCROLLBACK_MAX = 512 * 1024;
+
+function base64urlEncode(data: Uint8Array): string {
+  const binary = Array.from(data, (b) => String.fromCharCode(b)).join('');
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 
 export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
   const [status, setStatus] = useState<RelayStatus>('disconnected');
@@ -71,6 +77,10 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
   const shareE2eRef = useRef<ShareCryptoSession | null>(null);
   const optionsRef = useRef(options);
   optionsRef.current = options;
+
+  // Local scrollback buffer — raw PTY output kept for E2E scrollback replay
+  const scrollbackRef = useRef<Uint8Array[]>([]);
+  const scrollbackSizeRef = useRef(0);
 
   // Use a ref for connectWebSocket so onclose can always call the latest version
   const connectWebSocketRef = useRef<(session: RelaySession) => void>(() => {});
@@ -157,6 +167,16 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
       const raw = JSON.parse(event.data) as Record<string, unknown>;
 
       // Handle messages not in RelayMessage type union
+      if (raw.type === 'scrollback_request') {
+        const fromClientId = raw.fromClientId as string;
+
+        if (fromClientId && e2eRef.current) {
+          sendEncryptedScrollbackToViewer(ws, fromClientId);
+        }
+
+        return;
+      }
+
       if (raw.type === 'key_exchange_ack') {
         if (e2eKeyPairRef.current && raw.publicKey) {
           deriveSessionKey(
@@ -220,6 +240,15 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
               { clientId: msg.clientId, device: msg.device, transport: 'relay', connectedAt: new Date().toISOString() },
             ]);
             optionsRef.current.onViewerJoined?.(msg.clientId);
+
+            // Re-send key exchange so new viewer can establish E2E
+            if (e2eKeyPairRef.current && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({
+                type: 'key_exchange',
+                publicKey: e2eKeyPairRef.current.publicKeyJwk,
+                sessionId: session.sessionId,
+              }));
+            }
           }
           break;
 
@@ -298,6 +327,65 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     };
   };
 
+  /** Encrypt and send local scrollback buffer to a specific viewer. */
+  const sendEncryptedScrollbackToViewer = async (ws: WebSocket, toClientId: string) => {
+    const e2e = e2eRef.current;
+
+    if (!e2e || ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    // Concatenate scrollback chunks
+    const totalSize = scrollbackSizeRef.current;
+    const combined = new Uint8Array(totalSize);
+    let offset = 0;
+
+    for (const chunk of scrollbackRef.current) {
+      combined.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    // Send in 32KB chunks, each encrypted
+    const CHUNK_SIZE = 32 * 1024;
+    let pos = 0;
+
+    while (pos < combined.length) {
+      const end = Math.min(pos + CHUNK_SIZE, combined.length);
+      const chunk = combined.subarray(pos, end);
+
+      // Build scrollback chunk frame: [0x02][offset:u32be][data...]
+      const frame = new Uint8Array(5 + chunk.length);
+      const view = new DataView(frame.buffer);
+      frame[0] = 0x02;
+      view.setUint32(1, pos, false);
+      frame.set(chunk, 5);
+
+      try {
+        const encrypted = await encryptFrame(e2e, frame);
+        const payload = base64urlEncode(encrypted);
+
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'encrypted_scrollback_chunk',
+            payload,
+            toClientId,
+          }));
+        }
+      } catch {
+        break;
+      }
+
+      pos = end;
+    }
+
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'scrollback_complete',
+        toClientId,
+      }));
+    }
+  };
+
   const ptySizeRef = useRef<{ cols: number; rows: number } | null>(null);
 
   const createSession = useCallback(async () => {
@@ -332,6 +420,8 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     stopPing();
     e2eRef.current = null;
     e2eKeyPairRef.current = null;
+    scrollbackRef.current = [];
+    scrollbackSizeRef.current = 0;
 
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
@@ -354,6 +444,16 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
 
     if (ws?.readyState === WebSocket.OPEN) {
       const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+
+      // Append to local scrollback buffer for E2E scrollback replay
+      scrollbackRef.current.push(bytes.slice());
+      scrollbackSizeRef.current += bytes.length;
+
+      while (scrollbackSizeRef.current > SCROLLBACK_MAX && scrollbackRef.current.length > 0) {
+        const evicted = scrollbackRef.current.shift()!;
+        scrollbackSizeRef.current -= evicted.length;
+      }
+
       const plainFrame = encodeTerminalData(bytes);
 
       if (e2eRef.current) {

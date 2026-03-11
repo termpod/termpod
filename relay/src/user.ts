@@ -73,65 +73,75 @@ export class User extends DurableObject {
       return;
     }
 
-    this.ctx.storage.sql.exec(`
-      CREATE TABLE IF NOT EXISTS profile (
-        email TEXT NOT NULL,
-        password_hash TEXT NOT NULL,
-        salt TEXT NOT NULL,
-        created_at TEXT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS devices (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        device_type TEXT NOT NULL CHECK(device_type IN ('desktop', 'mobile')),
-        platform TEXT NOT NULL,
-        is_online INTEGER DEFAULT 0,
-        last_seen_at TEXT,
-        created_at TEXT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS sessions (
-        id TEXT PRIMARY KEY,
-        device_id TEXT NOT NULL,
-        name TEXT NOT NULL DEFAULT 'shell',
-        cwd TEXT DEFAULT '',
-        process_name TEXT DEFAULT NULL,
-        pty_cols INTEGER DEFAULT 120,
-        pty_rows INTEGER DEFAULT 40,
-        created_at TEXT NOT NULL,
-        FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS pending_session_requests (
-        id TEXT PRIMARY KEY,
-        device_id TEXT NOT NULL,
-        requested_by TEXT NOT NULL DEFAULT '',
-        created_at TEXT NOT NULL,
-        FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS login_attempts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        attempted_at TEXT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS share_tokens (
-        token TEXT PRIMARY KEY,
-        session_id TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        expires_at TEXT NOT NULL
-      );
-    `);
-
-    // Migrate: add process_name column if missing (table was created before this column existed)
-    const cols = this.ctx.storage.sql
-      .exec("PRAGMA table_info(sessions)")
+    // Check if schema already exists (read-only — no write cost)
+    const tables = this.ctx.storage.sql
+      .exec("SELECT name FROM sqlite_master WHERE type='table'")
       .toArray()
       .map((r) => r.name as string);
 
-    if (!cols.includes('process_name')) {
-      this.ctx.storage.sql.exec('ALTER TABLE sessions ADD COLUMN process_name TEXT DEFAULT NULL');
+    if (!tables.includes('profile')) {
+      this.ctx.storage.sql.exec(`
+        CREATE TABLE IF NOT EXISTS profile (
+          email TEXT NOT NULL,
+          password_hash TEXT NOT NULL,
+          salt TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS devices (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          device_type TEXT NOT NULL CHECK(device_type IN ('desktop', 'mobile')),
+          platform TEXT NOT NULL,
+          is_online INTEGER DEFAULT 0,
+          last_seen_at TEXT,
+          created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS sessions (
+          id TEXT PRIMARY KEY,
+          device_id TEXT NOT NULL,
+          name TEXT NOT NULL DEFAULT 'shell',
+          cwd TEXT DEFAULT '',
+          process_name TEXT DEFAULT NULL,
+          pty_cols INTEGER DEFAULT 120,
+          pty_rows INTEGER DEFAULT 40,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS pending_session_requests (
+          id TEXT PRIMARY KEY,
+          device_id TEXT NOT NULL,
+          requested_by TEXT NOT NULL DEFAULT '',
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS login_attempts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          attempted_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS share_tokens (
+          token TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          expires_at TEXT NOT NULL
+        );
+      `);
+    }
+
+    // Migrate: add process_name column if missing (table was created before this column existed)
+    if (tables.includes('sessions')) {
+      const cols = this.ctx.storage.sql
+        .exec("PRAGMA table_info(sessions)")
+        .toArray()
+        .map((r) => r.name as string);
+
+      if (!cols.includes('process_name')) {
+        this.ctx.storage.sql.exec('ALTER TABLE sessions ADD COLUMN process_name TEXT DEFAULT NULL');
+      }
     }
 
     this.initialized = true;

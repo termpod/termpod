@@ -470,6 +470,32 @@ export class TerminalSession extends DurableObject {
           this.forwardToRole(ws, 'viewer', msg as unknown as Record<string, unknown>);
         }
         break;
+
+      case 'scrollback_request': {
+        // Viewer requests encrypted scrollback — forward to desktop with viewer's clientId
+        const tag = getTag(ws);
+
+        if (tag?.role === 'viewer' && !tag.readonly) {
+          this.forwardToRole(ws, 'desktop', {
+            ...(msg as unknown as Record<string, unknown>),
+            fromClientId: tag.clientId,
+          });
+        }
+        break;
+      }
+
+      case 'encrypted_scrollback_chunk':
+      case 'scrollback_complete': {
+        // Desktop sends encrypted scrollback to a specific viewer
+        if (getTag(ws)?.role === 'desktop') {
+          const toClientId = (msg as unknown as Record<string, unknown>).toClientId as string;
+
+          if (toClientId) {
+            this.forwardToClient(toClientId, msg as unknown as Record<string, unknown>);
+          }
+        }
+        break;
+      }
     }
   }
 
@@ -535,7 +561,7 @@ export class TerminalSession extends DurableObject {
       }),
     );
 
-    // Replay scrollback buffer to viewers before sending ready
+    // Replay scrollback to viewers before sending ready
     if (assignedRole === 'viewer') {
       if (tag.readonly && this.shareFrames.length > 0) {
         // Replay stored 0xE1 frames — viewer decrypts with the key from the URL fragment
@@ -545,11 +571,9 @@ export class TerminalSession extends DurableObject {
       } else if (tag.readonly) {
         // No share-encrypted frames buffered — send plaintext scrollback as fallback
         this.sendScrollbackChunks(ws, this.scrollback.getAll());
-      } else {
-        // Authenticated viewers get plaintext scrollback
-        const scrollbackData = this.scrollback.getAll();
-        this.sendScrollbackChunks(ws, scrollbackData);
       }
+      // Authenticated viewers: no plaintext scrollback — they request E2E-encrypted
+      // scrollback from the desktop after key exchange completes
     }
 
     ws.send(JSON.stringify({ type: 'ready' }));
@@ -629,6 +653,20 @@ export class TerminalSession extends DurableObject {
 
       if (tag?.role === targetRole) {
         ws.send(json);
+      }
+    }
+  }
+
+  private forwardToClient(targetClientId: string, msg: Record<string, unknown>): void {
+    const json = JSON.stringify(msg);
+
+    for (const ws of this.ctx.getWebSockets()) {
+      const tag = getTag(ws);
+
+      if (tag?.clientId === targetClientId) {
+        ws.send(json);
+
+        return;
       }
     }
   }
