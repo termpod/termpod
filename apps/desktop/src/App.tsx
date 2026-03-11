@@ -389,14 +389,10 @@ export function App() {
     }
   }, [settings.launchAtLogin]);
 
-  // Sync processName changes (from polling) to the relay — debounced to reduce writes
+  // Sync processName changes instantly via device WS (no SQL write, just forwarded to viewers)
   const prevProcessRef = useRef<Map<string, string | null>>(new Map());
-  const processUpdateTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const pendingProcessUpdatesRef = useRef<Map<string, string | null | undefined>>(new Map());
 
   useEffect(() => {
-    let hasPending = false;
-
     for (const session of sessions) {
       const prev = prevProcessRef.current.get(session.id);
 
@@ -405,24 +401,12 @@ export function App() {
         const relayInfo = relayMapRef.current.get(session.id);
 
         if (relayInfo?.sessionId) {
-          pendingProcessUpdatesRef.current.set(relayInfo.sessionId, session.processName);
-          hasPending = true;
+          // Instant WS push to viewers (no DB write — sessions_updated bulk sync handles persistence)
+          deviceWS.sendSessionPropertyChanged(relayInfo.sessionId, { processName: session.processName });
         }
       }
     }
-
-    if (hasPending && !processUpdateTimerRef.current) {
-      processUpdateTimerRef.current = setTimeout(() => {
-        processUpdateTimerRef.current = undefined;
-
-        for (const [sessionId, processName] of pendingProcessUpdatesRef.current) {
-          device.updateSession(sessionId, { processName });
-        }
-
-        pendingProcessUpdatesRef.current.clear();
-      }, 5_000);
-    }
-  }, [sessions, device]);
+  }, [sessions, deviceWS.sendSessionPropertyChanged]);
 
   // Build sessions list (shared by local server, device WS, and P2P control messages)
   const buildSessionsList = useCallback(() => {
@@ -1018,7 +1002,8 @@ export function App() {
               const relayInfo = relayMapRef.current.get(session.id);
 
               if (relayInfo?.sessionId) {
-                device.updateSession(relayInfo.sessionId, { name: nameFromCwd(cwd), cwd });
+                // Instant WS push to viewers (sessions_updated bulk sync handles DB persistence)
+                deviceWS.sendSessionPropertyChanged(relayInfo.sessionId, { name: nameFromCwd(cwd), cwd });
               }
             }}
             onSaveWorkflow={(command) => {

@@ -260,6 +260,15 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
     }
   }, []);
 
+  /** Send lightweight session property change (forwarded to viewers, no SQL write) */
+  const sendSessionPropertyChanged = useCallback((sessionId: string, updates: Record<string, unknown>) => {
+    const ws = wsRef.current;
+
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'session_property_changed', sessionId, ...updates }));
+    }
+  }, []);
+
   /** Send WebRTC signaling message */
   const sendSignaling = useCallback((msg: Record<string, unknown>) => {
     const ws = wsRef.current;
@@ -275,6 +284,7 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
     sendSessionsUpdated,
     sendSessionCreated,
     sendSessionClosed,
+    sendSessionPropertyChanged,
     sendSignaling,
   };
 }

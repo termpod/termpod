@@ -904,6 +904,9 @@ final class DeviceTransportManager: ObservableObject {
                     dispatchSessionsList(parsed)
                 }
 
+            case "session_property_changed":
+                applySessionPropertyChange(json)
+
             case "session_created":
                 handleSessionCreatedMessage(json)
 
@@ -1141,6 +1144,9 @@ final class DeviceTransportManager: ObservableObject {
                 sessions = parsed
                 dispatchSessionsList(parsed)
             }
+
+        case "session_property_changed":
+            applySessionPropertyChange(json)
 
         case "session_created":
             handleSessionCreatedMessage(json)
@@ -1417,6 +1423,22 @@ final class DeviceTransportManager: ObservableObject {
                 ptyRows: json["ptyRows"] as? Int ?? json["pty_rows"] as? Int ?? 24
             )
         }
+    }
+
+    /// Apply a lightweight property change to a single session (no full list replacement).
+    private func applySessionPropertyChange(_ json: [String: Any]) {
+        guard let sessionId = json["sessionId"] as? String else { return }
+        guard let idx = sessions.firstIndex(where: { $0.id == sessionId }) else { return }
+
+        let existing = sessions[idx]
+        sessions[idx] = DeviceSessionInfo(
+            id: existing.id,
+            name: json["name"] as? String ?? existing.name,
+            cwd: json["cwd"] as? String ?? existing.cwd,
+            processName: json["processName"] as? String ?? existing.processName,
+            ptyCols: json["ptyCols"] as? Int ?? existing.ptyCols,
+            ptyRows: json["ptyRows"] as? Int ?? existing.ptyRows
+        )
     }
 
     private func handleSessionCreatedMessage(_ json: [String: Any]) {

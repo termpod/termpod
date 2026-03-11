@@ -1000,6 +1000,13 @@ export class User extends DurableObject {
         }
         break;
 
+      case 'session_property_changed':
+        // Desktop sends lightweight property change — forward to viewers only (no SQL write)
+        if (tag.role === 'desktop') {
+          this.forwardToDeviceRole(tag.targetDeviceId, ws, 'viewer', msg);
+        }
+        break;
+
       case 'key_exchange':
         // Desktop sends E2E public key to viewers
         if (tag.role === 'desktop') {
