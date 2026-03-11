@@ -628,7 +628,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           onResizeRef.current?.({ cols: terminalRef.current.cols, rows: terminalRef.current.rows });
         } catch { /* ignore */ }
       }
-    }, [padding, promptAtBottom]);
+    }, [padding]);
 
     // Apply font smoothing and ligatures via CSS on the terminal container
     useEffect(() => {
@@ -714,7 +714,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         <div ref={containerRef} style={{
           position: 'absolute',
           inset: 0,
-          bottom: promptAtBottom && padding ? padding : 0,
+          bottom: padding || 0,
         }} />
       </div>
     );
