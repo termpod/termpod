@@ -6,6 +6,8 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon } from '@xterm/addon-search';
 import { UnicodeGraphemesAddon } from '@xterm/addon-unicode-graphemes';
 import type { PtySize } from '@termpod/protocol';
+import type { BlockBoundary } from '@termpod/shared';
+import { BlockDecorationManager } from './BlockDecorations';
 
 import '@xterm/xterm/css/xterm.css';
 
@@ -60,6 +62,7 @@ export interface TerminalProps {
   onResize?: (size: PtySize) => void;
   onTitleChange?: (title: string) => void;
   onCwdChange?: (cwd: string) => void;
+  onBlockBoundary?: (boundary: BlockBoundary) => void;
   onBell?: () => void;
   onReady?: () => void;
   fontSize?: number;
@@ -92,7 +95,7 @@ const SEARCH_DECORATIONS = {
 };
 
 export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
-  ({ onData, onResize, onTitleChange, onCwdChange, onBell, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', fontWeight = 'normal', fontSmoothing = 'antialiased', fontLigatures = false, drawBoldInBold = true, scrollbackLines = 5000, cursorStyle = 'block', cursorBlink = true, lineHeight = 1.0, padding = 0, promptAtBottom = false, copyOnSelect = false, macOptionIsMeta = false, altClickMoveCursor = true, wordSeparators, theme, onOpenUrl }, ref) => {
+  ({ onData, onResize, onTitleChange, onCwdChange, onBlockBoundary, onBell, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', fontWeight = 'normal', fontSmoothing = 'antialiased', fontLigatures = false, drawBoldInBold = true, scrollbackLines = 5000, cursorStyle = 'block', cursorBlink = true, lineHeight = 1.0, padding = 0, promptAtBottom = false, copyOnSelect = false, macOptionIsMeta = false, altClickMoveCursor = true, wordSeparators, theme, onOpenUrl }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const terminalRef = useRef<XTerm | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -112,6 +115,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     onTitleChangeRef.current = onTitleChange;
     const onCwdChangeRef = useRef(onCwdChange);
     onCwdChangeRef.current = onCwdChange;
+    const onBlockBoundaryRef = useRef(onBlockBoundary);
+    onBlockBoundaryRef.current = onBlockBoundary;
     const onBellRef = useRef(onBell);
     onBellRef.current = onBell;
     const onReadyRef = useRef(onReady);
@@ -122,6 +127,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     promptAtBottomRef.current = promptAtBottom;
     const copyOnSelectRef = useRef(copyOnSelect);
     copyOnSelectRef.current = copyOnSelect;
+
+    const blockDecorationsRef = useRef<BlockDecorationManager | null>(null);
 
     const searchQueryRef = useRef(searchQuery);
     const kittyKeyboardStackRef = useRef<number[]>([]);
@@ -529,6 +536,39 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         return false;
       });
 
+      // OSC 133: Shell integration — FinalTerm semantic prompt markers
+      // Emitted by TermPod's shell integration scripts (zsh/bash/fish)
+      // Sequence: A (prompt start) → B (prompt end) → C (output start) → D (command finished)
+      const blockDecorations = new BlockDecorationManager(term, (cmd) => {
+        onDataRef.current?.(cmd);
+      });
+      blockDecorationsRef.current = blockDecorations;
+
+      term.parser.registerOscHandler(133, (data) => {
+        const semi = data.indexOf(';');
+        const marker = semi === -1 ? data : data.slice(0, semi);
+
+        if (marker !== 'A' && marker !== 'B' && marker !== 'C' && marker !== 'D') {
+          return false;
+        }
+
+        const line = term.buffer.active.baseY + term.buffer.active.cursorY;
+        const exitCode = marker === 'D' && semi !== -1
+          ? parseInt(data.slice(semi + 1), 10)
+          : undefined;
+        const cleanExitCode = exitCode !== undefined && !isNaN(exitCode) ? exitCode : undefined;
+
+        blockDecorations.handleMarker(marker as 'A' | 'B' | 'C' | 'D', cleanExitCode);
+
+        onBlockBoundaryRef.current?.({
+          marker: marker as 'A' | 'B' | 'C' | 'D',
+          line,
+          exitCode: cleanExitCode,
+        });
+
+        return false;
+      });
+
       // Kitty keyboard protocol support (progressive enhancement)
       // Apps like Claude Code push this mode to get modifier info on keys like Enter.
       // We track the mode stack and respond to queries so the app knows we support it.
@@ -589,6 +629,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       return () => {
         clearTimeout(fontFixTimer);
         resizeObserver.disconnect();
+        blockDecorations.dispose();
+        blockDecorationsRef.current = null;
         term.dispose();
         terminalRef.current = null;
         fitAddonRef.current = null;

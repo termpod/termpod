@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Terminal } from '@termpod/ui';
 import type { TerminalThemeColors } from '@termpod/ui';
 import type { PtySize } from '@termpod/protocol';
+import type { BlockBoundary } from '@termpod/shared';
 import type { TerminalSession } from '../hooks/useSessionManager';
 import { useRelayBridge } from '../hooks/useRelayBridge';
 import type { RelayStatus, MergedDevice } from '../hooks/useRelayConnection';
@@ -161,6 +162,13 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
     [],
   );
 
+  const handleBlockBoundary = useCallback(
+    (boundary: BlockBoundary) => {
+      session.blockTracker.handleBoundary(boundary);
+    },
+    [session.blockTracker],
+  );
+
   const handleResize = useCallback(
     (size: PtySize) => {
       if (!session.exited) {
@@ -272,6 +280,7 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
         onData={handleData}
         onResize={handleResize}
         onCwdChange={handleCwdChange}
+        onBlockBoundary={handleBlockBoundary}
         onReady={handleReady}
         onBell={bellEnabled ? () => {
           if (notifyOnBell && !document.hasFocus()) {

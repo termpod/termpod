@@ -173,6 +173,14 @@ export interface SessionClosedMessage {
   type: 'session_closed';
 }
 
+export interface BlockBoundaryMessage {
+  type: 'block_boundary';
+  marker: 'A' | 'B' | 'C' | 'D';
+  line: number;
+  exitCode?: number;
+  timestamp: number;
+}
+
 export type RelayMessage =
   | AuthOkMessage
   | SessionInfoMessage
@@ -188,6 +196,7 @@ export type RelayMessage =
   | SignalingMessage
   | CreateSessionRequestMessage
   | SessionCreatedMessage
-  | SessionClosedMessage;
+  | SessionClosedMessage
+  | BlockBoundaryMessage;
 
 export type ControlMessage = ClientMessage | RelayMessage;

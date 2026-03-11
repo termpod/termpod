@@ -19,6 +19,7 @@ import { KeybindingsPanel } from './components/KeybindingsPanel';
 import { CommandPalette } from './components/CommandPalette';
 import { useKeybindings, matchesShortcut } from './hooks/useKeybindings';
 import { useDeviceWS } from './hooks/useDeviceWS';
+import { getTermifyPayload } from './termify';
 import { enable as enableAutostart, disable as disableAutostart } from '@tauri-apps/plugin-autostart';
 
 export function App() {
@@ -519,6 +520,12 @@ export function App() {
           for (const s of toClose) {
             handleCloseSession(s.id);
           }
+        }
+        break;
+
+      case 'termify':
+        if (activeSession) {
+          activeSession.pty.write(getTermifyPayload());
         }
         break;
 

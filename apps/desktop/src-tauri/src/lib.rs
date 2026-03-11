@@ -217,6 +217,10 @@ pub fn run() {
                 .accelerator("CmdOrCtrl+L")
                 .build(app)?;
 
+            let termify = MenuItemBuilder::with_id("termify", "Termify Session")
+                .accelerator("CmdOrCtrl+Shift+I")
+                .build(app)?;
+
             let find = MenuItemBuilder::with_id("find", "Find...")
                 .accelerator("CmdOrCtrl+F")
                 .build(app)?;
@@ -333,6 +337,8 @@ pub fn run() {
                 .item(&rename_tab)
                 .item(&close_tab)
                 .item(&close_other_tabs)
+                .separator()
+                .item(&termify)
                 .separator()
                 .item(&next_tab)
                 .item(&prev_tab)

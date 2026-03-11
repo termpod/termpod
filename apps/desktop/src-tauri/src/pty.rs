@@ -9,6 +9,7 @@ use std::{
 };
 
 use portable_pty::{native_pty_system, Child, ChildKiller, CommandBuilder, PtyPair, PtySize};
+use tauri::Manager;
 use tokio::sync::RwLock;
 
 #[derive(Default)]
@@ -25,6 +26,76 @@ struct PtySession {
     reader: Mutex<Box<dyn Read + Send>>,
 }
 
+/// Locate the shell-integration scripts directory.
+/// In production: bundled in the app's Resources directory.
+/// In development: relative to CARGO_MANIFEST_DIR (src-tauri/).
+fn get_shell_integration_dir(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let dir = resource_dir.join("shell-integration");
+
+        if dir.is_dir() {
+            return Some(dir);
+        }
+    }
+
+    let dev_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("shell-integration");
+
+    if dev_path.is_dir() {
+        return Some(dev_path);
+    }
+
+    None
+}
+
+/// Inject shell integration env vars and modify args based on the shell type.
+/// Uses the FinalTerm OSC 133 standard (same as Kitty, Ghostty, VS Code).
+fn setup_shell_integration(
+    cmd: &mut CommandBuilder,
+    file: &str,
+    args: &mut Vec<String>,
+    app: &tauri::AppHandle,
+) {
+    let Some(dir) = get_shell_integration_dir(app) else {
+        return;
+    };
+
+    let shell_name = std::path::Path::new(file)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
+
+    match shell_name {
+        "zsh" => {
+            let zsh_dir = dir.join("zsh");
+            let orig_zdotdir = std::env::var("ZDOTDIR").unwrap_or_default();
+            cmd.env("ZDOTDIR", zsh_dir.as_os_str());
+            cmd.env("TERMPOD_ORIG_ZDOTDIR", OsString::from(orig_zdotdir));
+        }
+
+        "bash" => {
+            let script = dir.join("bash").join("termpod.bash");
+            args.clear();
+            args.push("--init-file".into());
+            args.push(script.to_string_lossy().to_string());
+            args.push("-i".into());
+            cmd.env("TERMPOD_BASH_LOGIN", "1");
+        }
+
+        "fish" => {
+            let existing_xdg = std::env::var("XDG_DATA_DIRS")
+                .unwrap_or_else(|_| "/usr/local/share:/usr/share".into());
+            cmd.env(
+                "XDG_DATA_DIRS",
+                OsString::from(format!("{}:{}", dir.display(), existing_xdg)),
+            );
+        }
+
+        _ => {}
+    }
+
+    cmd.env("TERMPOD", "1");
+}
+
 #[tauri::command]
 pub async fn pty_spawn(
     file: String,
@@ -33,6 +104,7 @@ pub async fn pty_spawn(
     rows: u16,
     cwd: Option<String>,
     env: HashMap<String, String>,
+    app: tauri::AppHandle,
     state: tauri::State<'_, PtyState>,
 ) -> Result<u32, String> {
     let pty_system = native_pty_system();
@@ -49,11 +121,16 @@ pub async fn pty_spawn(
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
     let reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
 
-    let mut cmd = CommandBuilder::new(file);
-    cmd.args(args);
+    let mut cmd = CommandBuilder::new(&file);
+
+    let mut effective_args = args;
+    setup_shell_integration(&mut cmd, &file, &mut effective_args, &app);
+    cmd.args(effective_args);
+
     if let Some(cwd) = cwd {
         cmd.cwd(OsString::from(cwd));
     }
+
     for (k, v) in &env {
         cmd.env(OsString::from(k), OsString::from(v));
     }

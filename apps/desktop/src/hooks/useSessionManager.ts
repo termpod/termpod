@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { spawn } from '../pty';
 import type { IPty } from '../pty';
 import { invoke } from '@tauri-apps/api/core';
-import { DEFAULT_SHELL, DEFAULT_PTY_SIZE, getIconForProcess } from '@termpod/shared';
-import type { TabIcon } from '@termpod/shared';
+import { DEFAULT_SHELL, DEFAULT_PTY_SIZE, getIconForProcess, BlockTracker } from '@termpod/shared';
+import type { TabIcon, BlockBoundary } from '@termpod/shared';
 import type { TerminalHandle } from '@termpod/ui';
 
 export type PtyDataListener = (data: Uint8Array | number[]) => void;
@@ -24,6 +24,7 @@ export interface TerminalSession {
   exitCode?: number;
   processName: string | null;
   icon: TabIcon | null;
+  blockTracker: BlockTracker;
 }
 
 interface SessionStore {
@@ -199,6 +200,7 @@ export function useSessionManager() {
         closing: false,
         processName: null,
         icon: null,
+        blockTracker: new BlockTracker(),
       };
 
       pty.onData((data) => {

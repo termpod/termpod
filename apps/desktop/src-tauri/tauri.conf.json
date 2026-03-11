@@ -43,7 +43,13 @@
     "macOS": {
       "entitlements": "entitlements.plist",
       "minimumSystemVersion": "12.0"
-    }
+    },
+    "resources": [
+      "shell-integration/zsh/.zshenv",
+      "shell-integration/zsh/termpod.zsh",
+      "shell-integration/bash/termpod.bash",
+      "shell-integration/fish/vendor_conf.d/termpod.fish"
+    ]
   },
   "plugins": {
     "updater": {
