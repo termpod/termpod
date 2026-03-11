@@ -29,17 +29,17 @@ Client                          Relay (Worker → TerminalSession DO)
   ├─── TEXT: { type: "hello", ... } ──────►│
   │                                        │
   │◄── TEXT: { type: "session_info", ... } ┤
-  │◄── TEXT: { type: "ready" } ───────────┤
+  │◄── TEXT: { type: "ready" } ────────────┤
   │                                        │
   │    ═══ E2E key exchange ═══            │
   │                                        │
-  │◄── TEXT: { type: "key_exchange" } ────┤  (desktop's public key)
+  │◄── TEXT: { type: "key_exchange" } ─────┤  (desktop's public key)
   ├─── TEXT: { type: "key_exchange_ack" } ►│  (viewer's public key)
   │                                        │
   │    ═══ encrypted streaming begins ═══  │
   │                                        │
-  │◄── BINARY: [0xE0] + encrypted data ──┤  (from desktop PTY, E2E encrypted)
-  ├─── BINARY: [0xE0] + encrypted input ─►│  (from mobile keyboard, E2E encrypted)
+  │◄── BINARY: [0xE0] + encrypted data ────┤  (from desktop PTY, E2E encrypted)
+  ├─── BINARY: [0xE0] + encrypted input ──►│  (from mobile keyboard, E2E encrypted)
   │                                        │
 ```
 
@@ -50,21 +50,21 @@ Per-device connection to the User Durable Object. Handles session discovery, man
 ```
 Client                          Relay (Worker → User DO)
   │                                        │
-  ├─── GET /devices/:id/ws ──────────────►│
+  ├─── GET /devices/:id/ws ───────────────►│
   │    ?token=JWT (or first-message auth)  │
   │                                        │
   │◄── 101 Switching Protocols ────────────┤
   │                                        │
   ├─── TEXT: { type: "auth", token } ─────►│  (if no URL token)
-  │◄── TEXT: { type: "auth_ok" } ─────────┤
+  │◄── TEXT: { type: "auth_ok" } ──────────┤
   │                                        │
   ├─── TEXT: { type: "hello", ... } ──────►│
-  │◄── TEXT: { type: "hello_ok", ... } ───┤
+  │◄── TEXT: { type: "hello_ok", ... } ────┤
   │                                        │
   │    ═══ device control plane active ═══ │
   │                                        │
   ├─── TEXT: { type: "list_sessions" } ───►│  (forwarded to desktop)
-  │◄── TEXT: { type: "sessions_list" } ───┤  (from desktop)
+  │◄── TEXT: { type: "sessions_list" } ────┤  (from desktop)
   │                                        │
 ```
 
