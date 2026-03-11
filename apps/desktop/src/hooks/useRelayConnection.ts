@@ -9,8 +9,10 @@ import {
   deriveSessionKey,
   encryptFrame,
   decryptFrame,
+  encodeShareEncryptedFrame,
+  encryptShareFrame,
 } from '@termpod/protocol';
-import type { RelayMessage, E2ESession } from '@termpod/protocol';
+import type { RelayMessage, E2ESession, ShareCryptoSession } from '@termpod/protocol';
 import { RELAY_URL, RECONNECT } from '@termpod/shared';
 import { getAccessToken, getValidAccessToken } from './useAuth';
 import { getSettingsSnapshot } from './useSettings';
@@ -66,6 +68,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
   const clientIdRef = useRef<string>(crypto.randomUUID());
   const e2eRef = useRef<E2ESession | null>(null);
   const e2eKeyPairRef = useRef<{ publicKeyJwk: JsonWebKey; privateKey: CryptoKey } | null>(null);
+  const shareE2eRef = useRef<ShareCryptoSession | null>(null);
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
@@ -143,6 +146,8 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
         const frame = decodeBinaryFrame(raw);
 
         if (frame.channel === Channel.TERMINAL_DATA) {
+          optionsRef.current.onViewerInput?.(new TextDecoder().decode(frame.data));
+        } else if (frame.channel === Channel.SCROLLBACK_CHUNK) {
           optionsRef.current.onViewerInput?.(new TextDecoder().decode(frame.data));
         }
 
@@ -365,6 +370,15 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
       } else {
         ws.send(plainFrame);
       }
+
+      // Also send share-encrypted frame if sharing is active
+      if (shareE2eRef.current) {
+        encryptShareFrame(shareE2eRef.current, bytes).then((encrypted) => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(encodeShareEncryptedFrame(encrypted.subarray(0, 12), encrypted.subarray(12)));
+          }
+        }).catch(() => {});
+      }
     }
   }, []);
 
@@ -444,5 +458,8 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     sendResize,
     sendSignaling,
     sendSessionCreated,
+    setShareCrypto: (session: ShareCryptoSession | null) => {
+      shareE2eRef.current = session;
+    },
   };
 }

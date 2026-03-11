@@ -10,6 +10,8 @@ export const Channel = {
   MUX_TERMINAL_RESIZE: 0x11,
   /** E2E encrypted wrapper: [0xE0][nonce:12][ciphertext+tag] */
   ENCRYPTED: 0xe0,
+  /** Share-encrypted terminal data: [0xE1][nonce:12][ciphertext+tag] */
+  SHARE_ENCRYPTED: 0xe1,
 } as const;
 
 export type ChannelId = (typeof Channel)[keyof typeof Channel];

@@ -25,6 +25,8 @@ export interface RelayInfo {
   webrtcSendTerminalData?: (sessionId: string, data: Uint8Array | number[]) => void;
   /** Send multiplexed resize through this session's WebRTC. */
   webrtcSendResize?: (sessionId: string, cols: number, rows: number) => void;
+  /** Set share E2E crypto session (for encrypted share viewer frames). */
+  setShareCrypto?: (session: import('@termpod/protocol').ShareCryptoSession | null) => void;
 }
 
 interface TerminalPanelProps {
@@ -134,8 +136,9 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
       webrtcIsConnected: relay.webrtcIsConnected,
       webrtcSendTerminalData: relay.webrtcSendTerminalData,
       webrtcSendResize: relay.webrtcSendResize,
+      setShareCrypto: relay.setShareCrypto,
     });
-  }, [relay.status, relay.viewers, relay.allConnectedDevices, relay.sessionId, relay.sendSessionCreated, relay.sendToLocalClient, relay.sendLocalControl, relay.sendWebRTCControl, relay.handleWebRTCSignaling, relay.initiateWebRTCOffer, relay.webrtcIsConnected, relay.webrtcSendTerminalData, relay.webrtcSendResize]);
+  }, [relay.status, relay.viewers, relay.allConnectedDevices, relay.sessionId, relay.sendSessionCreated, relay.sendToLocalClient, relay.sendLocalControl, relay.sendWebRTCControl, relay.handleWebRTCSignaling, relay.initiateWebRTCOffer, relay.webrtcIsConnected, relay.webrtcSendTerminalData, relay.webrtcSendResize, relay.setShareCrypto]);
 
   // Notify parent when relay session is created (for device registration)
   const registeredRef = useRef<string | null>(null);

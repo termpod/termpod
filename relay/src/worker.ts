@@ -902,6 +902,45 @@ function buildViewerHtml(wsUrl: string, sessionId: string, shareToken: string): 
       var container = document.getElementById('terminal-container');
       var statusEl = document.getElementById('status');
 
+      // Share E2E decryption
+      var shareKey = null;
+      var recvCounter = 0;
+      var sessionId = ${JSON.stringify(sessionId)};
+
+      function base64UrlDecode(str) {
+        var padded = str.replace(/-/g, '+').replace(/_/g, '/');
+        var binary = atob(padded);
+        var bytes = new Uint8Array(binary.length);
+        for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return bytes;
+      }
+
+      // Extract key from URL fragment
+      var hash = window.location.hash;
+      if (hash) {
+        var match = hash.match(/key=([A-Za-z0-9_-]+)/);
+        if (match) {
+          var rawKey = base64UrlDecode(match[1]);
+          crypto.subtle.importKey('raw', rawKey, { name: 'AES-GCM', length: 256 }, false, ['decrypt'])
+            .then(function(k) { shareKey = k; })
+            .catch(function() {});
+        }
+      }
+
+      function decryptShareFrame(data) {
+        if (!shareKey || data.length < 13 + 16) return Promise.resolve(null);
+        var nonce = data.slice(1, 13);
+        var ciphertext = data.slice(13);
+        var aad = new TextEncoder().encode(sessionId);
+        return crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: nonce, additionalData: aad, tagLength: 128 },
+          shareKey, ciphertext
+        ).then(function(plain) {
+          recvCounter++;
+          return new Uint8Array(plain);
+        }).catch(function() { return null; });
+      }
+
       var term = new Terminal({
         cursorBlink: false,
         cursorStyle: 'block',
@@ -956,8 +995,17 @@ function buildViewerHtml(wsUrl: string, sessionId: string, shareToken: string): 
         ws.onmessage = function(event) {
           if (event.data instanceof ArrayBuffer) {
             var data = new Uint8Array(event.data);
-            if (data[0] === 0x00) {
-              term.write(data.slice(1));
+            if (data[0] === 0xe1) {
+              // Share-encrypted frame — decrypt and display
+              decryptShareFrame(data).then(function(plain) {
+                if (plain) term.write(plain);
+              });
+            } else if (data[0] === 0x00) {
+              // Plaintext terminal data (fallback if no E2E)
+              if (!shareKey) term.write(data.slice(1));
+            } else if (data[0] === 0x02) {
+              // Scrollback chunk: [0x02][offset:4][data]
+              term.write(data.slice(5));
             }
           } else {
             try {

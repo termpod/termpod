@@ -162,6 +162,8 @@ fn open_url(url: String) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
@@ -238,6 +240,10 @@ pub fn run() {
 
             let share_session = MenuItemBuilder::with_id("share_session", "Share Session\u{2026}")
                 .accelerator("CmdOrCtrl+Shift+S")
+                .build(app)?;
+
+            let record_session = MenuItemBuilder::with_id("record_session", "Record Session")
+                .accelerator("CmdOrCtrl+Shift+R")
                 .build(app)?;
 
             let find = MenuItemBuilder::with_id("find", "Find...")
@@ -364,6 +370,7 @@ pub fn run() {
                 .item(&workflows)
                 .item(&termify)
                 .item(&share_session)
+                .item(&record_session)
                 .separator()
                 .item(&next_tab)
                 .item(&prev_tab)

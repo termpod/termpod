@@ -2431,6 +2431,51 @@ body,
   color: var(--danger, #f7768e);
 }
 
+/* Recording bar */
+.record-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: color-mix(in srgb, var(--danger, #f7768e) 10%, var(--bg-primary));
+  border-bottom: 1px solid color-mix(in srgb, var(--danger, #f7768e) 20%, transparent);
+  flex-shrink: 0;
+  font-family: var(--font-sans);
+  animation: share-bar-in 0.2s ease;
+}
+
+.record-bar-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--danger, #f7768e);
+  flex-shrink: 0;
+  animation: share-bar-pulse 2s ease-in-out infinite;
+}
+
+.record-bar-text {
+  font-size: 11px;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.record-bar-stop {
+  font-size: 11px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.1s;
+  background: color-mix(in srgb, var(--danger, #f7768e) 18%, transparent);
+  color: var(--danger, #f7768e);
+}
+
+.record-bar-stop:hover {
+  background: color-mix(in srgb, var(--danger, #f7768e) 28%, transparent);
+}
+
 /* ── Workflows Panel ── */
 
 .wf-modal {

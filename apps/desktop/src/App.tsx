@@ -24,6 +24,8 @@ import { useWorkflows } from './hooks/useWorkflows';
 import { WorkflowsPanel } from './components/WorkflowsPanel';
 import { authFetch } from './hooks/useAuth';
 import { ShareDialog } from './components/ShareDialog';
+import { useRecording, startRecording, stopRecording, appendOutput, isRecording } from './hooks/useRecording';
+import { generateShareKey, createShareCryptoSession } from '@termpod/protocol';
 import { enable as enableAutostart, disable as disableAutostart } from '@tauri-apps/plugin-autostart';
 
 export function App() {
@@ -235,6 +237,7 @@ export function App() {
   const [confirmClose, setConfirmClose] = useState<{ sessionId: string; processName: string } | null>(null);
   const { bindings } = useKeybindings();
   const { workflows, add: addWorkflow, remove: removeWorkflow, edit: editWorkflow } = useWorkflows();
+  const recording = useRecording();
   const initializedRef = useRef(false);
   const [relayMap, setRelayMap] = useState<Map<string, RelayInfo>>(new Map());
   const relayMapRef = useRef(relayMap);
@@ -315,6 +318,20 @@ export function App() {
       return next;
     });
 
+    // Stop recording if active (discard — session is closing)
+    if (isRecording(id)) {
+      // Remove the data listener before stopping
+      const listener = recordingListenersRef.current.get(id);
+      const session = sessions.find((s) => s.id === id);
+
+      if (listener && session) {
+        session.dataListeners.delete(listener);
+        recordingListenersRef.current.delete(id);
+      }
+
+      stopRecording(id);
+    }
+
     const { wasLast } = closeSession(id);
 
     if (wasLast && settings.closeWindowOnLastTab) {
@@ -340,6 +357,28 @@ export function App() {
     }
     handleCloseSession(id);
   };
+
+  // Recording data listeners: pipe PTY output to the recorder
+  const recordingListenersRef = useRef<Map<string, (data: Uint8Array | number[]) => void>>(new Map());
+
+  useEffect(() => {
+    for (const session of sessions) {
+      if (isRecording(session.id) && !recordingListenersRef.current.has(session.id)) {
+        const listener = (data: Uint8Array | number[]) => {
+          appendOutput(session.id, data instanceof Uint8Array ? data : new Uint8Array(data));
+        };
+
+        session.dataListeners.add(listener);
+        recordingListenersRef.current.set(session.id, listener);
+      }
+
+      if (!isRecording(session.id) && recordingListenersRef.current.has(session.id)) {
+        const listener = recordingListenersRef.current.get(session.id)!;
+        session.dataListeners.delete(listener);
+        recordingListenersRef.current.delete(session.id);
+      }
+    }
+  }, [sessions, recording]);
 
   // Sync launch-at-login with system autostart
   useEffect(() => {
@@ -545,6 +584,18 @@ export function App() {
           activeSession.pty.write(getTermifyPayload());
         }
         break;
+
+      case 'record_session': {
+        if (!activeId || !activeSession) break;
+
+        if (isRecording(activeId)) {
+          stopRecording(activeId);
+        } else {
+          const term = activeSession.termRef.current;
+          startRecording(activeId, term?.cols ?? 120, term?.rows ?? 40, activeSession.name);
+        }
+        break;
+      }
 
       case 'share_session': {
         if (!activeId) break;
@@ -831,6 +882,9 @@ export function App() {
                 authFetch(`/sessions/${relaySessionId}/share`, { method: 'DELETE' }).catch(() => {});
               }
 
+              // Clear share encryption
+              relayInfo?.setShareCrypto?.(null);
+
               setShareMap((prev) => {
                 const next = new Map(prev);
                 next.delete(activeId);
@@ -840,6 +894,19 @@ export function App() {
             type="button"
           >
             Stop sharing
+          </button>
+        </div>
+      )}
+      {activeId && isRecording(activeId) && (
+        <div className="record-bar">
+          <div className="record-bar-dot" />
+          <span className="record-bar-text">Recording</span>
+          <button
+            className="record-bar-stop"
+            onClick={() => stopRecording(activeId)}
+            type="button"
+          >
+            Stop &amp; Save
           </button>
         </div>
       )}
@@ -997,23 +1064,32 @@ export function App() {
                   if (!relaySessionId) return;
 
                   const capturedActiveId = activeId;
-                  authFetch(`/sessions/${relaySessionId}/share`, { method: 'POST' })
-                    .then((res) => res.json())
-                    .then((body: Record<string, unknown>) => {
-                      if (body.shareUrl) {
-                        invoke('copy_to_clipboard', { text: body.shareUrl as string });
-                        setShareMap((prev) => {
-                          const next = new Map(prev);
-                          next.set(capturedActiveId, {
-                            shareUrl: body.shareUrl as string,
-                            expiresAt: body.expiresAt as string,
-                          });
-                          return next;
+
+                  (async () => {
+                    const { key, keyBase64 } = await generateShareKey();
+                    const res = await authFetch(`/sessions/${relaySessionId}/share`, { method: 'POST' });
+                    const body = await res.json() as Record<string, unknown>;
+
+                    if (body.shareUrl) {
+                      const shareUrl = `${body.shareUrl as string}#key=${keyBase64}`;
+                      invoke('copy_to_clipboard', { text: shareUrl });
+
+                      // Activate share encryption on the relay connection
+                      const relayInfo = relayMapRef.current.get(capturedActiveId);
+                      const cryptoSession = createShareCryptoSession(key, relaySessionId);
+                      relayInfo?.setShareCrypto?.(cryptoSession);
+
+                      setShareMap((prev) => {
+                        const next = new Map(prev);
+                        next.set(capturedActiveId, {
+                          shareUrl,
+                          expiresAt: body.expiresAt as string,
                         });
-                        setShowShareDialog(true);
-                      }
-                    })
-                    .catch(() => {});
+                        return next;
+                      });
+                      setShowShareDialog(true);
+                    }
+                  })().catch(() => {});
                 }}
                 type="button"
               >
