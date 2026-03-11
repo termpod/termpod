@@ -82,16 +82,16 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
         }
       }
     },
-    onViewerResize: (cols, _rows) => {
+    onViewerResize: (cols, rows) => {
       const s = sessionRef.current;
 
       if (s && !s.exited) {
         const term = s.termRef.current;
-        const currentRows = term?.rows ?? 40;
-        ptySizeRef.current = { cols, rows: currentRows };
-        s.pty.resize(cols, currentRows);
+        const nextRows = rows > 0 ? rows : (term?.rows ?? 40);
+        ptySizeRef.current = { cols, rows: nextRows };
+        s.pty.resize(cols, nextRows);
         term?.lockSize();
-        term?.resize(cols, currentRows);
+        term?.resize(cols, nextRows);
       }
     },
     onSignaling: (msg) => {
@@ -144,16 +144,16 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
         }
       }
     },
-    onViewerResize: (cols, _rows) => {
+    onViewerResize: (cols, rows) => {
       const s = sessionRef.current;
 
       if (s && !s.exited) {
         const term = s.termRef.current;
-        const currentRows = term?.rows ?? 40;
-        ptySizeRef.current = { cols, rows: currentRows };
-        s.pty.resize(cols, currentRows);
+        const nextRows = rows > 0 ? rows : (term?.rows ?? 40);
+        ptySizeRef.current = { cols, rows: nextRows };
+        s.pty.resize(cols, nextRows);
         term?.lockSize();
-        term?.resize(cols, currentRows);
+        term?.resize(cols, nextRows);
       }
     },
     onCreateSessionRequest: (requestId, clientId) => {
@@ -174,16 +174,16 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
       }
     },
     // Legacy non-multiplexed resize
-    onViewerResize: (cols, _rows) => {
+    onViewerResize: (cols, rows) => {
       const s = sessionRef.current;
 
       if (s && !s.exited) {
         const term = s.termRef.current;
-        const currentRows = term?.rows ?? 40;
-        ptySizeRef.current = { cols, rows: currentRows };
-        s.pty.resize(cols, currentRows);
+        const nextRows = rows > 0 ? rows : (term?.rows ?? 40);
+        ptySizeRef.current = { cols, rows: nextRows };
+        s.pty.resize(cols, nextRows);
         term?.lockSize();
-        term?.resize(cols, currentRows);
+        term?.resize(cols, nextRows);
       }
     },
     // Multiplexed input — route to correct session via App.tsx callback

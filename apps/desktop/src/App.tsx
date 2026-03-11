@@ -279,10 +279,10 @@ export function App() {
         const session = sessions.find((s) => s.id === localId);
         if (session && !session.exited) {
           const term = session.termRef.current;
-          const currentRows = term?.rows ?? 40;
-          session.pty.resize(cols, currentRows);
+          const nextRows = rows > 0 ? rows : (term?.rows ?? 40);
+          session.pty.resize(cols, nextRows);
           term?.lockSize();
-          term?.resize(cols, currentRows);
+          term?.resize(cols, nextRows);
         }
         break;
       }
