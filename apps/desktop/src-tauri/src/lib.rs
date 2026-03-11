@@ -245,6 +245,10 @@ pub fn run() {
                 .accelerator("CmdOrCtrl+0")
                 .build(app)?;
 
+            let workflows = MenuItemBuilder::with_id("workflows", "Workflows...")
+                .accelerator("CmdOrCtrl+Shift+W")
+                .build(app)?;
+
             let command_palette = MenuItemBuilder::with_id("command_palette", "Command Palette...")
                 .accelerator("CmdOrCtrl+Shift+P")
                 .build(app)?;
@@ -394,6 +398,7 @@ pub fn run() {
                     .item(&keybindings)
                     .separator()
                     .item(&command_palette)
+                    .item(&workflows)
                     .separator()
                     .quit()
                     .build()?)

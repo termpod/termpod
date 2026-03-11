@@ -20,6 +20,8 @@ import { CommandPalette } from './components/CommandPalette';
 import { useKeybindings, matchesShortcut } from './hooks/useKeybindings';
 import { useDeviceWS } from './hooks/useDeviceWS';
 import { getTermifyPayload } from './termify';
+import { useWorkflows } from './hooks/useWorkflows';
+import { WorkflowsPanel } from './components/WorkflowsPanel';
 import { enable as enableAutostart, disable as disableAutostart } from '@tauri-apps/plugin-autostart';
 
 export function App() {
@@ -224,8 +226,10 @@ export function App() {
   const [showKeybindings, setShowKeybindings] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showDevicesPanel, setShowDevicesPanel] = useState(false);
+  const [showWorkflows, setShowWorkflows] = useState(false);
   const [confirmClose, setConfirmClose] = useState<{ sessionId: string; processName: string } | null>(null);
   const { bindings } = useKeybindings();
+  const { workflows, add: addWorkflow, remove: removeWorkflow, edit: editWorkflow } = useWorkflows();
   const initializedRef = useRef(false);
   const [relayMap, setRelayMap] = useState<Map<string, RelayInfo>>(new Map());
   const relayMapRef = useRef(relayMap);
@@ -602,6 +606,10 @@ export function App() {
         setShowSettings((v) => !v);
         break;
 
+      case 'workflows':
+        setShowWorkflows((v) => !v);
+        break;
+
       case 'keybindings':
         setShowKeybindings((v) => !v);
         break;
@@ -853,6 +861,10 @@ export function App() {
                 device.updateSession(relayInfo.sessionId, { name: nameFromCwd(cwd), cwd });
               }
             }}
+            onSaveWorkflow={(command) => {
+              addWorkflow(command.split('\n')[0].trim().slice(0, 40), command);
+              setShowWorkflows(true);
+            }}
           />
         ))}
         {showDevicesPanel && (
@@ -876,6 +888,22 @@ export function App() {
       )}
       {showKeybindings && (
         <KeybindingsPanel onClose={() => { setShowKeybindings(false); setTimeout(focusActive, 50); }} />
+      )}
+      {showWorkflows && (
+        <WorkflowsPanel
+          workflows={workflows}
+          onAdd={addWorkflow}
+          onRemove={removeWorkflow}
+          onEdit={editWorkflow}
+          onRun={(command) => {
+            if (activeSession) {
+              activeSession.pty.write(command + '\n');
+              setShowWorkflows(false);
+              setTimeout(focusActive, 50);
+            }
+          }}
+          onClose={() => { setShowWorkflows(false); setTimeout(focusActive, 50); }}
+        />
       )}
       {showCommandPalette && (
         <CommandPalette

@@ -56,6 +56,7 @@ interface TerminalPanelProps {
   onDeleteSession?: (relaySessionId: string) => void;
   onSessionClosed?: () => void;
   onCwdChange?: (cwd: string) => void;
+  onSaveWorkflow?: (command: string) => void;
   getSessionsList?: () => Record<string, unknown>[];
   deviceSendSignaling?: (msg: Record<string, unknown>) => void;
   deviceClientId?: string;
@@ -71,7 +72,7 @@ interface TerminalPanelProps {
   } | null;
 }
 
-export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFamily, fontWeight, fontSmoothing, fontLigatures, drawBoldInBold, windowPadding, cursorStyle, cursorBlink, lineHeight, promptAtBottom, copyOnSelect, macOptionIsMeta, altClickMoveCursor, wordSeparators, theme, bellEnabled, notifyOnBell, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onDeleteSession, onSessionClosed, onCwdChange, getSessionsList, deviceSendSignaling, deviceClientId, onWebRTCMuxInput, onWebRTCMuxResize, getSharedWebRTC }: TerminalPanelProps) {
+export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFamily, fontWeight, fontSmoothing, fontLigatures, drawBoldInBold, windowPadding, cursorStyle, cursorBlink, lineHeight, promptAtBottom, copyOnSelect, macOptionIsMeta, altClickMoveCursor, wordSeparators, theme, bellEnabled, notifyOnBell, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onDeleteSession, onSessionClosed, onCwdChange, onSaveWorkflow, getSessionsList, deviceSendSignaling, deviceClientId, onWebRTCMuxInput, onWebRTCMuxResize, getSharedWebRTC }: TerminalPanelProps) {
   const onTermReadyRef = useRef(onTermReady);
   onTermReadyRef.current = onTermReady;
   const onCreateSessionRequestRef = useRef(onCreateSessionRequest);
@@ -281,6 +282,7 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
         onResize={handleResize}
         onCwdChange={handleCwdChange}
         onBlockBoundary={handleBlockBoundary}
+        onSaveWorkflow={onSaveWorkflow}
         onReady={handleReady}
         onBell={bellEnabled ? () => {
           if (notifyOnBell && !document.hasFocus()) {

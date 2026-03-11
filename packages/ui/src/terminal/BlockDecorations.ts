@@ -15,10 +15,12 @@ export class BlockDecorationManager {
   private term: XTerm;
   private blocks: TrackedBlock[] = [];
   private onRerun?: (command: string) => void;
+  private onSaveWorkflow?: (command: string) => void;
 
-  constructor(term: XTerm, onRerun?: (command: string) => void) {
+  constructor(term: XTerm, onRerun?: (command: string) => void, onSaveWorkflow?: (command: string) => void) {
     this.term = term;
     this.onRerun = onRerun;
+    this.onSaveWorkflow = onSaveWorkflow;
   }
 
   handleMarker(marker: 'A' | 'B' | 'C' | 'D', exitCode?: number): void {
@@ -214,12 +216,16 @@ export class BlockDecorationManager {
       }));
       const copyLabel = bar.lastElementChild as HTMLButtonElement;
 
-      // Re-run button
-      if (this.onRerun) {
-        const cmd = this.getCommandText(block);
+      // Re-run and Save buttons
+      const cmd = this.getCommandText(block);
 
-        if (cmd) {
+      if (cmd) {
+        if (this.onRerun) {
           bar.appendChild(this.createButton('Re-run', () => this.onRerun?.(cmd + '\n')));
+        }
+
+        if (this.onSaveWorkflow) {
+          bar.appendChild(this.createButton('Save', () => this.onSaveWorkflow?.(cmd)));
         }
       }
 

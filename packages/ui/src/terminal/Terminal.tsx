@@ -63,6 +63,7 @@ export interface TerminalProps {
   onTitleChange?: (title: string) => void;
   onCwdChange?: (cwd: string) => void;
   onBlockBoundary?: (boundary: BlockBoundary) => void;
+  onSaveWorkflow?: (command: string) => void;
   onBell?: () => void;
   onReady?: () => void;
   fontSize?: number;
@@ -95,7 +96,7 @@ const SEARCH_DECORATIONS = {
 };
 
 export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
-  ({ onData, onResize, onTitleChange, onCwdChange, onBlockBoundary, onBell, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', fontWeight = 'normal', fontSmoothing = 'antialiased', fontLigatures = false, drawBoldInBold = true, scrollbackLines = 5000, cursorStyle = 'block', cursorBlink = true, lineHeight = 1.0, padding = 0, promptAtBottom = false, copyOnSelect = false, macOptionIsMeta = false, altClickMoveCursor = true, wordSeparators, theme, onOpenUrl }, ref) => {
+  ({ onData, onResize, onTitleChange, onCwdChange, onBlockBoundary, onSaveWorkflow, onBell, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', fontWeight = 'normal', fontSmoothing = 'antialiased', fontLigatures = false, drawBoldInBold = true, scrollbackLines = 5000, cursorStyle = 'block', cursorBlink = true, lineHeight = 1.0, padding = 0, promptAtBottom = false, copyOnSelect = false, macOptionIsMeta = false, altClickMoveCursor = true, wordSeparators, theme, onOpenUrl }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const terminalRef = useRef<XTerm | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -117,6 +118,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     onCwdChangeRef.current = onCwdChange;
     const onBlockBoundaryRef = useRef(onBlockBoundary);
     onBlockBoundaryRef.current = onBlockBoundary;
+    const onSaveWorkflowRef = useRef(onSaveWorkflow);
+    onSaveWorkflowRef.current = onSaveWorkflow;
     const onBellRef = useRef(onBell);
     onBellRef.current = onBell;
     const onReadyRef = useRef(onReady);
@@ -539,9 +542,11 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       // OSC 133: Shell integration — FinalTerm semantic prompt markers
       // Emitted by TermPod's shell integration scripts (zsh/bash/fish)
       // Sequence: A (prompt start) → B (prompt end) → C (output start) → D (command finished)
-      const blockDecorations = new BlockDecorationManager(term, (cmd) => {
-        onDataRef.current?.(cmd);
-      });
+      const blockDecorations = new BlockDecorationManager(
+        term,
+        (cmd) => { onDataRef.current?.(cmd); },
+        (cmd) => { onSaveWorkflowRef.current?.(cmd); },
+      );
       blockDecorationsRef.current = blockDecorations;
 
       term.parser.registerOscHandler(133, (data) => {
