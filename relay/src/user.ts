@@ -696,13 +696,14 @@ export class User extends DurableObject {
       return;
     }
 
-    // If desktop disconnects, mark device offline and notify viewers
+    // If desktop disconnects, mark device offline and clean up sessions
     if (tag.role === 'desktop') {
       this.ctx.storage.sql.exec(
         'UPDATE devices SET is_online = 0, last_seen_at = ? WHERE id = ?',
         new Date().toISOString(),
         tag.targetDeviceId,
       );
+      this.ctx.storage.sql.exec('DELETE FROM sessions WHERE device_id = ?', tag.targetDeviceId);
     }
 
     this.broadcastToDevice(tag.targetDeviceId, ws, {
