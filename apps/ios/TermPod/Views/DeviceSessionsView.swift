@@ -41,7 +41,7 @@ struct DeviceSessionsView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
-                    .disabled(requestingSession || !device.isOnline)
+                    .disabled(requestingSession || !deviceTransport.desktopOnline)
                     .accessibilityLabel("New session")
                     .accessibilityHint("Create a new terminal session on this device")
                 }

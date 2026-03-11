@@ -103,11 +103,16 @@ struct DeviceListView: View {
             .onReceive(NotificationCenter.default.publisher(for: .desktopConnected)) { _ in
                 Task { await deviceService.fetchDevices(auth: auth) }
             }
+            .onChange(of: deviceTransport.desktopOnline) { _, online in
+                if !online {
+                    Task { await deviceService.fetchDevices(auth: auth) }
+                }
+            }
         }
     }
 
     private func transportForDevice(_ device: DeviceService.Device) -> TransportType? {
-        guard device.isOnline || deviceTransport.isConnected else { return nil }
+        guard deviceTransport.desktopOnline else { return nil }
 
         if deviceTransport.isConnected {
             return deviceTransport.activeTransport

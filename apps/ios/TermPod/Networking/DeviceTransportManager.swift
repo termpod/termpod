@@ -38,6 +38,7 @@ final class DeviceTransportManager: ObservableObject {
     @Published var sessions: [DeviceSessionInfo] = []
     @Published var isConnected = false
     @Published var isConnecting = false
+    @Published var desktopOnline = false
     @Published var webrtcMode: WebRTCConnectionMode?
     @Published var debugLog: [String] = []
 
@@ -186,6 +187,7 @@ final class DeviceTransportManager: ObservableObject {
 
         isConnected = false
         isConnecting = false
+        desktopOnline = false
         webrtcMode = nil
         sessions = []
         sessionDataHandlers.removeAll()
@@ -1040,6 +1042,10 @@ final class DeviceTransportManager: ObservableObject {
             startDeviceWSPingLoop()
             updateActiveTransport()
             fetchTurnCredentials()
+            // Check if desktop is already connected
+            if let clients = json["clients"] as? [[String: Any]] {
+                desktopOnline = clients.contains { ($0["role"] as? String) == "desktop" }
+            }
             // Request session list if we don't have local
             if !localConnected {
                 sendDeviceWSControl(["type": "list_sessions"])
@@ -1072,6 +1078,7 @@ final class DeviceTransportManager: ObservableObject {
 
         case "client_joined":
             if let role = json["role"] as? String, role == "desktop" {
+                desktopOnline = true
                 log("Desktop joined")
                 onDesktopConnected?()
                 NotificationCenter.default.post(name: .desktopConnected, object: nil)
@@ -1079,8 +1086,13 @@ final class DeviceTransportManager: ObservableObject {
 
         case "client_left":
             if let role = json["role"] as? String, role == "desktop" {
+                desktopOnline = false
                 sessions = []
-                log("Desktop left — cleared sessions")
+                webrtcTransport?.disconnect()
+                webrtcTransport = nil
+                webrtcMode = nil
+                updateActiveTransport()
+                log("Desktop left — cleared sessions, tore down WebRTC")
                 onDesktopDisconnected?()
             }
 
