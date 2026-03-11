@@ -45,10 +45,9 @@ export function useDevice(isAuthenticated: boolean, onCreateSessionRequest?: () 
     pendingRef.current = [];
 
     for (const p of pending) {
+      // Only send non-sensitive fields — real name/cwd delivered E2E encrypted via Device WS
       await deviceFetch(`/devices/${deviceId}/sessions`, 'POST', {
         id: p.sessionId,
-        name: p.name,
-        cwd: p.cwd,
         ptyCols: p.ptyCols,
         ptyRows: p.ptyRows,
       }).catch(() => {});
@@ -124,10 +123,9 @@ export function useDevice(isAuthenticated: boolean, onCreateSessionRequest?: () 
         return;
       }
 
+      // Only send non-sensitive fields — real name/cwd delivered E2E encrypted via Device WS
       await deviceFetch(`/devices/${deviceId}/sessions`, 'POST', {
         id: sessionId,
-        name,
-        cwd,
         ptyCols,
         ptyRows,
       });
@@ -136,12 +134,9 @@ export function useDevice(isAuthenticated: boolean, onCreateSessionRequest?: () 
   );
 
   const updateSession = useCallback(
-    async (sessionId: string, updates: { name?: string; cwd?: string; processName?: string | null }) => {
-      if (!registeredRef.current) {
-        return;
-      }
-
-      await deviceFetch(`/sessions/${sessionId}`, 'PATCH', updates).catch(() => {});
+    async (_sessionId: string, _updates: { name?: string; cwd?: string; processName?: string | null }) => {
+      // No-op: session metadata is delivered E2E encrypted via Device WS (encrypted_control).
+      // The relay only stores non-sensitive fields (ID, dimensions) in SQLite.
     },
     [],
   );

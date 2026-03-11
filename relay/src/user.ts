@@ -20,12 +20,10 @@ export interface DeviceInfo {
 export interface SessionInfo {
   id: string;
   deviceId: string;
-  name: string;
-  cwd: string;
-  processName: string | null;
   ptyCols: number;
   ptyRows: number;
   createdAt: string;
+  // name, cwd, processName are E2E encrypted — never stored or returned by relay
 }
 
 export interface PendingSessionRequest {
@@ -471,19 +469,17 @@ export class User extends DurableObject {
   // --- Sessions ---
 
   private handleListSessions(deviceId: string): Response {
+    // Only return non-sensitive fields — real metadata delivered E2E encrypted via Device WS
     const rows = this.ctx.storage.sql
       .exec(
-        'SELECT id, device_id, name, cwd, process_name, pty_cols, pty_rows, created_at FROM sessions WHERE device_id = ? ORDER BY created_at',
+        'SELECT id, device_id, pty_cols, pty_rows, created_at FROM sessions WHERE device_id = ? ORDER BY created_at',
         deviceId,
       )
       .toArray();
 
-    const sessions: SessionInfo[] = rows.map((r) => ({
+    const sessions = rows.map((r) => ({
       id: r.id as string,
       deviceId: r.device_id as string,
-      name: r.name as string,
-      cwd: r.cwd as string,
-      processName: (r.process_name as string) ?? null,
       ptyCols: r.pty_cols as number,
       ptyRows: r.pty_rows as number,
       createdAt: r.created_at as string,
@@ -522,12 +518,13 @@ export class User extends DurableObject {
       return Response.json({ error: 'Device not found' }, { status: 404 });
     }
 
+    // Store only non-sensitive fields — real name/cwd/processName delivered E2E encrypted via Device WS
     this.ctx.storage.sql.exec(
       'INSERT OR REPLACE INTO sessions (id, device_id, name, cwd, pty_cols, pty_rows, created_at) VALUES (?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM sessions WHERE id = ?), ?))',
       body.id,
       deviceId,
-      body.name ?? 'shell',
-      body.cwd ?? '',
+      'encrypted',
+      '',
       body.ptyCols ?? 120,
       body.ptyRows ?? 40,
       body.id,
@@ -537,60 +534,9 @@ export class User extends DurableObject {
     return Response.json({ ok: true, sessionId: body.id }, { status: 201 });
   }
 
-  private async handleUpdateSession(sessionId: string, request: Request): Promise<Response> {
-    const body = (await request.json()) as {
-      name?: string;
-      cwd?: string;
-      processName?: string | null;
-    };
-
-    if (body.name !== undefined && typeof body.name === 'string' && body.name.length > 255) {
-      return Response.json({ error: 'Session name too long' }, { status: 400 });
-    }
-
-    if (body.cwd !== undefined && typeof body.cwd === 'string' && body.cwd.length > 4096) {
-      return Response.json({ error: 'CWD too long' }, { status: 400 });
-    }
-
-    if (body.processName !== undefined && body.processName !== null && typeof body.processName === 'string' && body.processName.length > 255) {
-      return Response.json({ error: 'Process name too long' }, { status: 400 });
-    }
-
-    const existing = this.ctx.storage.sql
-      .exec('SELECT id FROM sessions WHERE id = ?', sessionId)
-      .toArray();
-
-    if (existing.length === 0) {
-      return Response.json({ error: 'Session not found' }, { status: 404 });
-    }
-
-    // Build a single UPDATE with all changed fields
-    const setClauses: string[] = [];
-    const values: (string | null)[] = [];
-
-    if (body.name !== undefined) {
-      setClauses.push('name = ?');
-      values.push(body.name);
-    }
-
-    if (body.cwd !== undefined) {
-      setClauses.push('cwd = ?');
-      values.push(body.cwd);
-    }
-
-    if (body.processName !== undefined) {
-      setClauses.push('process_name = ?');
-      values.push(body.processName ?? null);
-    }
-
-    if (setClauses.length > 0) {
-      values.push(sessionId);
-      this.ctx.storage.sql.exec(
-        `UPDATE sessions SET ${setClauses.join(', ')} WHERE id = ?`,
-        ...values,
-      );
-    }
-
+  private async handleUpdateSession(_sessionId: string, _request: Request): Promise<Response> {
+    // Session metadata (name, cwd, processName) is delivered E2E encrypted via Device WS.
+    // This endpoint no longer accepts sensitive field updates to prevent plaintext leakage.
     return Response.json({ ok: true });
   }
 
@@ -1031,9 +977,10 @@ export class User extends DurableObject {
   private handleWsListSessions(ws: WebSocket, tag: DeviceClientTag): void {
     this.ensureSchema();
 
+    // Only return non-sensitive fields — real metadata delivered E2E encrypted via encrypted_control
     const rows = this.ctx.storage.sql
       .exec(
-        'SELECT id, device_id, name, cwd, process_name, pty_cols, pty_rows, created_at FROM sessions WHERE device_id = ? ORDER BY created_at',
+        'SELECT id, device_id, pty_cols, pty_rows, created_at FROM sessions WHERE device_id = ? ORDER BY created_at',
         tag.targetDeviceId,
       )
       .toArray();
@@ -1041,9 +988,6 @@ export class User extends DurableObject {
     const sessions = rows.map((r) => ({
       id: r.id as string,
       deviceId: r.device_id as string,
-      name: r.name as string,
-      cwd: r.cwd as string,
-      processName: (r.process_name as string) ?? null,
       ptyCols: r.pty_cols as number,
       ptyRows: r.pty_rows as number,
       createdAt: r.created_at as string,
