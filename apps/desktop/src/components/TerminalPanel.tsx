@@ -128,6 +128,8 @@ export function TerminalPanel({
   onWebRTCMuxResize,
   getSharedWebRTC,
 }: TerminalPanelProps) {
+  const isSshSession = (session.processName ?? '').toLowerCase() === 'ssh';
+
   // Initialize autocomplete engine
   const [autocompleteEngine] = useState(() => {
     const engine = new AutocompleteEngine(
@@ -319,6 +321,11 @@ export function TerminalPanel({
   // Load shell history when session starts
   useEffect(() => {
     if (!autocompleteEnabled) return;
+    if (isSshSession) {
+      autocompleteEngine.getHistoryIndex().clear();
+      autocompleteEngine.setCurrentDirectory(null);
+      return;
+    }
 
     const loadHistory = async () => {
       try {
@@ -342,7 +349,20 @@ export function TerminalPanel({
     };
 
     loadHistory();
-  }, [autocompleteEnabled, autocompleteEngine]);
+  }, [autocompleteEnabled, autocompleteEngine, isSshSession]);
+
+  // SSH mode: disable local filesystem context suggestions.
+  useEffect(() => {
+    if (isSshSession) {
+      autocompleteEngine.setPathEntryLister(undefined);
+      autocompleteEngine.setCurrentDirectory(null);
+      return;
+    }
+
+    autocompleteEngine.setPathEntryLister(async (path: string) => {
+      return await invoke<string[]>('list_directory_entries', { path });
+    });
+  }, [autocompleteEngine, isSshSession]);
 
   // Update autocomplete engine when enabled state changes
   useEffect(() => {
@@ -437,6 +457,7 @@ export function TerminalPanel({
         theme={adjustedTheme}
         scrollbarVisibility={scrollbarVisibility}
         onOpenUrl={(url) => invoke('open_url', { url })}
+        blockDecorationsMode={isSshSession ? 'minimal' : 'full'}
         autocompleteEnabled={autocompleteEnabled}
         autocompleteEngine={autocompleteEngine}
       />

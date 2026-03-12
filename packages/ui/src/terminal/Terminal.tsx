@@ -95,6 +95,7 @@ export interface TerminalProps {
   theme?: TerminalThemeColors;
   scrollbarVisibility?: 'always' | 'when-scrolling' | 'never';
   onOpenUrl?: (url: string) => void;
+  blockDecorationsMode?: 'full' | 'minimal' | 'off';
   // Autocomplete options
   autocompleteEnabled?: boolean;
   autocompleteEngine?: AutocompleteEngine;
@@ -139,6 +140,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       theme,
       scrollbarVisibility = 'auto',
       onOpenUrl,
+      blockDecorationsMode = 'full',
       autocompleteEnabled = true,
       autocompleteEngine,
     },
@@ -167,7 +169,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     const previewAnchorPrefixRef = useRef<string | null>(null);
     const previewSuffixRef = useRef('');
     const ghostTextRef = useRef<string | null>(null);
+    const autocompleteEnabledRef = useRef(autocompleteEnabled);
+    const lastOsc134InputAtRef = useRef(0);
     ghostTextRef.current = ghostText;
+    autocompleteEnabledRef.current = autocompleteEnabled;
 
     // Store callbacks in refs so the xterm instance never needs to be
     // destroyed just because a callback reference changed.
@@ -193,6 +198,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     promptAtBottomRef.current = promptAtBottom;
     const copyOnSelectRef = useRef(copyOnSelect);
     copyOnSelectRef.current = copyOnSelect;
+    const blockDecorationsModeRef = useRef(blockDecorationsMode);
+    blockDecorationsModeRef.current = blockDecorationsMode;
 
     const blockDecorationsRef = useRef<BlockDecorationManager | null>(null);
 
@@ -209,6 +216,122 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       }
       return suffix;
     }, []);
+
+    const clearAutocompleteUi = useCallback(() => {
+      previewAnchorPrefixRef.current = null;
+      previewSuffixRef.current = '';
+      setGhostText(null);
+      setSuggestions([]);
+    }, []);
+
+    const applyAutocompleteBuffer = useCallback(
+      (buffer: string, cursorPos: number) => {
+        autocompleteInputRef.current = { buffer, cursor: cursorPos };
+
+        const prefix = buffer.slice(0, cursorPos);
+        autocompleteEngineRef.current?.handleInput(buffer, cursorPos);
+
+        const ghostRaw = autocompleteEngineRef.current?.getGhostText() ?? null;
+        const ghost = ghostRaw ? normalizeCompletionSuffix(prefix, ghostRaw) : null;
+        setGhostText(ghost);
+
+        const allSugs = autocompleteEngineRef.current?.getSuggestions() ?? [];
+        const nonExact = allSugs.filter((s) => s.text.toLowerCase() !== prefix.toLowerCase());
+        const sugs = nonExact.length > 0 ? nonExact : allSugs;
+        setSuggestions(sugs);
+        setSelectedSuggestion(0);
+
+        if (sugs.length === 0) {
+          previewAnchorPrefixRef.current = null;
+          previewSuffixRef.current = '';
+        }
+      },
+      [normalizeCompletionSuffix],
+    );
+
+    const handleAutocompleteExecute = useCallback(() => {
+      autocompleteEngineRef.current?.handleExecute();
+      autocompleteInputRef.current = { buffer: '', cursor: 0 };
+      clearAutocompleteUi();
+    }, [clearAutocompleteUi]);
+
+    const applyLocalAutocompleteInput = useCallback(
+      (data: string) => {
+        if (!autocompleteEnabledRef.current) return;
+        const oscInputIsFresh = Date.now() - lastOsc134InputAtRef.current < 250;
+        if (oscInputIsFresh) return;
+
+        let { buffer, cursor } = autocompleteInputRef.current;
+
+        const executeNow = () => {
+          handleAutocompleteExecute();
+        };
+
+        if (data === '\r' || data === '\n' || data === '\x1b[13;2u') {
+          executeNow();
+          return;
+        }
+
+        if (data === '\x7f' || data === '\b') {
+          if (cursor > 0) {
+            buffer = buffer.slice(0, cursor - 1) + buffer.slice(cursor);
+            cursor -= 1;
+          }
+          applyAutocompleteBuffer(buffer, cursor);
+          return;
+        }
+
+        if (data === '\x1b[D') {
+          cursor = Math.max(0, cursor - 1);
+          applyAutocompleteBuffer(buffer, cursor);
+          return;
+        }
+
+        if (data === '\x1b[C') {
+          cursor = Math.min(buffer.length, cursor + 1);
+          applyAutocompleteBuffer(buffer, cursor);
+          return;
+        }
+
+        if (data === '\x1b[H' || data === '\x01') {
+          cursor = 0;
+          applyAutocompleteBuffer(buffer, cursor);
+          return;
+        }
+
+        if (data === '\x1b[F' || data === '\x05') {
+          cursor = buffer.length;
+          applyAutocompleteBuffer(buffer, cursor);
+          return;
+        }
+
+        if (data === '\x1b[3~') {
+          if (cursor < buffer.length) {
+            buffer = buffer.slice(0, cursor) + buffer.slice(cursor + 1);
+          }
+          applyAutocompleteBuffer(buffer, cursor);
+          return;
+        }
+
+        // Ignore unhandled control sequences.
+        if (data.startsWith('\x1b')) return;
+
+        for (const ch of data) {
+          if (ch === '\r' || ch === '\n') {
+            executeNow();
+            return;
+          }
+
+          if (ch >= ' ' && ch !== '\x7f') {
+            buffer = buffer.slice(0, cursor) + ch + buffer.slice(cursor);
+            cursor += 1;
+          }
+        }
+
+        applyAutocompleteBuffer(buffer, cursor);
+      },
+      [applyAutocompleteBuffer, handleAutocompleteExecute],
+    );
 
     // Matches cursor-home followed by erase display/scrollback/to-end:
     //   \x1b[H\x1b[J  — zsh Ctrl+L (cursor home + erase to end)
@@ -585,10 +708,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
               if (normalizedGhost) {
                 onDataRef.current?.(normalizedGhost);
               }
-              previewAnchorPrefixRef.current = null;
-              previewSuffixRef.current = '';
-              setGhostText(null);
-              setSuggestions([]);
+              clearAutocompleteUi();
               return false;
             }
           }
@@ -628,7 +748,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       });
 
       // Use refs for callbacks so they always call the latest version
-      term.onData((data) => onDataRef.current?.(data));
+      term.onData((data) => {
+        applyLocalAutocompleteInput(data);
+        onDataRef.current?.(data);
+      });
       term.onTitleChange((title) => onTitleChangeRef.current?.(title));
 
       // Copy on select: auto-copy to clipboard when text is selected
@@ -668,10 +791,15 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         (cmd) => {
           onSaveWorkflowRef.current?.(cmd);
         },
+        blockDecorationsModeRef.current === 'minimal' ? 'minimal' : 'full',
       );
       blockDecorationsRef.current = blockDecorations;
 
       term.parser.registerOscHandler(133, (data) => {
+        if (blockDecorationsModeRef.current === 'off') {
+          return false;
+        }
+
         const semi = data.indexOf(';');
         const marker = semi === -1 ? data : data.slice(0, semi);
 
@@ -698,19 +826,15 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       // OSC 134: Autocomplete input capture from shell integration
       // Format: input;<base64_buffer>;<cursor_pos> or execute
       term.parser.registerOscHandler(134, (data) => {
-        if (!autocompleteEnabled) return false;
+        if (!autocompleteEnabledRef.current) return false;
 
         const parts = data.split(';');
         const type = parts[0];
 
         if (type === 'execute') {
-          autocompleteEngineRef.current?.handleExecute();
-          autocompleteInputRef.current = { buffer: '', cursor: 0 };
-          previewAnchorPrefixRef.current = null;
-          previewSuffixRef.current = '';
-          setGhostText(null);
-          setSuggestions([]);
+          handleAutocompleteExecute();
         } else if (type === 'input' && parts.length >= 3) {
+          lastOsc134InputAtRef.current = Date.now();
           try {
             const encodedBuffer = parts[1];
             const cursorPos = parseInt(parts[2], 10);
@@ -735,29 +859,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
               previewSuffixRef.current = '';
             }
 
-            autocompleteInputRef.current = { buffer, cursor: cursorPos };
-
-            const prefix = buffer.slice(0, cursorPos);
-            autocompleteEngineRef.current?.handleInput(buffer, cursorPos);
-
-            // Update ghost text
-            const ghostRaw = autocompleteEngineRef.current?.getGhostText() ?? null;
-            const ghost = ghostRaw ? normalizeCompletionSuffix(prefix, ghostRaw) : null;
-            setGhostText(ghost);
-
-            // Update suggestions
-            const sugs =
-              (autocompleteEngineRef.current?.getSuggestions() ?? []).filter(
-                (s) => s.text.toLowerCase() !== prefix.toLowerCase(),
-              ) ?? [];
-            setSuggestions(sugs);
-            setSelectedSuggestion(0);
-
-            // If suggestions disappear, clear preview tracking.
-            if (sugs.length === 0) {
-              previewAnchorPrefixRef.current = null;
-              previewSuffixRef.current = '';
-            }
+            applyAutocompleteBuffer(buffer, cursorPos);
           } catch {
             // Invalid base64, ignore
           }
@@ -966,8 +1068,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     // Handle accepting a suggestion
     const handleAcceptSuggestion = useCallback(
       (suggestion: Suggestion) => {
-        previewAnchorPrefixRef.current = null;
-        previewSuffixRef.current = '';
+        clearAutocompleteUi();
 
         const { buffer, cursor } = autocompleteInputRef.current;
         const prefix = buffer.slice(0, cursor);
@@ -993,19 +1094,15 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           onData?.(textToInsert);
         }
 
-        setGhostText(null);
-        setSuggestions([]);
+        clearAutocompleteUi();
       },
-      [normalizeCompletionSuffix, onData],
+      [clearAutocompleteUi, normalizeCompletionSuffix, onData],
     );
 
     // Revert any inline preview and close popup.
     const handleCloseSuggestions = useCallback(() => {
-      previewAnchorPrefixRef.current = null;
-      previewSuffixRef.current = '';
-      setGhostText(null);
-      setSuggestions([]);
-    }, []);
+      clearAutocompleteUi();
+    }, [clearAutocompleteUi]);
 
     // While navigating popup suggestions, preview selected completion visually.
     // We intentionally avoid mutating shell buffer on every arrow change since

@@ -16,15 +16,18 @@ export class BlockDecorationManager {
   private blocks: TrackedBlock[] = [];
   private onRerun?: (command: string) => void;
   private onSaveWorkflow?: (command: string) => void;
+  private mode: 'full' | 'minimal';
 
   constructor(
     term: XTerm,
     onRerun?: (command: string) => void,
     onSaveWorkflow?: (command: string) => void,
+    mode: 'full' | 'minimal' = 'full',
   ) {
     this.term = term;
     this.onRerun = onRerun;
     this.onSaveWorkflow = onSaveWorkflow;
+    this.mode = mode;
   }
 
   handleMarker(marker: 'A' | 'B' | 'C' | 'D', exitCode?: number): void {
@@ -39,8 +42,8 @@ export class BlockDecorationManager {
         // Check if we're at the top of the terminal (e.g., after clear command)
         const isAtTop = m.line === 0;
 
-        // Add spacing before new prompt (except for first prompt or after clear)
-        if (this.blocks.length > 0 && !isAtTop) {
+        // Full mode adds visual spacing between command blocks.
+        if (this.mode === 'full' && this.blocks.length > 0 && !isAtTop) {
           this.term.write('\n');
         }
 
@@ -54,7 +57,7 @@ export class BlockDecorationManager {
           actionsDec: null,
         };
 
-        if (this.blocks.length > 0 && !isAtTop) {
+        if (this.mode === 'full' && this.blocks.length > 0 && !isAtTop) {
           this.createSeparator(block);
         }
 
@@ -89,7 +92,9 @@ export class BlockDecorationManager {
           current.endMarker = this.term.registerMarker(0);
           current.exitCode = exitCode;
           current.complete = true;
-          this.createActions(current);
+          if (this.mode === 'full') {
+            this.createActions(current);
+          }
         }
 
         break;

@@ -35,6 +35,19 @@ describe('getTermifyPayload', () => {
     expect(payload).toContain('133;D');
   });
 
+  it('contains OSC 134 autocomplete markers for zsh', () => {
+    const payload = getTermifyPayload();
+    expect(payload).toContain('134;input');
+    expect(payload).toContain('134;execute');
+  });
+
+  it('contains bash readline capture hooks for OSC 134', () => {
+    const payload = getTermifyPayload();
+    expect(payload).toContain('READLINE_LINE');
+    expect(payload).toContain('__termpod_capture_input');
+    expect(payload).toContain('bind -x');
+  });
+
   it('does not have semicolons after then keywords', () => {
     const payload = getTermifyPayload();
     expect(payload).not.toMatch(/then\s*;/);
