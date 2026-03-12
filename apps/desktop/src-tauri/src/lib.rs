@@ -169,6 +169,33 @@ async fn read_file(path: String) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&bytes).to_string())
 }
 
+#[tauri::command]
+async fn list_directory_entries(path: String) -> Result<Vec<String>, String> {
+    let mut reader = tokio::fs::read_dir(&path)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let mut entries: Vec<String> = Vec::new();
+
+    while let Some(entry) = reader.next_entry().await.map_err(|e| e.to_string())? {
+        let file_type = entry.file_type().await.map_err(|e| e.to_string())?;
+        let name = entry.file_name().to_string_lossy().to_string();
+
+        if name.is_empty() || name == "." || name == ".." {
+            continue;
+        }
+
+        if file_type.is_dir() {
+            entries.push(format!("{name}/"));
+        } else if file_type.is_file() {
+            entries.push(name);
+        }
+    }
+
+    entries.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+    Ok(entries)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -186,6 +213,7 @@ pub fn run() {
             copy_to_clipboard,
             open_url,
             read_file,
+            list_directory_entries,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_read,

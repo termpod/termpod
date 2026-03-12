@@ -26,6 +26,11 @@ export class AutocompleteEngine {
   private currentInput: InputState = { buffer: '', cursor: 0 };
   private options: AutocompleteOptions;
   private lastSuggestion: Suggestion | null = null;
+  private currentDirectory: string | null = null;
+  private listPathEntries?: (path: string) => Promise<string[]>;
+  private cachedDirectories: string[] = [];
+  private cachedFiles: string[] = [];
+  private fsRefreshToken = 0;
   private onSuggestionCallbacks: Array<(suggestion: string | null) => void> = [];
   private onSuggestionsCallbacks: Array<(suggestions: Suggestion[]) => void> = [];
 
@@ -47,6 +52,34 @@ export class AutocompleteEngine {
    */
   getHistoryIndex(): HistoryIndex {
     return this.historyIndex;
+  }
+
+  /**
+   * Set a filesystem entry listing provider for context-aware suggestions.
+   * Directory entries should include trailing `/`, file entries should not.
+   */
+  setPathEntryLister(lister: ((path: string) => Promise<string[]>) | undefined): void {
+    this.listPathEntries = lister;
+    if (this.currentDirectory) {
+      void this.refreshFsCache();
+    }
+  }
+
+  /**
+   * Update current shell working directory (used for contextual suggestions).
+   */
+  setCurrentDirectory(cwd: string | null | undefined): void {
+    const normalized = cwd?.trim() || null;
+    if (normalized === this.currentDirectory) {
+      return;
+    }
+
+    this.currentDirectory = normalized;
+    this.cachedDirectories = [];
+    this.cachedFiles = [];
+    if (this.currentDirectory) {
+      void this.refreshFsCache();
+    }
   }
 
   /**
@@ -75,6 +108,11 @@ export class AutocompleteEngine {
       return;
     }
 
+    // Opportunistically refresh filesystem cache if needed.
+    if (this.currentDirectory && this.listPathEntries && this.cachedDirectories.length === 0) {
+      void this.refreshFsCache();
+    }
+
     this.updateSuggestions(prefix);
   }
 
@@ -95,17 +133,20 @@ export class AutocompleteEngine {
    * Update suggestions based on the current prefix
    */
   private updateSuggestions(prefix: string): void {
+    const suggestions = this.computeSuggestions(prefix);
+
     // Get ghost text suggestion
     if (this.options.ghostTextEnabled) {
-      const ghostText = this.historyIndex.getGhostText(prefix);
+      const ghostText =
+        suggestions.length > 0 &&
+        suggestions[0].text.toLowerCase().startsWith(prefix.toLowerCase())
+          ? suggestions[0].text.slice(prefix.length)
+          : null;
       this.notifyGhostText(ghostText);
     }
 
     // Get popup suggestions
     if (this.options.popupEnabled) {
-      const suggestions = this.historyIndex.getSuggestions(prefix, {
-        limit: this.options.maxSuggestions,
-      });
       this.lastSuggestion = suggestions[0] || null;
       this.notifySuggestions(suggestions);
     }
@@ -140,7 +181,16 @@ export class AutocompleteEngine {
       return null;
     }
 
-    return this.historyIndex.getGhostText(this.currentInput.buffer);
+    const prefix = this.currentInput.buffer.slice(0, this.currentInput.cursor);
+    const suggestions = this.computeSuggestions(prefix, 1);
+    const top = suggestions[0];
+    if (!top) {
+      return null;
+    }
+
+    return top.text.toLowerCase().startsWith(prefix.toLowerCase())
+      ? top.text.slice(prefix.length)
+      : null;
   }
 
   /**
@@ -151,9 +201,8 @@ export class AutocompleteEngine {
       return [];
     }
 
-    return this.historyIndex.getSuggestions(this.currentInput.buffer, {
-      limit: this.options.maxSuggestions,
-    });
+    const prefix = this.currentInput.buffer.slice(0, this.currentInput.cursor);
+    return this.computeSuggestions(prefix);
   }
 
   /**
@@ -245,5 +294,134 @@ export class AutocompleteEngine {
    */
   getStats(): { totalCommands: number; uniqueCommands: number } {
     return this.historyIndex.getStats();
+  }
+
+  private async refreshFsCache(): Promise<void> {
+    const cwd = this.currentDirectory;
+    const lister = this.listPathEntries;
+
+    if (!cwd || !lister) {
+      this.cachedDirectories = [];
+      this.cachedFiles = [];
+      return;
+    }
+
+    const token = ++this.fsRefreshToken;
+
+    try {
+      const entries = await lister(cwd);
+      if (token !== this.fsRefreshToken) {
+        return;
+      }
+
+      const normalized = Array.from(new Set(entries))
+        .map((d) => d.trim())
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+      this.cachedDirectories = normalized
+        .filter((entry) => entry.endsWith('/'))
+        .map((entry) => entry.slice(0, -1));
+      this.cachedFiles = normalized.filter((entry) => !entry.endsWith('/'));
+    } catch {
+      if (token === this.fsRefreshToken) {
+        this.cachedDirectories = [];
+        this.cachedFiles = [];
+      }
+    }
+  }
+
+  private computeSuggestions(prefix: string, limit = this.options.maxSuggestions ?? 5): Suggestion[] {
+    const historySuggestions = this.historyIndex.getSuggestions(prefix, { limit: limit * 2 });
+    const contextSuggestions = this.getContextSuggestions(prefix);
+    const merged: Suggestion[] = [];
+    const seen = new Set<string>();
+
+    for (const suggestion of [...contextSuggestions, ...historySuggestions]) {
+      const key = suggestion.text.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(suggestion);
+      if (merged.length >= limit) break;
+    }
+
+    return merged;
+  }
+
+  private getContextSuggestions(prefix: string): Suggestion[] {
+    const match = prefix.match(/^\s*([^\s]+)(?:\s+([^\s]*))?\s*$/);
+    if (!match) {
+      return [];
+    }
+
+    const cmd = match[1].toLowerCase();
+    const arg = match[2] ?? '';
+
+    // Keep first-argument completion simple and predictable.
+    if (arg.startsWith('-')) {
+      return [];
+    }
+
+    const partial = arg;
+    const partialLower = partial.toLowerCase();
+    const matchesDirs = this.cachedDirectories.filter((name) =>
+      name.toLowerCase().startsWith(partialLower),
+    );
+    const matchesFiles = this.cachedFiles.filter((name) => name.toLowerCase().startsWith(partialLower));
+
+    const dirOnlyCommands = new Set(['cd', 'pushd', 'popd', 'rmdir', 'mkdir']);
+    const fileOrDirCommands = new Set(['ls', 'tree', 'du', 'open', 'code', 'rm', 'cp', 'mv']);
+    const fileOnlyCommands = new Set([
+      'cat',
+      'less',
+      'head',
+      'tail',
+      'bat',
+      'vim',
+      'nvim',
+      'nano',
+      'grep',
+      'sed',
+      'awk',
+      'wc',
+      'touch',
+    ]);
+
+    const out: Suggestion[] = [];
+
+    const pushDirectory = (name: string, index: number) => {
+      out.push({
+        text: `${cmd} ${name}/`,
+        type: 'file',
+        description: 'Directory',
+        score: 220 - index,
+      });
+    };
+    const pushFile = (name: string, index: number) => {
+      out.push({
+        text: `${cmd} ${name}`,
+        type: 'file',
+        description: 'File',
+        score: 200 - index,
+      });
+    };
+
+    if (dirOnlyCommands.has(cmd)) {
+      matchesDirs.slice(0, 60).forEach(pushDirectory);
+      return out;
+    }
+
+    if (fileOnlyCommands.has(cmd)) {
+      matchesFiles.slice(0, 60).forEach(pushFile);
+      return out;
+    }
+
+    if (fileOrDirCommands.has(cmd)) {
+      matchesDirs.slice(0, 40).forEach(pushDirectory);
+      matchesFiles.slice(0, 40).forEach(pushFile);
+      return out;
+    }
+
+    return [];
   }
 }

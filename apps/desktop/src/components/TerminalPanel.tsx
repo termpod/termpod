@@ -130,7 +130,7 @@ export function TerminalPanel({
 }: TerminalPanelProps) {
   // Initialize autocomplete engine
   const [autocompleteEngine] = useState(() => {
-    return new AutocompleteEngine(
+    const engine = new AutocompleteEngine(
       {
         enabled: autocompleteEnabled,
         ghostTextEnabled: false, // Disable ghost text
@@ -140,6 +140,12 @@ export function TerminalPanel({
         return await invoke<string>('read_file', { path });
       },
     );
+
+    engine.setPathEntryLister(async (path: string) => {
+      return await invoke<string[]>('list_directory_entries', { path });
+    });
+
+    return engine;
   });
   const onTermReadyRef = useRef(onTermReady);
   onTermReadyRef.current = onTermReady;
@@ -244,8 +250,9 @@ export function TerminalPanel({
   );
 
   const handleCwdChange = useCallback((cwd: string) => {
+    autocompleteEngine.setCurrentDirectory(cwd);
     onCwdChangeRef.current?.(cwd);
-  }, []);
+  }, [autocompleteEngine]);
 
   const handleBlockBoundary = useCallback(
     (boundary: BlockBoundary) => {
