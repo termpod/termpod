@@ -27,7 +27,8 @@ ${oscPayload('entries', entriesCmd)}
 `.trim().split('\n').join(' ');
 
   // Leading space avoids shell history in common shell configs.
-  return ` ${script}\n`;
+  // Clear to hide the injected bootstrap command from the interactive view.
+  return ` ${script} clear\n`;
 }
 
 /**

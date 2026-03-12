@@ -796,10 +796,6 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       blockDecorationsRef.current = blockDecorations;
 
       term.parser.registerOscHandler(133, (data) => {
-        if (blockDecorationsModeRef.current === 'off') {
-          return false;
-        }
-
         const semi = data.indexOf(';');
         const marker = semi === -1 ? data : data.slice(0, semi);
 
@@ -812,7 +808,9 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           marker === 'D' && semi !== -1 ? parseInt(data.slice(semi + 1), 10) : undefined;
         const cleanExitCode = exitCode !== undefined && !isNaN(exitCode) ? exitCode : undefined;
 
-        blockDecorations.handleMarker(marker as 'A' | 'B' | 'C' | 'D', cleanExitCode);
+        if (blockDecorationsModeRef.current !== 'off') {
+          blockDecorations.handleMarker(marker as 'A' | 'B' | 'C' | 'D', cleanExitCode);
+        }
 
         onBlockBoundaryRef.current?.({
           marker: marker as 'A' | 'B' | 'C' | 'D',
