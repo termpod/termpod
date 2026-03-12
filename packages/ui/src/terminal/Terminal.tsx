@@ -1,4 +1,12 @@
-import { useEffect, useRef, useCallback, useImperativeHandle, forwardRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useCallback,
+  useImperativeHandle,
+  forwardRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
@@ -96,7 +104,37 @@ const SEARCH_DECORATIONS = {
 };
 
 export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
-  ({ onData, onResize, onTitleChange, onCwdChange, onBlockBoundary, onSaveWorkflow, onBell, onReady, fontSize = 14, fontFamily = 'Menlo, monospace', fontWeight = 'normal', fontSmoothing = 'antialiased', fontLigatures = false, drawBoldInBold = true, scrollbackLines = 5000, cursorStyle = 'block', cursorBlink = true, lineHeight = 1.0, padding = 0, promptAtBottom = false, copyOnSelect = false, macOptionIsMeta = false, altClickMoveCursor = true, wordSeparators, theme, onOpenUrl }, ref) => {
+  (
+    {
+      onData,
+      onResize,
+      onTitleChange,
+      onCwdChange,
+      onBlockBoundary,
+      onSaveWorkflow,
+      onBell,
+      onReady,
+      fontSize = 14,
+      fontFamily = 'Menlo, monospace',
+      fontWeight = 'normal',
+      fontSmoothing = 'antialiased',
+      fontLigatures = false,
+      drawBoldInBold = true,
+      scrollbackLines = 5000,
+      cursorStyle = 'block',
+      cursorBlink = true,
+      lineHeight = 1.0,
+      padding = 0,
+      promptAtBottom = false,
+      copyOnSelect = false,
+      macOptionIsMeta = false,
+      altClickMoveCursor = true,
+      wordSeparators,
+      theme,
+      onOpenUrl,
+    },
+    ref,
+  ) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const terminalRef = useRef<XTerm | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -150,9 +188,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         if (!term) return;
 
         if (promptAtBottomRef.current && term.rows > 1) {
-          const str = typeof data === 'string'
-            ? data
-            : new TextDecoder().decode(data instanceof Uint8Array ? data : new Uint8Array(data));
+          const str =
+            typeof data === 'string'
+              ? data
+              : new TextDecoder().decode(data instanceof Uint8Array ? data : new Uint8Array(data));
 
           CLEAR_RE.lastIndex = 0;
 
@@ -205,12 +244,16 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       },
       findNext: () => {
         if (searchQueryRef.current && searchAddonRef.current) {
-          searchAddonRef.current.findNext(searchQueryRef.current, { decorations: SEARCH_DECORATIONS });
+          searchAddonRef.current.findNext(searchQueryRef.current, {
+            decorations: SEARCH_DECORATIONS,
+          });
         }
       },
       findPrevious: () => {
         if (searchQueryRef.current && searchAddonRef.current) {
-          searchAddonRef.current.findPrevious(searchQueryRef.current, { decorations: SEARCH_DECORATIONS });
+          searchAddonRef.current.findPrevious(searchQueryRef.current, {
+            decorations: SEARCH_DECORATIONS,
+          });
         }
       },
       refresh: () => {
@@ -264,20 +307,23 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       searchAddonRef.current.findPrevious(searchQuery, { decorations: SEARCH_DECORATIONS });
     }, [searchQuery]);
 
-    const handleSearchKeyDown = useCallback((e: React.KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setSearchVisible(false);
-        searchAddonRef.current?.clearDecorations();
-        setSearchQuery('');
-        terminalRef.current?.focus();
-      } else if (e.key === 'Enter') {
-        if (e.shiftKey) {
-          handleSearchPrev();
-        } else {
-          handleSearchNext();
+    const handleSearchKeyDown = useCallback(
+      (e: React.KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setSearchVisible(false);
+          searchAddonRef.current?.clearDecorations();
+          setSearchQuery('');
+          terminalRef.current?.focus();
+        } else if (e.key === 'Enter') {
+          if (e.shiftKey) {
+            handleSearchPrev();
+          } else {
+            handleSearchNext();
+          }
         }
-      }
-    }, [handleSearchNext, handleSearchPrev]);
+      },
+      [handleSearchNext, handleSearchPrev],
+    );
 
     const handleContextMenu = useCallback((e: ReactMouseEvent) => {
       e.preventDefault();
@@ -398,11 +444,13 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       const searchAddon = new SearchAddon();
       term.loadAddon(fitAddon);
       term.loadAddon(searchAddon);
-      term.loadAddon(new WebLinksAddon((event, uri) => {
-        if (event.metaKey) {
-          onOpenUrlRef.current?.(uri);
-        }
-      }));
+      term.loadAddon(
+        new WebLinksAddon((event, uri) => {
+          if (event.metaKey) {
+            onOpenUrlRef.current?.(uri);
+          }
+        }),
+      );
 
       const unicodeAddon = new UnicodeGraphemesAddon();
       term.loadAddon(unicodeAddon);
@@ -544,8 +592,12 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       // Sequence: A (prompt start) → B (prompt end) → C (output start) → D (command finished)
       const blockDecorations = new BlockDecorationManager(
         term,
-        (cmd) => { onDataRef.current?.(cmd); },
-        (cmd) => { onSaveWorkflowRef.current?.(cmd); },
+        (cmd) => {
+          onDataRef.current?.(cmd);
+        },
+        (cmd) => {
+          onSaveWorkflowRef.current?.(cmd);
+        },
       );
       blockDecorationsRef.current = blockDecorations;
 
@@ -558,9 +610,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         }
 
         const line = term.buffer.active.baseY + term.buffer.active.cursorY;
-        const exitCode = marker === 'D' && semi !== -1
-          ? parseInt(data.slice(semi + 1), 10)
-          : undefined;
+        const exitCode =
+          marker === 'D' && semi !== -1 ? parseInt(data.slice(semi + 1), 10) : undefined;
         const cleanExitCode = exitCode !== undefined && !isNaN(exitCode) ? exitCode : undefined;
 
         blockDecorations.handleMarker(marker as 'A' | 'B' | 'C' | 'D', cleanExitCode);
@@ -590,7 +641,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
 
       // CSI < count u — pop keyboard mode
       term.parser.registerCsiHandler({ prefix: '<', final: 'u' }, (params) => {
-        const count = (typeof params[0] === 'number' && params[0] > 0) ? params[0] : 1;
+        const count = typeof params[0] === 'number' && params[0] > 0 ? params[0] : 1;
 
         for (let i = 0; i < count && kittyKeyboardStack.length > 0; i++) {
           kittyKeyboardStack.pop();
@@ -601,9 +652,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
 
       // CSI ? u — query current keyboard mode, respond with CSI ? flags u
       term.parser.registerCsiHandler({ prefix: '?', final: 'u' }, () => {
-        const flags = kittyKeyboardStack.length > 0
-          ? kittyKeyboardStack[kittyKeyboardStack.length - 1]
-          : 0;
+        const flags =
+          kittyKeyboardStack.length > 0 ? kittyKeyboardStack[kittyKeyboardStack.length - 1] : 0;
         onDataRef.current?.(`\x1b[?${flags}u`);
         return true;
       });
@@ -660,22 +710,38 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       if (theme) {
         term.options.theme = theme;
       }
-    }, [cursorBlink, cursorStyle, lineHeight, macOptionIsMeta, altClickMoveCursor, wordSeparators, theme]);
+    }, [
+      cursorBlink,
+      cursorStyle,
+      lineHeight,
+      macOptionIsMeta,
+      altClickMoveCursor,
+      wordSeparators,
+      theme,
+    ]);
 
-    // Apply padding to xterm's scrollable element and re-fit
+    // Apply padding to xterm's root element so FitAddon natively accounts for it
     useEffect(() => {
-      const el = containerRef.current?.querySelector<HTMLElement>('.xterm-scrollable-element');
+      const el = containerRef.current?.querySelector<HTMLElement>('.xterm');
+      const viewportEl = containerRef.current?.querySelector<HTMLElement>('.xterm-viewport');
       if (el) {
         el.style.padding = padding ? `${padding}px` : '';
+        el.style.boxSizing = 'border-box';
+      }
+      // Apply background to viewport to fill padding area
+      if (viewportEl && theme?.background) {
+        viewportEl.style.backgroundColor = theme.background;
       }
 
       if (fitAddonRef.current && terminalRef.current && !sizeLockedRef.current) {
         try {
           fitAddonRef.current.fit();
           onResizeRef.current?.({ cols: terminalRef.current.cols, rows: terminalRef.current.rows });
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
-    }, [padding]);
+    }, [padding, theme?.background]);
 
     // Apply font smoothing and ligatures via CSS on the terminal container
     useEffect(() => {
@@ -694,7 +760,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     const hasSelection = contextMenu ? !!terminalRef.current?.getSelection() : false;
 
     return (
-      <div style={{ width: '100%', height: '100%', position: 'relative' }} onContextMenu={handleContextMenu}>
+      <div
+        style={{ width: '100%', height: '100%', position: 'relative' }}
+        onContextMenu={handleContextMenu}
+      >
         {searchVisible && (
           <div className="terminal-search-bar">
             <input
@@ -707,10 +776,20 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
               placeholder="Search..."
               spellCheck={false}
             />
-            <button className="terminal-search-btn" onClick={handleSearchPrev} type="button" title="Previous (Shift+Enter)">
+            <button
+              className="terminal-search-btn"
+              onClick={handleSearchPrev}
+              type="button"
+              title="Previous (Shift+Enter)"
+            >
               &#x25B2;
             </button>
-            <button className="terminal-search-btn" onClick={handleSearchNext} type="button" title="Next (Enter)">
+            <button
+              className="terminal-search-btn"
+              onClick={handleSearchNext}
+              type="button"
+              title="Next (Enter)"
+            >
               &#x25BC;
             </button>
             <button
@@ -734,7 +813,11 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
             style={{ left: contextMenu.x, top: contextMenu.y }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button className="terminal-context-menu-item" onClick={handleCopy} disabled={!hasSelection}>
+            <button
+              className="terminal-context-menu-item"
+              onClick={handleCopy}
+              disabled={!hasSelection}
+            >
               <span className="terminal-context-menu-label">Copy</span>
               <span className="terminal-context-menu-shortcut">&#8984;C</span>
             </button>
@@ -758,11 +841,13 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
             </button>
           </div>
         )}
-        <div ref={containerRef} style={{
-          position: 'absolute',
-          inset: 0,
-          bottom: padding || 0,
-        }} />
+        <div
+          ref={containerRef}
+          style={{
+            position: 'absolute',
+            inset: 0,
+          }}
+        />
       </div>
     );
   },
