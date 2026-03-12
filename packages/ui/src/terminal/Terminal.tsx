@@ -727,6 +727,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       if (el) {
         el.style.padding = padding ? `${padding}px` : '';
         el.style.boxSizing = 'border-box';
+        // Pull scrollbar out of the right padding area
+        el.style.marginRight = padding ? `-${padding}px` : '';
       }
       // Apply background to viewport to fill padding area
       if (viewportEl && theme?.background) {
