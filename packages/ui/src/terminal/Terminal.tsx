@@ -205,7 +205,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       if (!suffix) return suffix;
       // Avoid visual double-space at the completion boundary.
       if (/\s$/.test(prefix) && /^\s/.test(suffix)) {
-        return suffix.slice(1);
+        return suffix.replace(/^\s+/, '');
       }
       return suffix;
     }, []);
@@ -580,8 +580,11 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
             if (ghost) {
               const { buffer, cursor } = autocompleteInputRef.current;
               const prefix = buffer.slice(0, cursor);
-              autocompleteEngineRef.current?.recordAcceptedCommand?.(`${prefix}${ghost}`);
-              onDataRef.current?.(ghost);
+              const normalizedGhost = normalizeCompletionSuffix(prefix, ghost);
+              autocompleteEngineRef.current?.recordAcceptedCommand?.(`${prefix}${normalizedGhost}`);
+              if (normalizedGhost) {
+                onDataRef.current?.(normalizedGhost);
+              }
               previewAnchorPrefixRef.current = null;
               previewSuffixRef.current = '';
               setGhostText(null);
@@ -968,7 +971,20 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
 
         const { buffer, cursor } = autocompleteInputRef.current;
         const prefix = buffer.slice(0, cursor);
-        const textToInsert = suggestion.text.slice(prefix.length);
+        const rawTextToInsert = suggestion.text.slice(prefix.length);
+        let textToInsert = normalizeCompletionSuffix(prefix, rawTextToInsert);
+        textToInsert = textToInsert.replace(/^ /, '');
+
+        // Keep insertion consistent with what the user currently sees as preview.
+        const visibleGhost = ghostTextRef.current;
+        if (
+          visibleGhost &&
+          textToInsert.startsWith(' ') &&
+          !visibleGhost.startsWith(' ') &&
+          textToInsert.trimStart() === visibleGhost
+        ) {
+          textToInsert = visibleGhost;
+        }
 
         autocompleteEngineRef.current?.recordAcceptedCommand?.(suggestion.text);
 
@@ -980,7 +996,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         setGhostText(null);
         setSuggestions([]);
       },
-      [onData],
+      [normalizeCompletionSuffix, onData],
     );
 
     // Revert any inline preview and close popup.
@@ -1115,6 +1131,13 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
             terminal={terminalRef.current}
             suggestions={suggestions}
             selectedIndex={selectedSuggestion}
+            theme={{
+              background: theme?.background || '#0c101a',
+              foreground: theme?.foreground || '#d7e2ff',
+              accent: theme?.blue || theme?.cursor || '#547dd6',
+              border: theme?.brightBlack || theme?.black || '#6073a0',
+              muted: theme?.brightBlack || '#9cb2e8',
+            }}
             onSelectedIndexChange={handleSuggestionIndexChange}
             onSelect={handleAcceptSuggestion}
             onClose={handleCloseSuggestions}

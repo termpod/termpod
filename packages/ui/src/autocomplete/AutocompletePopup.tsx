@@ -7,6 +7,13 @@ interface AutocompletePopupProps {
   terminal: XTerm | null;
   suggestions: Suggestion[];
   selectedIndex: number;
+  theme?: {
+    background: string;
+    foreground: string;
+    accent: string;
+    border: string;
+    muted: string;
+  };
   onSelectedIndexChange: (index: number) => void;
   onSelect: (suggestion: Suggestion) => void;
   onClose: () => void;
@@ -22,6 +29,7 @@ export function AutocompletePopup({
   terminal,
   suggestions,
   selectedIndex,
+  theme,
   onSelectedIndexChange,
   onSelect,
   onClose,
@@ -147,6 +155,14 @@ export function AutocompletePopup({
     return null;
   }
 
+  const popupTheme = theme ?? {
+    background: '#0c101a',
+    foreground: '#d7e2ff',
+    accent: '#547dd6',
+    border: '#6073a0',
+    muted: '#9cb2e8',
+  };
+
   const popup = (
     <div
       ref={containerRef}
@@ -155,10 +171,10 @@ export function AutocompletePopup({
         left: position.left,
         top: position.top,
         width: position.width,
-        zIndex: 2147483000,
+        zIndex: 80,
         pointerEvents: 'auto',
-        backgroundColor: 'rgba(12, 16, 26, 0.96)',
-        border: '1px solid rgba(96, 115, 160, 0.5)',
+        backgroundColor: withAlpha(popupTheme.background, 0.96),
+        border: `1px solid ${withAlpha(popupTheme.border, 0.5)}`,
         borderRadius: '8px',
         boxShadow: '0 12px 30px rgba(0, 8, 20, 0.5)',
         backdropFilter: 'blur(8px)',
@@ -166,7 +182,7 @@ export function AutocompletePopup({
         minWidth: '220px',
         fontFamily: 'monospace',
         fontSize: '12px',
-        color: '#d7e2ff',
+        color: popupTheme.foreground,
         overflow: 'hidden',
       }}
     >
@@ -182,15 +198,18 @@ export function AutocompletePopup({
           style={{
             padding: '5px 8px',
             cursor: 'pointer',
-            backgroundColor: index === selectedIndex ? 'rgba(84, 125, 214, 0.25)' : 'transparent',
+            backgroundColor:
+              index === selectedIndex ? withAlpha(popupTheme.accent, 0.25) : 'transparent',
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
             borderBottom:
-              index < suggestions.length - 1 ? '1px solid rgba(65, 84, 128, 0.35)' : 'none',
+              index < suggestions.length - 1
+                ? `1px solid ${withAlpha(popupTheme.border, 0.35)}`
+                : 'none',
           }}
         >
-          <SuggestionIcon type={suggestion.type} />
+          <SuggestionIcon type={suggestion.type} accentColor={popupTheme.accent} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div
               style={{
@@ -205,7 +224,7 @@ export function AutocompletePopup({
               <div
                 style={{
                   fontSize: '10px',
-                  color: '#9cb2e8',
+                  color: popupTheme.muted,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -226,7 +245,7 @@ export function AutocompletePopup({
 /**
  * Icon component for different suggestion types
  */
-function SuggestionIcon({ type }: { type: Suggestion['type'] }) {
+function SuggestionIcon({ type, accentColor }: { type: Suggestion['type']; accentColor: string }) {
   const icons: Record<string, string> = {
     history: 'H',
     file: 'F',
@@ -242,8 +261,8 @@ function SuggestionIcon({ type }: { type: Suggestion['type'] }) {
         lineHeight: '16px',
         textAlign: 'center',
         borderRadius: '999px',
-        border: '1px solid rgba(120, 145, 202, 0.6)',
-        color: '#a9c0f7',
+        border: `1px solid ${withAlpha(accentColor, 0.6)}`,
+        color: accentColor,
         flexShrink: 0,
       }}
     >
@@ -257,4 +276,20 @@ function SuggestionIcon({ type }: { type: Suggestion['type'] }) {
  */
 function highlightMatch(text: string, match: string): React.ReactElement {
   return <>{text}</>;
+}
+
+function withAlpha(color: string, alpha: number): string {
+  const hex = color.trim();
+  const clamped = Math.max(0, Math.min(1, alpha));
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex);
+  if (!m) {
+    return color;
+  }
+
+  const raw = m[1];
+  const expanded = raw.length === 3 ? raw.split('').map((c) => c + c).join('') : raw;
+  const r = parseInt(expanded.slice(0, 2), 16);
+  const g = parseInt(expanded.slice(2, 4), 16);
+  const b = parseInt(expanded.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${clamped})`;
 }
