@@ -201,6 +201,15 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
     searchQueryRef.current = searchQuery;
 
+    const normalizeCompletionSuffix = useCallback((prefix: string, suffix: string): string => {
+      if (!suffix) return suffix;
+      // Avoid visual double-space at the completion boundary.
+      if (/\s$/.test(prefix) && /^\s/.test(suffix)) {
+        return suffix.slice(1);
+      }
+      return suffix;
+    }, []);
+
     // Matches cursor-home followed by erase display/scrollback/to-end:
     //   \x1b[H\x1b[J  — zsh Ctrl+L (cursor home + erase to end)
     //   \x1b[H\x1b[2J — clear command (cursor home + erase display)
@@ -722,14 +731,15 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
 
             autocompleteInputRef.current = { buffer, cursor: cursorPos };
 
+            const prefix = buffer.slice(0, cursorPos);
             autocompleteEngineRef.current?.handleInput(buffer, cursorPos);
 
             // Update ghost text
-            const ghost = autocompleteEngineRef.current?.getGhostText() ?? null;
+            const ghostRaw = autocompleteEngineRef.current?.getGhostText() ?? null;
+            const ghost = ghostRaw ? normalizeCompletionSuffix(prefix, ghostRaw) : null;
             setGhostText(ghost);
 
             // Update suggestions
-            const prefix = buffer.slice(0, cursorPos);
             const sugs =
               (autocompleteEngineRef.current?.getSuggestions() ?? []).filter(
                 (s) => s.text.toLowerCase() !== prefix.toLowerCase(),
@@ -970,49 +980,34 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
 
     // Revert any inline preview and close popup.
     const handleCloseSuggestions = useCallback(() => {
-      const previewSuffix = previewSuffixRef.current;
-      if (previewSuffix.length > 0) {
-        onData?.('\x7f'.repeat(previewSuffix.length));
-      }
       previewAnchorPrefixRef.current = null;
       previewSuffixRef.current = '';
       setGhostText(null);
       setSuggestions([]);
-    }, [onData]);
+    }, []);
 
-    // While navigating popup suggestions, preview selected completion directly in input.
+    // While navigating popup suggestions, preview selected completion visually.
+    // We intentionally avoid mutating shell buffer on every arrow change since
+    // readline echo makes it look like slow typing.
     const handleSuggestionIndexChange = useCallback(
       (index: number) => {
         setSelectedSuggestion(index);
 
         const suggestion = suggestions[index];
-        if (!suggestion || !onData) {
+        if (!suggestion) {
           setGhostText(null);
           return;
         }
 
-        if (previewAnchorPrefixRef.current === null) {
-          const { buffer, cursor } = autocompleteInputRef.current;
-          previewAnchorPrefixRef.current = buffer.slice(0, cursor);
-        }
-
-        const anchorPrefix = previewAnchorPrefixRef.current;
-        const desiredSuffix = suggestion.text.startsWith(anchorPrefix)
+        const { buffer, cursor } = autocompleteInputRef.current;
+        const anchorPrefix = buffer.slice(0, cursor);
+        const rawSuffix = suggestion.text.startsWith(anchorPrefix)
           ? suggestion.text.slice(anchorPrefix.length)
           : '';
-        const currentPreviewSuffix = previewSuffixRef.current;
-
-        if (currentPreviewSuffix && currentPreviewSuffix !== desiredSuffix) {
-          onData('\x7f'.repeat(currentPreviewSuffix.length));
-        }
-        if (desiredSuffix) {
-          onData(desiredSuffix);
-        }
-
-        previewSuffixRef.current = desiredSuffix;
-        setGhostText(null);
+        const desiredSuffix = normalizeCompletionSuffix(anchorPrefix, rawSuffix);
+        setGhostText(desiredSuffix || null);
       },
-      [onData, suggestions],
+      [normalizeCompletionSuffix, suggestions],
     );
 
     const hasSelection = contextMenu ? !!terminalRef.current?.getSelection() : false;
@@ -1105,7 +1100,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
             terminal={terminalRef.current}
             text={ghostText}
             foregroundColor={theme?.foreground || '#c0caf5'}
-            opacity={0.5}
+            opacity={suggestions.length > 0 ? 0.9 : 0.5}
           />
         )}
 
