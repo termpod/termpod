@@ -5,6 +5,10 @@ import type { TerminalThemeColors } from '@termpod/ui';
 import type { PtySize } from '@termpod/protocol';
 import type { BlockBoundary } from '@termpod/shared';
 import { AutocompleteEngine } from '@termpod/shared';
+import {
+  getRemoteEntriesRefreshPayload,
+  getRemoteSuggestionsBootstrapPayload,
+} from '../remoteSuggestions';
 import type { TerminalSession } from '../hooks/useSessionManager';
 import { useRelayBridge } from '../hooks/useRelayBridge';
 import type { RelayStatus, MergedDevice } from '../hooks/useRelayConnection';
@@ -129,6 +133,10 @@ export function TerminalPanel({
   getSharedWebRTC,
 }: TerminalPanelProps) {
   const isSshSession = (session.processName ?? '').toLowerCase() === 'ssh';
+  const remoteEntriesRef = useRef<string[]>([]);
+  const remoteBootstrapDoneRef = useRef(false);
+  const oscBufferRef = useRef('');
+  const lastRemoteEntriesRefreshAtRef = useRef(0);
 
   // Initialize autocomplete engine
   const [autocompleteEngine] = useState(() => {
@@ -259,8 +267,21 @@ export function TerminalPanel({
   const handleBlockBoundary = useCallback(
     (boundary: BlockBoundary) => {
       session.blockTracker.handleBoundary(boundary);
+
+      if (!isSshSession || !autocompleteEnabled) {
+        return;
+      }
+
+      // Refresh SSH directory context whenever a new prompt starts.
+      if (boundary.marker === 'A') {
+        const now = Date.now();
+        if (now - lastRemoteEntriesRefreshAtRef.current > 1200) {
+          lastRemoteEntriesRefreshAtRef.current = now;
+          session.pty.write(getRemoteEntriesRefreshPayload());
+        }
+      }
     },
-    [session.blockTracker],
+    [autocompleteEnabled, isSshSession, session.blockTracker, session.pty],
   );
 
   const handleResize = useCallback(
@@ -354,8 +375,8 @@ export function TerminalPanel({
   // SSH mode: disable local filesystem context suggestions.
   useEffect(() => {
     if (isSshSession) {
-      autocompleteEngine.setPathEntryLister(undefined);
-      autocompleteEngine.setCurrentDirectory(null);
+      autocompleteEngine.setPathEntryLister(async () => remoteEntriesRef.current);
+      autocompleteEngine.setCurrentDirectory('__remote__');
       return;
     }
 
@@ -363,6 +384,97 @@ export function TerminalPanel({
       return await invoke<string[]>('list_directory_entries', { path });
     });
   }, [autocompleteEngine, isSshSession]);
+
+  // SSH mode: ingest remote history/path context via custom OSC 135 payloads.
+  useEffect(() => {
+    if (!isSshSession || !autocompleteEnabled) {
+      return;
+    }
+
+    const decodeAndApply = (kind: string, encoded: string) => {
+      try {
+        const decoded = atob(encoded);
+
+        if (kind === 'hist') {
+          autocompleteEngine.parseHistory(decoded);
+          return;
+        }
+
+        if (kind === 'entries') {
+          remoteEntriesRef.current = decoded
+            .split('\n')
+            .map((v) => v.trim())
+            .filter(Boolean);
+          autocompleteEngine.setCurrentDirectory('__remote__');
+        }
+      } catch {
+        // ignore invalid payloads
+      }
+    };
+
+    const parseOsc = () => {
+      let buf = oscBufferRef.current;
+
+      while (true) {
+        const start = buf.indexOf('\x1b]135;');
+        if (start === -1) break;
+
+        const bel = buf.indexOf('\x07', start + 6);
+        const st = buf.indexOf('\x1b\\', start + 6);
+        const end =
+          bel === -1 ? st : st === -1 ? bel : Math.min(bel, st);
+
+        if (end === -1) break;
+
+        const payload = buf.slice(start + 6, end);
+        const semi = payload.indexOf(';');
+        if (semi > 0) {
+          const kind = payload.slice(0, semi);
+          const encoded = payload.slice(semi + 1);
+          decodeAndApply(kind, encoded);
+        }
+
+        buf = buf.slice(end + (buf[end] === '\x07' ? 1 : 2));
+      }
+
+      // Prevent unbounded growth without dropping in-flight OSC payloads.
+      // If we are in the middle of a long OSC 135 message, keep from its start.
+      // Otherwise trim old noise aggressively.
+      const maxBuf = 1024 * 1024; // 1MB cap
+      if (buf.length > maxBuf) {
+        const activeStart = buf.indexOf('\x1b]135;');
+        if (activeStart >= 0) {
+          buf = buf.slice(activeStart);
+          if (buf.length > maxBuf) {
+            // Extremely large malformed payload; keep tail only.
+            buf = buf.slice(-maxBuf);
+          }
+        } else {
+          buf = buf.slice(-16384);
+        }
+      }
+
+      oscBufferRef.current = buf;
+    };
+
+    const onData = (data: Uint8Array | number[]) => {
+      const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+      oscBufferRef.current += new TextDecoder().decode(bytes);
+      parseOsc();
+    };
+
+    session.dataListeners.add(onData);
+
+    if (!remoteBootstrapDoneRef.current) {
+      remoteBootstrapDoneRef.current = true;
+      session.pty.write(getRemoteSuggestionsBootstrapPayload());
+      lastRemoteEntriesRefreshAtRef.current = Date.now();
+    }
+
+    return () => {
+      session.dataListeners.delete(onData);
+    };
+  }, [autocompleteEnabled, autocompleteEngine, isSshSession, session]);
 
   // Update autocomplete engine when enabled state changes
   useEffect(() => {
@@ -457,7 +569,7 @@ export function TerminalPanel({
         theme={adjustedTheme}
         scrollbarVisibility={scrollbarVisibility}
         onOpenUrl={(url) => invoke('open_url', { url })}
-        blockDecorationsMode={isSshSession ? 'minimal' : 'full'}
+        blockDecorationsMode={isSshSession ? 'off' : 'full'}
         autocompleteEnabled={autocompleteEnabled}
         autocompleteEngine={autocompleteEngine}
       />
