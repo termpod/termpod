@@ -725,10 +725,12 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       const el = containerRef.current?.querySelector<HTMLElement>('.xterm');
       const viewportEl = containerRef.current?.querySelector<HTMLElement>('.xterm-viewport');
       if (el) {
-        el.style.padding = padding ? `${padding}px` : '';
+        // Only apply padding to left/top/bottom, keep right flush for scrollbar
+        el.style.paddingLeft = padding ? `${padding}px` : '';
+        el.style.paddingTop = padding ? `${padding}px` : '';
+        el.style.paddingBottom = padding ? `${padding}px` : '';
+        el.style.paddingRight = '0';
         el.style.boxSizing = 'border-box';
-        // Pull scrollbar out of the right padding area
-        el.style.marginRight = padding ? `-${padding}px` : '';
       }
       // Apply background to viewport to fill padding area
       if (viewportEl && theme?.background) {
