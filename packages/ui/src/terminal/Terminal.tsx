@@ -743,6 +743,18 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       }
     }, [padding, theme?.background]);
 
+    // Re-apply prompt-at-bottom after padding changes (if enabled)
+    useEffect(() => {
+      if (promptAtBottom && terminalRef.current && !sizeLockedRef.current) {
+        const term = terminalRef.current;
+        // Only re-apply if we're at the top (buffer is empty or at start)
+        const buffer = term.buffer.active;
+        if (buffer.baseY === 0 && buffer.cursorY === 0 && term.rows > 1) {
+          term.write('\n'.repeat(term.rows - 1));
+        }
+      }
+    }, [padding, promptAtBottom]);
+
     // Apply font smoothing and ligatures via CSS on the terminal container
     useEffect(() => {
       const el = containerRef.current;
