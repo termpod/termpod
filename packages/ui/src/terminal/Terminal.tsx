@@ -745,7 +745,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           /* ignore */
         }
       }
-    }, [padding, theme?.background]);
+    }, [padding, theme?.background, promptAtBottom]);
 
     // Re-apply prompt-at-bottom after padding changes (if enabled)
     useEffect(() => {
