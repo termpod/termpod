@@ -724,6 +724,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     useEffect(() => {
       const el = containerRef.current?.querySelector<HTMLElement>('.xterm');
       const viewportEl = containerRef.current?.querySelector<HTMLElement>('.xterm-viewport');
+      const scrollbarEl = containerRef.current?.querySelector<HTMLElement>('.xterm-scrollbar');
       if (el) {
         // Only apply padding to left/top/bottom, keep right flush for scrollbar
         el.style.paddingLeft = padding ? `${padding}px` : '';
@@ -731,6 +732,10 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         el.style.paddingBottom = padding ? `${padding}px` : '';
         el.style.paddingRight = '0';
         el.style.boxSizing = 'border-box';
+      }
+      // Hide scrollbar when prompt-at-bottom is enabled (padding creates scrollable content)
+      if (scrollbarEl) {
+        scrollbarEl.style.display = promptAtBottom ? 'none' : '';
       }
       // Apply background to viewport to fill padding area
       if (viewportEl && theme?.background) {
