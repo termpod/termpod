@@ -24,9 +24,18 @@ import { useWorkflows } from './hooks/useWorkflows';
 import { WorkflowsPanel } from './components/WorkflowsPanel';
 import { authFetch } from './hooks/useAuth';
 import { ShareDialog } from './components/ShareDialog';
-import { useRecording, startRecording, stopRecording, appendOutput, isRecording } from './hooks/useRecording';
+import {
+  useRecording,
+  startRecording,
+  stopRecording,
+  appendOutput,
+  isRecording,
+} from './hooks/useRecording';
 import { generateShareKey, createShareCryptoSession } from '@termpod/protocol';
-import { enable as enableAutostart, disable as disableAutostart } from '@tauri-apps/plugin-autostart';
+import {
+  enable as enableAutostart,
+  disable as disableAutostart,
+} from '@tauri-apps/plugin-autostart';
 
 export function App() {
   const auth = useAuth();
@@ -48,7 +57,12 @@ export function App() {
     onSessionExitRef,
   } = useSessionManager();
 
-  const { settings, update: updateSettings, reset: resetSettings, defaults: settingsDefaults } = useSettings();
+  const {
+    settings,
+    update: updateSettings,
+    reset: resetSettings,
+    defaults: settingsDefaults,
+  } = useSettings();
   const updater = useUpdater();
 
   // Wire up remote session creation callback (legacy polling fallback)
@@ -141,7 +155,9 @@ export function App() {
       for (const info of relayMapRef.current.values()) {
         if (info.sessionId && info.initiateWebRTCOffer) {
           console.log('[DeviceWS] Using session', info.sessionId, 'for WebRTC offer');
-          info.initiateWebRTCOffer(clientId).catch((e) => console.error('[DeviceWS] WebRTC offer failed:', e));
+          info
+            .initiateWebRTCOffer(clientId)
+            .catch((e) => console.error('[DeviceWS] WebRTC offer failed:', e));
           offered = true;
           break; // Only need one WebRTC connection
         }
@@ -231,12 +247,22 @@ export function App() {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showDevicesPanel, setShowDevicesPanel] = useState(false);
   const [showWorkflows, setShowWorkflows] = useState(false);
-  const [shareMap, setShareMap] = useState<Map<string, { shareUrl: string; expiresAt: string }>>(new Map());
+  const [shareMap, setShareMap] = useState<Map<string, { shareUrl: string; expiresAt: string }>>(
+    new Map(),
+  );
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [confirmShare, setConfirmShare] = useState(false);
-  const [confirmClose, setConfirmClose] = useState<{ sessionId: string; processName: string } | null>(null);
+  const [confirmClose, setConfirmClose] = useState<{
+    sessionId: string;
+    processName: string;
+  } | null>(null);
   const { bindings } = useKeybindings();
-  const { workflows, add: addWorkflow, remove: removeWorkflow, edit: editWorkflow } = useWorkflows();
+  const {
+    workflows,
+    add: addWorkflow,
+    remove: removeWorkflow,
+    edit: editWorkflow,
+  } = useWorkflows();
   const recording = useRecording();
   const initializedRef = useRef(false);
   const [relayMap, setRelayMap] = useState<Map<string, RelayInfo>>(new Map());
@@ -260,92 +286,104 @@ export function App() {
   }, []);
 
   // Route multiplexed WebRTC input from iOS to the correct session's PTY
-  const handleWebRTCMuxInput = useCallback((sessionId: string, data: string) => {
-    for (const [localId, info] of relayMapRef.current.entries()) {
-      if (info.sessionId === sessionId) {
-        const session = sessions.find((s) => s.id === localId);
-        if (session && !session.exited) {
-          session.pty.write(data);
+  const handleWebRTCMuxInput = useCallback(
+    (sessionId: string, data: string) => {
+      for (const [localId, info] of relayMapRef.current.entries()) {
+        if (info.sessionId === sessionId) {
+          const session = sessions.find((s) => s.id === localId);
+          if (session && !session.exited) {
+            session.pty.write(data);
+          }
+          break;
         }
-        break;
       }
-    }
-  }, [sessions]);
+    },
+    [sessions],
+  );
 
   // Route multiplexed WebRTC resize from iOS to the correct session
-  const handleWebRTCMuxResize = useCallback((sessionId: string, cols: number, rows: number) => {
-    for (const [localId, info] of relayMapRef.current.entries()) {
-      if (info.sessionId === sessionId) {
-        const session = sessions.find((s) => s.id === localId);
-        if (session && !session.exited) {
-          const term = session.termRef.current;
-          const nextRows = rows > 0 ? rows : (term?.rows ?? 40);
-          session.pty.resize(cols, nextRows);
-          term?.lockSize();
-          term?.resize(cols, nextRows);
+  const handleWebRTCMuxResize = useCallback(
+    (sessionId: string, cols: number, rows: number) => {
+      for (const [localId, info] of relayMapRef.current.entries()) {
+        if (info.sessionId === sessionId) {
+          const session = sessions.find((s) => s.id === localId);
+          if (session && !session.exited) {
+            const term = session.termRef.current;
+            const nextRows = rows > 0 ? rows : (term?.rows ?? 40);
+            session.pty.resize(cols, nextRows);
+            term?.lockSize();
+            term?.resize(cols, nextRows);
+          }
+          break;
         }
-        break;
       }
-    }
-  }, [sessions]);
+    },
+    [sessions],
+  );
 
-  const handleCloseSession = useCallback((id: string, skipConfirm = false) => {
-    // Confirm before closing a tab with a running process
-    if (!skipConfirm && settings.confirmCloseRunningProcess) {
-      const session = sessions.find((s) => s.id === id);
-      if (session && !session.exited && session.processName) {
-        setConfirmClose({ sessionId: id, processName: session.processName });
+  const handleCloseSession = useCallback(
+    (id: string, skipConfirm = false) => {
+      // Confirm before closing a tab with a running process
+      if (!skipConfirm && settings.confirmCloseRunningProcess) {
+        const session = sessions.find((s) => s.id === id);
+        if (session && !session.exited && session.processName) {
+          setConfirmClose({ sessionId: id, processName: session.processName });
+          return;
+        }
+      }
+
+      // Notify P2P viewers and unregister session from relay before closing
+      const relayInfo = relayMapRef.current.get(id);
+
+      if (relayInfo?.sessionId) {
+        const closedMsg = JSON.stringify({
+          type: 'session_closed',
+          sessionId: relayInfo.sessionId,
+        });
+        relayInfo.sendLocalControl?.(relayInfo.sessionId, closedMsg);
+        relayInfo.sendWebRTCControl?.({ type: 'session_closed', sessionId: relayInfo.sessionId });
+        deviceWS.sendSessionClosed(relayInfo.sessionId);
+        device.removeSession(relayInfo.sessionId);
+      }
+
+      // Clean up share state
+      setShareMap((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Map(prev);
+        next.delete(id);
+        return next;
+      });
+
+      // Stop recording if active (discard — session is closing)
+      if (isRecording(id)) {
+        // Remove the data listener before stopping
+        const listener = recordingListenersRef.current.get(id);
+        const session = sessions.find((s) => s.id === id);
+
+        if (listener && session) {
+          session.dataListeners.delete(listener);
+          recordingListenersRef.current.delete(id);
+        }
+
+        stopRecording(id);
+      }
+
+      const { wasLast } = closeSession(id);
+
+      if (wasLast && settings.closeWindowOnLastTab) {
+        getCurrentWindow().close();
         return;
       }
-    }
 
-    // Notify P2P viewers and unregister session from relay before closing
-    const relayInfo = relayMapRef.current.get(id);
-
-    if (relayInfo?.sessionId) {
-      const closedMsg = JSON.stringify({ type: 'session_closed', sessionId: relayInfo.sessionId });
-      relayInfo.sendLocalControl?.(relayInfo.sessionId, closedMsg);
-      relayInfo.sendWebRTCControl?.({ type: 'session_closed', sessionId: relayInfo.sessionId });
-      deviceWS.sendSessionClosed(relayInfo.sessionId);
-      device.removeSession(relayInfo.sessionId);
-    }
-
-    // Clean up share state
-    setShareMap((prev) => {
-      if (!prev.has(id)) return prev;
-      const next = new Map(prev);
-      next.delete(id);
-      return next;
-    });
-
-    // Stop recording if active (discard — session is closing)
-    if (isRecording(id)) {
-      // Remove the data listener before stopping
-      const listener = recordingListenersRef.current.get(id);
-      const session = sessions.find((s) => s.id === id);
-
-      if (listener && session) {
-        session.dataListeners.delete(listener);
-        recordingListenersRef.current.delete(id);
+      if (wasLast) {
+        createSession({ shell: settings.shellPath });
+        return;
       }
 
-      stopRecording(id);
-    }
-
-    const { wasLast } = closeSession(id);
-
-    if (wasLast && settings.closeWindowOnLastTab) {
-      getCurrentWindow().close();
-      return;
-    }
-
-    if (wasLast) {
-      createSession({ shell: settings.shellPath });
-      return;
-    }
-
-    setTimeout(focusActive, 50);
-  }, [closeSession, focusActive, device, deviceWS, createSession, settings, sessions]);
+      setTimeout(focusActive, 50);
+    },
+    [closeSession, focusActive, device, deviceWS, createSession, settings, sessions],
+  );
 
   // Auto-close tab when shell exits (e.g. ctrl+d)
   onSessionExitRef.current = (id: string) => {
@@ -359,7 +397,9 @@ export function App() {
   };
 
   // Recording data listeners: pipe PTY output to the recorder
-  const recordingListenersRef = useRef<Map<string, (data: Uint8Array | number[]) => void>>(new Map());
+  const recordingListenersRef = useRef<Map<string, (data: Uint8Array | number[]) => void>>(
+    new Map(),
+  );
 
   useEffect(() => {
     for (const session of sessions) {
@@ -402,7 +442,9 @@ export function App() {
 
         if (relayInfo?.sessionId) {
           // Instant WS push to viewers (no DB write — sessions_updated bulk sync handles persistence)
-          deviceWS.sendSessionPropertyChanged(relayInfo.sessionId, { processName: session.processName });
+          deviceWS.sendSessionPropertyChanged(relayInfo.sessionId, {
+            processName: session.processName,
+          });
         }
       }
     }
@@ -410,7 +452,14 @@ export function App() {
 
   // Build sessions list (shared by local server, device WS, and P2P control messages)
   const buildSessionsList = useCallback(() => {
-    const list: { id: string; name: string; cwd: string; processName: string | null; ptyCols: number; ptyRows: number }[] = [];
+    const list: {
+      id: string;
+      name: string;
+      cwd: string;
+      processName: string | null;
+      ptyCols: number;
+      ptyRows: number;
+    }[] = [];
 
     for (const s of sessions) {
       if (s.exited || s.closing) continue;
@@ -541,25 +590,33 @@ export function App() {
       }
     });
 
-    return () => { unlisten.then((fn) => fn()); };
+    return () => {
+      unlisten.then((fn) => fn());
+    };
   }, [createSession, settings.shellPath]);
 
   const resolveNewTabCwd = useCallback(() => {
     if (settings.newTabCwd === 'current') return activeSession?.cwd;
-    if (settings.newTabCwd === 'custom' && settings.customTabCwdPath) return settings.customTabCwdPath;
+    if (settings.newTabCwd === 'custom' && settings.customTabCwdPath)
+      return settings.customTabCwdPath;
     return undefined; // home (default in createSession)
   }, [settings.newTabCwd, settings.customTabCwdPath, activeSession?.cwd]);
 
   // Global listener for local (Bonjour) session creation requests when no sessions exist.
   // When sessions exist, the per-panel useLocalServer listener handles these instead.
   useEffect(() => {
-    const unlisten = listen<{ requestId: string; clientId: string }>('local-ws-create-session', (event) => {
-      if (sessionsRef.current.length === 0) {
-        handleCreateSessionRequest(event.payload.requestId, 'local', event.payload.clientId);
-      }
-    });
+    const unlisten = listen<{ requestId: string; clientId: string }>(
+      'local-ws-create-session',
+      (event) => {
+        if (sessionsRef.current.length === 0) {
+          handleCreateSessionRequest(event.payload.requestId, 'local', event.payload.clientId);
+        }
+      },
+    );
 
-    return () => { unlisten.then((fn) => fn()); };
+    return () => {
+      unlisten.then((fn) => fn());
+    };
   }, [handleCreateSessionRequest]);
 
   // Listen for Tauri menu events
@@ -786,9 +843,19 @@ export function App() {
 
   // Shortcuts that should fire even when a text input is focused
   const GLOBAL_SHORTCUT_IDS = new Set([
-    'new_tab', 'close_tab', 'duplicate_tab', 'next_tab', 'prev_tab',
-    'close_other_tabs', 'command_palette', 'settings', 'keybindings',
-    'zoom_in', 'zoom_out', 'zoom_reset', 'find',
+    'new_tab',
+    'close_tab',
+    'duplicate_tab',
+    'next_tab',
+    'prev_tab',
+    'close_other_tabs',
+    'command_palette',
+    'settings',
+    'keybindings',
+    'zoom_in',
+    'zoom_out',
+    'zoom_reset',
+    'find',
   ]);
 
   useEffect(() => {
@@ -837,11 +904,12 @@ export function App() {
   useEffect(() => {
     const win = getCurrentWindow();
     if (settings.blurRadius > 0) {
-      const effect = settings.blurRadius >= 10
-        ? Effect.Sidebar
-        : settings.blurRadius >= 4
-          ? Effect.UnderWindowBackground
-          : Effect.HudWindow;
+      const effect =
+        settings.blurRadius >= 10
+          ? Effect.Sidebar
+          : settings.blurRadius >= 4
+            ? Effect.UnderWindowBackground
+            : Effect.HudWindow;
       win.setEffects({ effects: [effect], state: EffectState.FollowsWindowActiveState });
     } else {
       win.clearEffects();
@@ -866,10 +934,12 @@ export function App() {
         activeId={activeId}
         onSelect={switchSession}
         onClose={handleCloseSession}
-        onCreate={() => createSession({
-          shell: settings.shellPath,
-          cwd: resolveNewTabCwd(),
-        })}
+        onCreate={() =>
+          createSession({
+            shell: settings.shellPath,
+            cwd: resolveNewTabCwd(),
+          })
+        }
         onReorder={reorderSessions}
         relayStatus={activeRelay?.status ?? 'disconnected'}
         connectedDevices={activeRelay?.connectedDevices ?? []}
@@ -882,11 +952,7 @@ export function App() {
         <div className="share-bar">
           <div className="share-bar-dot" />
           <span className="share-bar-text">This session is being shared</span>
-          <button
-            className="share-bar-link"
-            onClick={() => setShowShareDialog(true)}
-            type="button"
-          >
+          <button className="share-bar-link" onClick={() => setShowShareDialog(true)} type="button">
             Copy link
           </button>
           <button
@@ -896,7 +962,9 @@ export function App() {
               const relaySessionId = relayInfo?.sessionId;
 
               if (relaySessionId) {
-                authFetch(`/sessions/${relaySessionId}/share`, { method: 'DELETE' }).catch(() => {});
+                authFetch(`/sessions/${relaySessionId}/share`, { method: 'DELETE' }).catch(
+                  () => {},
+                );
               }
 
               // Clear share encryption
@@ -918,11 +986,7 @@ export function App() {
         <div className="record-bar">
           <div className="record-bar-dot" />
           <span className="record-bar-text">Recording</span>
-          <button
-            className="record-bar-stop"
-            onClick={() => stopRecording(activeId)}
-            type="button"
-          >
+          <button className="record-bar-stop" onClick={() => stopRecording(activeId)} type="button">
             Stop &amp; Save
           </button>
         </div>
@@ -953,6 +1017,7 @@ export function App() {
             bellEnabled={settings.bellEnabled}
             notifyOnBell={settings.notifyOnBell}
             backgroundOpacity={settings.backgroundOpacity}
+            scrollbarVisibility={settings.scrollbarVisibility}
             onRelayChange={(info) => handleRelayChange(session.id, info)}
             onSessionRegistered={(relaySessionId) => {
               const term = session.termRef.current;
@@ -1003,7 +1068,10 @@ export function App() {
 
               if (relayInfo?.sessionId) {
                 // Instant WS push to viewers (sessions_updated bulk sync handles DB persistence)
-                deviceWS.sendSessionPropertyChanged(relayInfo.sessionId, { name: nameFromCwd(cwd), cwd });
+                deviceWS.sendSessionPropertyChanged(relayInfo.sessionId, {
+                  name: nameFromCwd(cwd),
+                  cwd,
+                });
               }
             }}
             onSaveWorkflow={(command) => {
@@ -1015,7 +1083,10 @@ export function App() {
         {showDevicesPanel && (
           <ConnectedDevicesPanel
             sessionDevices={sessionDevices}
-            onClose={() => { setShowDevicesPanel(false); setTimeout(focusActive, 50); }}
+            onClose={() => {
+              setShowDevicesPanel(false);
+              setTimeout(focusActive, 50);
+            }}
           />
         )}
       </div>
@@ -1025,20 +1096,31 @@ export function App() {
           defaults={settingsDefaults}
           onUpdate={updateSettings}
           onReset={resetSettings}
-          onClose={() => { setShowSettings(false); setTimeout(focusActive, 50); }}
+          onClose={() => {
+            setShowSettings(false);
+            setTimeout(focusActive, 50);
+          }}
           onOpenKeybindings={() => setShowKeybindings(true)}
           email={auth.email}
           onLogout={auth.logout}
         />
       )}
       {showKeybindings && (
-        <KeybindingsPanel onClose={() => { setShowKeybindings(false); setTimeout(focusActive, 50); }} />
+        <KeybindingsPanel
+          onClose={() => {
+            setShowKeybindings(false);
+            setTimeout(focusActive, 50);
+          }}
+        />
       )}
       {showShareDialog && activeId && shareMap.has(activeId) && (
         <ShareDialog
           shareUrl={shareMap.get(activeId)!.shareUrl}
           expiresAt={shareMap.get(activeId)!.expiresAt}
-          onClose={() => { setShowShareDialog(false); setTimeout(focusActive, 50); }}
+          onClose={() => {
+            setShowShareDialog(false);
+            setTimeout(focusActive, 50);
+          }}
         />
       )}
       {showWorkflows && (
@@ -1054,24 +1136,49 @@ export function App() {
               setTimeout(focusActive, 50);
             }
           }}
-          onClose={() => { setShowWorkflows(false); setTimeout(focusActive, 50); }}
+          onClose={() => {
+            setShowWorkflows(false);
+            setTimeout(focusActive, 50);
+          }}
         />
       )}
       {showCommandPalette && (
         <CommandPalette
-          onClose={() => { setShowCommandPalette(false); setTimeout(focusActive, 50); }}
-          onExecute={(id) => { setShowCommandPalette(false); menuHandlerRef.current(id); }}
+          onClose={() => {
+            setShowCommandPalette(false);
+            setTimeout(focusActive, 50);
+          }}
+          onExecute={(id) => {
+            setShowCommandPalette(false);
+            menuHandlerRef.current(id);
+          }}
         />
       )}
       {confirmShare && activeId && (
-        <div className="modal-overlay" onClick={() => { setConfirmShare(false); setTimeout(focusActive, 50); }}>
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            setConfirmShare(false);
+            setTimeout(focusActive, 50);
+          }}
+        >
           <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="confirm-title">Share this session?</div>
             <div className="confirm-message">
-              Anyone with the link will be able to see your terminal output in real time. The link expires in 24 hours.
+              Anyone with the link will be able to see your terminal output in real time. The link
+              expires in 24 hours.
             </div>
             <div className="confirm-actions">
-              <button className="confirm-btn confirm-btn-cancel" onClick={() => { setConfirmShare(false); setTimeout(focusActive, 50); }} type="button">Cancel</button>
+              <button
+                className="confirm-btn confirm-btn-cancel"
+                onClick={() => {
+                  setConfirmShare(false);
+                  setTimeout(focusActive, 50);
+                }}
+                type="button"
+              >
+                Cancel
+              </button>
               <button
                 className="confirm-btn confirm-btn-danger"
                 onClick={() => {
@@ -1085,8 +1192,10 @@ export function App() {
 
                   (async () => {
                     const { key, keyBase64 } = await generateShareKey();
-                    const res = await authFetch(`/sessions/${relaySessionId}/share`, { method: 'POST' });
-                    const body = await res.json() as Record<string, unknown>;
+                    const res = await authFetch(`/sessions/${relaySessionId}/share`, {
+                      method: 'POST',
+                    });
+                    const body = (await res.json()) as Record<string, unknown>;
 
                     if (body.shareUrl) {
                       const shareUrl = `${body.shareUrl as string}#key=${keyBase64}`;
@@ -1120,15 +1229,30 @@ export function App() {
       {confirmClose && (
         <ConfirmDialog
           processName={confirmClose.processName}
-          onConfirm={() => { const id = confirmClose.sessionId; setConfirmClose(null); handleCloseSession(id, true); }}
-          onCancel={() => { setConfirmClose(null); setTimeout(focusActive, 50); }}
+          onConfirm={() => {
+            const id = confirmClose.sessionId;
+            setConfirmClose(null);
+            handleCloseSession(id, true);
+          }}
+          onCancel={() => {
+            setConfirmClose(null);
+            setTimeout(focusActive, 50);
+          }}
         />
       )}
     </div>
   );
 }
 
-function ConfirmDialog({ processName, onConfirm, onCancel }: { processName: string; onConfirm: () => void; onCancel: () => void }) {
+function ConfirmDialog({
+  processName,
+  onConfirm,
+  onCancel,
+}: {
+  processName: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -1151,9 +1275,7 @@ function ConfirmDialog({ processName, onConfirm, onCancel }: { processName: stri
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
-        <div className="confirm-title">
-          Do you want to close this tab?
-        </div>
+        <div className="confirm-title">Do you want to close this tab?</div>
         <div className="confirm-message">
           <span className="confirm-process">{processName}</span> is still running.
         </div>
@@ -1161,7 +1283,12 @@ function ConfirmDialog({ processName, onConfirm, onCancel }: { processName: stri
           <button type="button" className="confirm-btn confirm-btn-cancel" onClick={onCancel}>
             Cancel
           </button>
-          <button ref={closeRef} type="button" className="confirm-btn confirm-btn-close" onClick={onConfirm}>
+          <button
+            ref={closeRef}
+            type="button"
+            className="confirm-btn confirm-btn-close"
+            onClick={onConfirm}
+          >
             Close Tab
           </button>
         </div>

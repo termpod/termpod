@@ -2043,6 +2043,50 @@ body,
   display: none;
 }
 
+/* Force hide scrollbar for 'never' option - apply to all states */
+.xterm .xterm-scrollable-element > .scrollbar.scrollbar-hidden,
+.xterm .xterm-scrollable-element > .scrollbar.visible.scrollbar-hidden,
+.xterm .xterm-scrollable-element > .scrollbar.invisible.scrollbar-hidden {
+  display: none !important;
+}
+
+/* macOS-style overlay scrollbar - thin overlay that appears on hover/scroll */
+/* Target both visible and invisible states with scrollbar-overlay class */
+.xterm .xterm-scrollable-element > .scrollbar.scrollbar-overlay,
+.xterm .xterm-scrollable-element > .scrollbar.visible.scrollbar-overlay,
+.xterm .xterm-scrollable-element > .scrollbar.invisible.scrollbar-overlay {
+  width: 6px !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+
+/* Hide the slider by default when using overlay mode */
+.xterm .xterm-scrollable-element > .scrollbar.scrollbar-overlay > .slider,
+.xterm .xterm-scrollable-element > .scrollbar.visible.scrollbar-overlay > .slider {
+  border-radius: 3px !important;
+  left: 1px !important;
+  width: 4px !important;
+  opacity: 0 !important;
+  transition: opacity 0.15s ease !important;
+  background: rgba(128, 128, 128, 0.5) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Show slider on terminal hover - use higher specificity */
+.xterm:hover .xterm-scrollable-element > .scrollbar.visible.scrollbar-overlay > .slider,
+.xterm:hover .xterm-scrollable-element > .scrollbar.scrollbar-overlay > .slider {
+  opacity: 0.7 !important;
+}
+
+/* Show slider fully on direct hover */
+.xterm .xterm-scrollable-element > .scrollbar.scrollbar-overlay > .slider:hover,
+.xterm .xterm-scrollable-element > .scrollbar.visible.scrollbar-overlay > .slider:hover {
+  opacity: 1 !important;
+}
+
 /* ── Terminal Search Bar ── */
 .terminal-search-bar {
   position: absolute;

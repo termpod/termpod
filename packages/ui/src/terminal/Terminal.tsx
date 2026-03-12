@@ -91,6 +91,7 @@ export interface TerminalProps {
   altClickMoveCursor?: boolean;
   wordSeparators?: string;
   theme?: TerminalThemeColors;
+  scrollbarVisibility?: 'always' | 'when-scrolling' | 'never';
   onOpenUrl?: (url: string) => void;
 }
 
@@ -131,6 +132,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       altClickMoveCursor = true,
       wordSeparators,
       theme,
+      scrollbarVisibility = 'auto',
       onOpenUrl,
     },
     ref,
@@ -724,7 +726,11 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     useEffect(() => {
       const el = containerRef.current?.querySelector<HTMLElement>('.xterm');
       const viewportEl = containerRef.current?.querySelector<HTMLElement>('.xterm-viewport');
-      const scrollbarEl = containerRef.current?.querySelector<HTMLElement>('.xterm-scrollbar');
+      // Query the scrollbar element - xterm may create it after initial mount
+      let scrollbarEl = containerRef.current?.querySelector<HTMLElement>(
+        '.xterm-scrollable-element > .scrollbar',
+      );
+
       if (el) {
         // Only apply padding to left/top/bottom, keep right flush for scrollbar
         el.style.paddingLeft = padding ? `${padding}px` : '';
@@ -733,10 +739,43 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         el.style.paddingRight = '0';
         el.style.boxSizing = 'border-box';
       }
-      // Hide scrollbar when prompt-at-bottom is enabled (padding creates scrollable content)
-      if (scrollbarEl) {
-        scrollbarEl.style.display = promptAtBottom ? 'none' : '';
-      }
+
+      // Control scrollbar visibility based on promptAtBottom and scrollbarVisibility settings
+      // Try to find scrollbar with retries since xterm creates it dynamically
+      const applyScrollbarVisibility = () => {
+        // Find the vertical scrollbar specifically
+        const verticalScrollbarEl = containerRef.current?.querySelector<HTMLElement>(
+          '.xterm-scrollable-element > .scrollbar.vertical',
+        );
+
+        if (verticalScrollbarEl) {
+          // Always hide when prompt-at-bottom is enabled (padding creates scrollable content)
+          if (promptAtBottom) {
+            verticalScrollbarEl.style.display = 'none';
+            verticalScrollbarEl.classList.remove('scrollbar-overlay');
+            verticalScrollbarEl.classList.remove('scrollbar-hidden');
+          } else if (scrollbarVisibility === 'never') {
+            verticalScrollbarEl.style.display = 'none';
+            verticalScrollbarEl.classList.remove('scrollbar-overlay');
+            verticalScrollbarEl.classList.add('scrollbar-hidden');
+          } else if (scrollbarVisibility === 'always') {
+            verticalScrollbarEl.style.display = '';
+            verticalScrollbarEl.classList.remove('scrollbar-overlay');
+            verticalScrollbarEl.classList.remove('scrollbar-hidden');
+          } else if (scrollbarVisibility === 'when-scrolling') {
+            verticalScrollbarEl.style.display = '';
+            verticalScrollbarEl.classList.add('scrollbar-overlay');
+            verticalScrollbarEl.classList.remove('scrollbar-hidden');
+          }
+        }
+      };
+
+      // Apply immediately
+      applyScrollbarVisibility();
+
+      // Retry after a delay since xterm creates the scrollbar dynamically
+      const retryTimer = setTimeout(applyScrollbarVisibility, 500);
+
       // Apply background to viewport to fill padding area
       if (viewportEl && theme?.background) {
         viewportEl.style.backgroundColor = theme.background;
@@ -750,7 +789,9 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           /* ignore */
         }
       }
-    }, [padding, theme?.background, promptAtBottom]);
+
+      return () => clearTimeout(retryTimer);
+    }, [padding, theme?.background, promptAtBottom, scrollbarVisibility]);
 
     // Re-apply prompt-at-bottom after padding changes (if enabled)
     useEffect(() => {

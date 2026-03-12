@@ -3,7 +3,18 @@ import { useCallback, useSyncExternalStore } from 'react';
 export type CursorStyle = 'block' | 'underline' | 'bar';
 export type NewTabCwd = 'home' | 'current' | 'custom';
 export type FontSmoothing = 'auto' | 'antialiased' | 'none';
-export type FontWeight = 'normal' | '100' | '200' | '300' | '400' | '500' | '600' | '700' | '800' | '900';
+export type FontWeight =
+  | 'normal'
+  | '100'
+  | '200'
+  | '300'
+  | '400'
+  | '500'
+  | '600'
+  | '700'
+  | '800'
+  | '900';
+export type ScrollbarVisibility = 'always' | 'when-scrolling' | 'never';
 
 export interface TerminalTheme {
   name: string;
@@ -53,7 +64,7 @@ export const THEMES: Record<string, TerminalTheme> = {
     brightCyan: '#7dcfff',
     brightWhite: '#c0caf5',
   },
-  'dracula': {
+  dracula: {
     name: 'Dracula',
     background: '#282a36',
     foreground: '#f8f8f2',
@@ -168,7 +179,7 @@ export const THEMES: Record<string, TerminalTheme> = {
     brightCyan: '#93a1a1',
     brightWhite: '#fdf6e3',
   },
-  'nord': {
+  nord: {
     name: 'Nord',
     background: '#2e3440',
     foreground: '#d8dee9',
@@ -215,7 +226,7 @@ export const THEMES: Record<string, TerminalTheme> = {
     brightWhite: '#ebdbb2',
   },
 
-  'cobalt2': {
+  cobalt2: {
     name: 'Cobalt2',
     background: '#122738',
     foreground: '#ffffff',
@@ -239,7 +250,7 @@ export const THEMES: Record<string, TerminalTheme> = {
     brightWhite: '#ffffff',
   },
   'synthwave-84': {
-    name: 'Synthwave \'84',
+    name: "Synthwave '84",
     background: '#262335',
     foreground: '#ffffff',
     cursor: '#ff7edb',
@@ -330,7 +341,7 @@ export const THEMES: Record<string, TerminalTheme> = {
     brightCyan: '#ebbcba',
     brightWhite: '#e0def4',
   },
-  'kanagawa': {
+  kanagawa: {
     name: 'Kanagawa',
     background: '#1f1f28',
     foreground: '#dcd7ba',
@@ -376,7 +387,7 @@ export const THEMES: Record<string, TerminalTheme> = {
     brightCyan: '#83c092',
     brightWhite: '#d3c6aa',
   },
-  'poimandres': {
+  poimandres: {
     name: 'Poimandres',
     background: '#1b1e28',
     foreground: '#a6accd',
@@ -399,7 +410,7 @@ export const THEMES: Record<string, TerminalTheme> = {
     brightCyan: '#add7ff',
     brightWhite: '#ffffff',
   },
-  'vesper': {
+  vesper: {
     name: 'Vesper',
     background: '#101010',
     foreground: '#b0b0b0',
@@ -445,7 +456,7 @@ export const THEMES: Record<string, TerminalTheme> = {
     brightCyan: '#89ddff',
     brightWhite: '#ffffff',
   },
-  'aura': {
+  aura: {
     name: 'Aura',
     background: '#15141b',
     foreground: '#edecee',
@@ -468,7 +479,7 @@ export const THEMES: Record<string, TerminalTheme> = {
     brightCyan: '#61ffca',
     brightWhite: '#ffffff',
   },
-  'moonlight': {
+  moonlight: {
     name: 'Moonlight',
     background: '#1e2030',
     foreground: '#c8d3f5',
@@ -816,7 +827,7 @@ export const THEMES: Record<string, TerminalTheme> = {
     brightCyan: '#5ec4ff',
     brightWhite: '#f5f4f1',
   },
-  'paper': {
+  paper: {
     name: 'Paper',
     background: '#f2eede',
     foreground: '#4d453e',
@@ -918,9 +929,16 @@ function hexToRgb(hex: string): [number, number, number] {
 }
 
 function rgbToHex(r: number, g: number, b: number): string {
-  return '#' + [r, g, b]
-    .map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0'))
-    .join('');
+  return (
+    '#' +
+    [r, g, b]
+      .map((v) =>
+        Math.max(0, Math.min(255, Math.round(v)))
+          .toString(16)
+          .padStart(2, '0'),
+      )
+      .join('')
+  );
 }
 
 function adjust(hex: string, amount: number): string {
@@ -949,7 +967,7 @@ function hexToRgba(hex: string, alpha: number): string {
 export function themeToAppStyles(theme: TerminalTheme, opacity = 1): Record<string, string> {
   const light = isLightColor(theme.background);
   const transparent = opacity < 1;
-  const bg = (hex: string) => transparent ? hexToRgba(hex, opacity) : hex;
+  const bg = (hex: string) => (transparent ? hexToRgba(hex, opacity) : hex);
 
   return {
     '--bg-primary': bg(theme.background),
@@ -982,6 +1000,7 @@ export interface Settings {
   windowPadding: number;
   blurRadius: number;
   backgroundOpacity: number;
+  scrollbarVisibility: ScrollbarVisibility;
 
   // Terminal
   fontSize: number;
@@ -1022,6 +1041,7 @@ const DEFAULTS: Settings = {
   windowPadding: 0,
   blurRadius: 0,
   backgroundOpacity: 1.0,
+  scrollbarVisibility: 'always',
 
   fontSize: 14,
   fontFamily: 'Menlo, monospace',

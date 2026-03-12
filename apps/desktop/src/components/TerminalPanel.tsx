@@ -13,7 +13,14 @@ export interface RelayInfo {
   viewers: number;
   connectedDevices: MergedDevice[];
   sessionId: string | null;
-  sendSessionCreated?: (requestId: string, sessionId: string, name: string, cwd: string, ptyCols: number, ptyRows: number) => void;
+  sendSessionCreated?: (
+    requestId: string,
+    sessionId: string,
+    name: string,
+    cwd: string,
+    ptyCols: number,
+    ptyRows: number,
+  ) => void;
   sendToLocalClient?: (clientId: string, json: string) => void;
   sendLocalControl?: (sessionId: string, json: string) => void;
   sendWebRTCControl?: (msg: Record<string, unknown>) => void;
@@ -52,9 +59,14 @@ interface TerminalPanelProps {
   bellEnabled?: boolean;
   notifyOnBell?: boolean;
   backgroundOpacity?: number;
+  scrollbarVisibility?: 'always' | 'when-scrolling' | 'never';
   onRelayChange?: (info: RelayInfo) => void;
   onSessionRegistered?: (relaySessionId: string) => void;
-  onCreateSessionRequest?: (requestId: string, source: 'relay' | 'local' | 'webrtc', localClientId?: string) => void;
+  onCreateSessionRequest?: (
+    requestId: string,
+    source: 'relay' | 'local' | 'webrtc',
+    localClientId?: string,
+  ) => void;
   onDeleteSession?: (relaySessionId: string) => void;
   onSessionClosed?: () => void;
   onCwdChange?: (cwd: string) => void;
@@ -74,7 +86,44 @@ interface TerminalPanelProps {
   } | null;
 }
 
-export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFamily, fontWeight, fontSmoothing, fontLigatures, drawBoldInBold, windowPadding, cursorStyle, cursorBlink, lineHeight, promptAtBottom, copyOnSelect, macOptionIsMeta, altClickMoveCursor, wordSeparators, theme, bellEnabled, notifyOnBell, backgroundOpacity, onRelayChange, onSessionRegistered, onCreateSessionRequest, onDeleteSession, onSessionClosed, onCwdChange, onSaveWorkflow, getSessionsList, deviceSendSignaling, deviceClientId, onWebRTCMuxInput, onWebRTCMuxResize, getSharedWebRTC }: TerminalPanelProps) {
+export function TerminalPanel({
+  session,
+  visible,
+  onTermReady,
+  fontSize,
+  fontFamily,
+  fontWeight,
+  fontSmoothing,
+  fontLigatures,
+  drawBoldInBold,
+  windowPadding,
+  cursorStyle,
+  cursorBlink,
+  lineHeight,
+  promptAtBottom,
+  copyOnSelect,
+  macOptionIsMeta,
+  altClickMoveCursor,
+  wordSeparators,
+  theme,
+  bellEnabled,
+  notifyOnBell,
+  backgroundOpacity,
+  scrollbarVisibility,
+  onRelayChange,
+  onSessionRegistered,
+  onCreateSessionRequest,
+  onDeleteSession,
+  onSessionClosed,
+  onCwdChange,
+  onSaveWorkflow,
+  getSessionsList,
+  deviceSendSignaling,
+  deviceClientId,
+  onWebRTCMuxInput,
+  onWebRTCMuxResize,
+  getSharedWebRTC,
+}: TerminalPanelProps) {
   const onTermReadyRef = useRef(onTermReady);
   onTermReadyRef.current = onTermReady;
   const onCreateSessionRequestRef = useRef(onCreateSessionRequest);
@@ -110,10 +159,13 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
       onSessionClosedRef.current?.();
     },
     getSessionsList: () => getSessionsListRef.current?.() ?? [],
-    deviceSendSignaling: deviceSendSignaling ? (msg) => deviceSendSignalingRef.current?.(msg) : undefined,
+    deviceSendSignaling: deviceSendSignaling
+      ? (msg) => deviceSendSignalingRef.current?.(msg)
+      : undefined,
     deviceClientId,
     onWebRTCMuxInput: (sessionId, data) => onWebRTCMuxInputRef.current?.(sessionId, data),
-    onWebRTCMuxResize: (sessionId, cols, rows) => onWebRTCMuxResizeRef.current?.(sessionId, cols, rows),
+    onWebRTCMuxResize: (sessionId, cols, rows) =>
+      onWebRTCMuxResizeRef.current?.(sessionId, cols, rows),
     getSharedWebRTC: () => getSharedWebRTCRef.current?.() ?? null,
   });
   const onRelayChangeRef = useRef(onRelayChange);
@@ -138,7 +190,22 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
       webrtcSendResize: relay.webrtcSendResize,
       setShareCrypto: relay.setShareCrypto,
     });
-  }, [relay.status, relay.viewers, relay.allConnectedDevices, relay.sessionId, relay.sendSessionCreated, relay.sendToLocalClient, relay.sendLocalControl, relay.sendWebRTCControl, relay.handleWebRTCSignaling, relay.initiateWebRTCOffer, relay.webrtcIsConnected, relay.webrtcSendTerminalData, relay.webrtcSendResize, relay.setShareCrypto]);
+  }, [
+    relay.status,
+    relay.viewers,
+    relay.allConnectedDevices,
+    relay.sessionId,
+    relay.sendSessionCreated,
+    relay.sendToLocalClient,
+    relay.sendLocalControl,
+    relay.sendWebRTCControl,
+    relay.handleWebRTCSignaling,
+    relay.initiateWebRTCOffer,
+    relay.webrtcIsConnected,
+    relay.webrtcSendTerminalData,
+    relay.webrtcSendResize,
+    relay.setShareCrypto,
+  ]);
 
   // Notify parent when relay session is created (for device registration)
   const registeredRef = useRef<string | null>(null);
@@ -159,12 +226,9 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
     [session.pty, session.exited],
   );
 
-  const handleCwdChange = useCallback(
-    (cwd: string) => {
-      onCwdChangeRef.current?.(cwd);
-    },
-    [],
-  );
+  const handleCwdChange = useCallback((cwd: string) => {
+    onCwdChangeRef.current?.(cwd);
+  }, []);
 
   const handleBlockBoundary = useCallback(
     (boundary: BlockBoundary) => {
@@ -267,7 +331,9 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
 
     requestAnimationFrame(check);
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [active, session, focusTerminal]);
 
   return (
@@ -287,11 +353,15 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
         onBlockBoundary={handleBlockBoundary}
         onSaveWorkflow={onSaveWorkflow}
         onReady={handleReady}
-        onBell={bellEnabled ? () => {
-          if (notifyOnBell && !document.hasFocus()) {
-            new Notification('Terminal Bell', { body: session.name || 'Terminal' });
-          }
-        } : undefined}
+        onBell={
+          bellEnabled
+            ? () => {
+                if (notifyOnBell && !document.hasFocus()) {
+                  new Notification('Terminal Bell', { body: session.name || 'Terminal' });
+                }
+              }
+            : undefined
+        }
         fontSize={fontSize}
         fontFamily={fontFamily}
         fontWeight={fontWeight}
@@ -308,6 +378,7 @@ export function TerminalPanel({ session, visible, onTermReady, fontSize, fontFam
         altClickMoveCursor={altClickMoveCursor}
         wordSeparators={wordSeparators}
         theme={adjustedTheme}
+        scrollbarVisibility={scrollbarVisibility}
         onOpenUrl={(url) => invoke('open_url', { url })}
       />
     </div>

@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Settings, CursorStyle, NewTabCwd, FontSmoothing, FontWeight } from '../hooks/useSettings';
+import type {
+  Settings,
+  CursorStyle,
+  NewTabCwd,
+  FontSmoothing,
+  FontWeight,
+  ScrollbarVisibility,
+} from '../hooks/useSettings';
 import { THEMES } from '../hooks/useSettings';
 import { ThemePicker } from './ThemePicker';
 
@@ -48,29 +55,61 @@ const FONT_SMOOTHING_OPTIONS: { value: FontSmoothing; label: string }[] = [
   { value: 'none', label: 'None' },
 ];
 
+const SCROLLBAR_VISIBILITY_OPTIONS: { value: ScrollbarVisibility; label: string }[] = [
+  { value: 'always', label: 'Always' },
+  { value: 'when-scrolling', label: 'When Scrolling' },
+  { value: 'never', label: 'Never' },
+];
+
 const TAB_ICONS: Record<SettingsTab, React.ReactNode> = {
   appearance: (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
       <rect x="2" y="2" width="14" height="14" rx="3" fill="url(#appearance-grad)" />
       <path d="M9 3v12" stroke="rgba(255,255,255,0.9)" strokeWidth="1.2" />
       <path d="M9 3a6 6 0 0 1 0 12" fill="rgba(255,255,255,0.25)" />
-      <defs><linearGradient id="appearance-grad" x1="2" y1="2" x2="16" y2="16"><stop stopColor="#5AC8FA" /><stop offset="1" stopColor="#007AFF" /></linearGradient></defs>
+      <defs>
+        <linearGradient id="appearance-grad" x1="2" y1="2" x2="16" y2="16">
+          <stop stopColor="#5AC8FA" />
+          <stop offset="1" stopColor="#007AFF" />
+        </linearGradient>
+      </defs>
     </svg>
   ),
   terminal: (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
       <rect x="2" y="3" width="14" height="12" rx="2.5" fill="url(#terminal-grad)" />
-      <path d="M5.5 7.5l2.5 1.75L5.5 11" stroke="#fff" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M5.5 7.5l2.5 1.75L5.5 11"
+        stroke="#fff"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
       <path d="M9.5 11h3" stroke="#fff" strokeWidth="1.3" strokeLinecap="round" />
-      <defs><linearGradient id="terminal-grad" x1="2" y1="3" x2="16" y2="15"><stop stopColor="#34C759" /><stop offset="1" stopColor="#248A3D" /></linearGradient></defs>
+      <defs>
+        <linearGradient id="terminal-grad" x1="2" y1="3" x2="16" y2="15">
+          <stop stopColor="#34C759" />
+          <stop offset="1" stopColor="#248A3D" />
+        </linearGradient>
+      </defs>
     </svg>
   ),
   behavior: (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
       <rect x="2" y="2" width="14" height="14" rx="3" fill="url(#behavior-grad)" />
       <circle cx="9" cy="9" r="2.5" stroke="#fff" strokeWidth="1.3" />
-      <path d="M9 4v1.5M9 12.5V14M4 9h1.5M12.5 9H14M5.46 5.46l1.06 1.06M11.48 11.48l1.06 1.06M5.46 12.54l1.06-1.06M11.48 6.52l1.06-1.06" stroke="#fff" strokeWidth="1" strokeLinecap="round" />
-      <defs><linearGradient id="behavior-grad" x1="2" y1="2" x2="16" y2="16"><stop stopColor="#8E8E93" /><stop offset="1" stopColor="#636366" /></linearGradient></defs>
+      <path
+        d="M9 4v1.5M9 12.5V14M4 9h1.5M12.5 9H14M5.46 5.46l1.06 1.06M11.48 11.48l1.06 1.06M5.46 12.54l1.06-1.06M11.48 6.52l1.06-1.06"
+        stroke="#fff"
+        strokeWidth="1"
+        strokeLinecap="round"
+      />
+      <defs>
+        <linearGradient id="behavior-grad" x1="2" y1="2" x2="16" y2="16">
+          <stop stopColor="#8E8E93" />
+          <stop offset="1" stopColor="#636366" />
+        </linearGradient>
+      </defs>
     </svg>
   ),
   connection: (
@@ -79,15 +118,30 @@ const TAB_ICONS: Record<SettingsTab, React.ReactNode> = {
       <circle cx="6.5" cy="9" r="2" stroke="#fff" strokeWidth="1.2" />
       <circle cx="11.5" cy="9" r="2" stroke="#fff" strokeWidth="1.2" />
       <path d="M8.5 9h1" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" />
-      <defs><linearGradient id="connection-grad" x1="2" y1="2" x2="16" y2="16"><stop stopColor="#FF9500" /><stop offset="1" stopColor="#FF6B00" /></linearGradient></defs>
+      <defs>
+        <linearGradient id="connection-grad" x1="2" y1="2" x2="16" y2="16">
+          <stop stopColor="#FF9500" />
+          <stop offset="1" stopColor="#FF6B00" />
+        </linearGradient>
+      </defs>
     </svg>
   ),
   account: (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
       <rect x="2" y="2" width="14" height="14" rx="3" fill="url(#account-grad)" />
       <circle cx="9" cy="7" r="2.5" stroke="#fff" strokeWidth="1.2" />
-      <path d="M4.5 15c0-2.5 2-4.5 4.5-4.5s4.5 2 4.5 4.5" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" />
-      <defs><linearGradient id="account-grad" x1="2" y1="2" x2="16" y2="16"><stop stopColor="#5856D6" /><stop offset="1" stopColor="#AF52DE" /></linearGradient></defs>
+      <path
+        d="M4.5 15c0-2.5 2-4.5 4.5-4.5s4.5 2 4.5 4.5"
+        stroke="#fff"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+      <defs>
+        <linearGradient id="account-grad" x1="2" y1="2" x2="16" y2="16">
+          <stop stopColor="#5856D6" />
+          <stop offset="1" stopColor="#AF52DE" />
+        </linearGradient>
+      </defs>
     </svg>
   ),
 };
@@ -100,17 +154,29 @@ const TABS: { id: SettingsTab; label: string }[] = [
   { id: 'account', label: 'Account' },
 ];
 
-export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, onOpenKeybindings, email, onLogout }: SettingsPanelProps) {
+export function SettingsPanel({
+  settings,
+  defaults,
+  onUpdate,
+  onReset,
+  onClose,
+  onOpenKeybindings,
+  email,
+  onLogout,
+}: SettingsPanelProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
   const [shellInput, setShellInput] = useState(settings.shellPath);
   const [shellValid, setShellValid] = useState<boolean | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      onClose();
-    }
-  }, [onClose]);
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    },
+    [onClose],
+  );
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -157,9 +223,25 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
             <span className="sp-tab-icon">
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
                 <rect x="2" y="2" width="14" height="14" rx="3" fill="url(#reset-grad)" />
-                <path d="M5.5 5.5v2.5H8" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M5.5 8A3.75 3.75 0 1 1 6.2 11" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" />
-                <defs><linearGradient id="reset-grad" x1="2" y1="2" x2="16" y2="16"><stop stopColor="#FF9500" /><stop offset="1" stopColor="#FF3B30" /></linearGradient></defs>
+                <path
+                  d="M5.5 5.5v2.5H8"
+                  stroke="#fff"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M5.5 8A3.75 3.75 0 1 1 6.2 11"
+                  stroke="#fff"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                />
+                <defs>
+                  <linearGradient id="reset-grad" x1="2" y1="2" x2="16" y2="16">
+                    <stop stopColor="#FF9500" />
+                    <stop offset="1" stopColor="#FF3B30" />
+                  </linearGradient>
+                </defs>
               </svg>
             </span>
             <span>Reset All</span>
@@ -171,7 +253,15 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
           <div className="sp-content-header">
             <h2 className="sp-content-title">{TABS.find((t) => t.id === activeTab)?.label}</h2>
             <button className="sp-close-btn" onClick={onClose} aria-label="Close">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              >
                 <path d="M2 2l8 8M10 2l-8 8" />
               </svg>
             </button>
@@ -229,7 +319,10 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                     />
                   </SettingRow>
                   <div className="sp-separator" />
-                  <SettingRow label="Opacity" badge={`${Math.round(settings.backgroundOpacity * 100)}%`}>
+                  <SettingRow
+                    label="Opacity"
+                    badge={`${Math.round(settings.backgroundOpacity * 100)}%`}
+                  >
                     <input
                       className="sp-range"
                       type="range"
@@ -237,7 +330,9 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                       max={100}
                       step={1}
                       value={Math.round(settings.backgroundOpacity * 100)}
-                      onChange={(e) => onUpdate({ backgroundOpacity: Number(e.target.value) / 100 })}
+                      onChange={(e) =>
+                        onUpdate({ backgroundOpacity: Number(e.target.value) / 100 })
+                      }
                     />
                   </SettingRow>
                   <div className="sp-separator" />
@@ -250,6 +345,14 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                       step={1}
                       value={settings.blurRadius}
                       onChange={(e) => onUpdate({ blurRadius: Number(e.target.value) })}
+                    />
+                  </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Scrollbar Visibility">
+                    <SegmentedControl
+                      options={SCROLLBAR_VISIBILITY_OPTIONS}
+                      value={settings.scrollbarVisibility}
+                      onChange={(v) => onUpdate({ scrollbarVisibility: v })}
                     />
                   </SettingRow>
                 </div>
@@ -487,7 +590,17 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                         }}
                       >
                         <span className="sp-nav-row-label">Keyboard Shortcuts</span>
-                        <svg className="sp-nav-row-chevron" width="7" height="12" viewBox="0 0 7 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg
+                          className="sp-nav-row-chevron"
+                          width="7"
+                          height="12"
+                          viewBox="0 0 7 12"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
                           <path d="M1 1l5 5-5 5" />
                         </svg>
                       </button>
@@ -513,7 +626,8 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
                   </SettingRow>
                 </div>
                 <div className="sp-hint">
-                  Leave empty to use the default relay server. Changes take effect on next connection.
+                  Leave empty to use the default relay server. Changes take effect on next
+                  connection.
                 </div>
               </>
             )}
@@ -547,7 +661,11 @@ export function SettingsPanel({ settings, defaults, onUpdate, onReset, onClose, 
 
 // --- Sub-components ---
 
-function SettingRow({ label, badge, children }: {
+function SettingRow({
+  label,
+  badge,
+  children,
+}: {
   label: string;
   badge?: string;
   children: React.ReactNode;
@@ -563,10 +681,7 @@ function SettingRow({ label, badge, children }: {
   );
 }
 
-function NativeToggle({ value, onChange }: {
-  value: boolean;
-  onChange: (v: boolean) => void;
-}) {
+function NativeToggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
       className={`sp-toggle ${value ? 'sp-toggle-on' : ''}`}
@@ -579,7 +694,11 @@ function NativeToggle({ value, onChange }: {
   );
 }
 
-function SegmentedControl<T extends string>({ options, value, onChange }: {
+function SegmentedControl<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
   options: { value: T; label: string }[];
   value: T;
   onChange: (v: T) => void;
@@ -599,7 +718,10 @@ function SegmentedControl<T extends string>({ options, value, onChange }: {
   );
 }
 
-function ThemeSelector({ selected, onSelect }: {
+function ThemeSelector({
+  selected,
+  onSelect,
+}: {
   selected: string;
   onSelect: (key: string) => void;
 }) {
@@ -620,7 +742,7 @@ function ThemeSelector({ selected, onSelect }: {
               <span style={{ color: theme.foreground }}> status</span>
             </div>
             <div className="sp-theme-selector-line">
-              <span style={{ color: theme.yellow }}>  M</span>
+              <span style={{ color: theme.yellow }}> M</span>
               <span style={{ color: theme.foreground }}> src/</span>
               <span style={{ color: theme.blue }}>app.ts</span>
             </div>
@@ -633,23 +755,33 @@ function ThemeSelector({ selected, onSelect }: {
               ))}
             </div>
           </div>
-          <svg className="sp-theme-selector-chevron" width="7" height="12" viewBox="0 0 7 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            className="sp-theme-selector-chevron"
+            width="7"
+            height="12"
+            viewBox="0 0 7 12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M1 1l5 5-5 5" />
           </svg>
         </button>
       </div>
       {pickerOpen && (
-        <ThemePicker
-          selected={selected}
-          onSelect={onSelect}
-          onClose={() => setPickerOpen(false)}
-        />
+        <ThemePicker selected={selected} onSelect={onSelect} onClose={() => setPickerOpen(false)} />
       )}
     </>
   );
 }
 
-function FontPicker({ value, options, onChange }: {
+function FontPicker({
+  value,
+  options,
+  onChange,
+}: {
   value: string;
   options: string[];
   onChange: (v: string) => void;
@@ -728,7 +860,17 @@ function FontPicker({ value, options, onChange }: {
         type="button"
       >
         <span className="sp-font-trigger-name">{displayName(value)}</span>
-        <svg className="sp-font-trigger-chevron" width="8" height="5" viewBox="0 0 8 5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          className="sp-font-trigger-chevron"
+          width="8"
+          height="5"
+          viewBox="0 0 8 5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d={open ? 'M1 4l3-3 3 3' : 'M1 1l3 3 3-3'} />
         </svg>
       </button>
@@ -772,7 +914,17 @@ function FontPicker({ value, options, onChange }: {
                     AaBb 0Oo {'{}'}
                   </span>
                   {font === value && (
-                    <svg className="sp-font-check" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg
+                      className="sp-font-check"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 14 14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
                       <path d="M3 7.5l3 3 5-6" />
                     </svg>
                   )}
@@ -798,24 +950,42 @@ function FontPreview({ settings }: { settings: Settings }) {
   return (
     <div
       className="sp-font-preview"
-      style={{
-        fontFamily: settings.fontFamily,
-        fontSize: `${settings.fontSize}px`,
-        fontWeight: settings.fontWeight === 'normal' ? 400 : Number(settings.fontWeight),
-        lineHeight: settings.lineHeight,
-        WebkitFontSmoothing: smoothingMap[settings.fontSmoothing] ?? 'auto',
-        fontVariantLigatures: settings.fontLigatures ? 'normal' : 'none',
-        background: theme.background,
-        color: fg,
-      } as React.CSSProperties}
+      style={
+        {
+          fontFamily: settings.fontFamily,
+          fontSize: `${settings.fontSize}px`,
+          fontWeight: settings.fontWeight === 'normal' ? 400 : Number(settings.fontWeight),
+          lineHeight: settings.lineHeight,
+          WebkitFontSmoothing: smoothingMap[settings.fontSmoothing] ?? 'auto',
+          fontVariantLigatures: settings.fontLigatures ? 'normal' : 'none',
+          background: theme.background,
+          color: fg,
+        } as React.CSSProperties
+      }
     >
-      <div><span style={{ color: theme.blue }}>~/termpod</span> <span style={{ color: theme.brightBlack }}>on</span> <span style={{ color: theme.magenta }}>main</span></div>
-      <div><span style={{ color: theme.green }}>❯</span> git log --oneline -3</div>
-      <div><span style={{ color: theme.yellow }}>15cd883</span> Add theme picker with live preview</div>
-      <div><span style={{ color: theme.yellow }}>670d45b</span> Add Cmd+click to open links</div>
-      <div><span style={{ color: theme.yellow }}>9e4c212</span> Refine context menu to match macOS</div>
+      <div>
+        <span style={{ color: theme.blue }}>~/termpod</span>{' '}
+        <span style={{ color: theme.brightBlack }}>on</span>{' '}
+        <span style={{ color: theme.magenta }}>main</span>
+      </div>
+      <div>
+        <span style={{ color: theme.green }}>❯</span> git log --oneline -3
+      </div>
+      <div>
+        <span style={{ color: theme.yellow }}>15cd883</span> Add theme picker with live preview
+      </div>
+      <div>
+        <span style={{ color: theme.yellow }}>670d45b</span> Add Cmd+click to open links
+      </div>
+      <div>
+        <span style={{ color: theme.yellow }}>9e4c212</span> Refine context menu to match macOS
+      </div>
       <div>&nbsp;</div>
-      <div><span style={{ color: theme.green }}>❯</span> <span style={{ color: theme.cyan }}>echo</span> {settings.fontLigatures ? '<=> != ===' : '"Hello, world!"'}</div>
+      <div>
+        <span style={{ color: theme.green }}>❯</span>{' '}
+        <span style={{ color: theme.cyan }}>echo</span>{' '}
+        {settings.fontLigatures ? '<=> != ===' : '"Hello, world!"'}
+      </div>
       <div>{settings.fontLigatures ? '<=> != ===' : 'Hello, world!'}</div>
     </div>
   );
