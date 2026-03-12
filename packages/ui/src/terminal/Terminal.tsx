@@ -578,6 +578,9 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           ) {
             const ghost = ghostTextRef.current;
             if (ghost) {
+              const { buffer, cursor } = autocompleteInputRef.current;
+              const prefix = buffer.slice(0, cursor);
+              autocompleteEngineRef.current?.recordAcceptedCommand?.(`${prefix}${ghost}`);
               onDataRef.current?.(ghost);
               previewAnchorPrefixRef.current = null;
               previewSuffixRef.current = '';
@@ -966,6 +969,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         const { buffer, cursor } = autocompleteInputRef.current;
         const prefix = buffer.slice(0, cursor);
         const textToInsert = suggestion.text.slice(prefix.length);
+
+        autocompleteEngineRef.current?.recordAcceptedCommand?.(suggestion.text);
 
         if (textToInsert) {
           // Send only the missing suffix to the PTY.

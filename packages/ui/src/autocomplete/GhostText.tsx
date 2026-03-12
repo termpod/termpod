@@ -67,6 +67,13 @@ export function GhostText({
     return null;
   }
 
+  // Keep insertion semantics in Terminal intact, but avoid showing a visual
+  // leading gap when completion suffix starts with whitespace.
+  const renderText = text.replace(/^\s+/, '');
+  if (!renderText) {
+    return null;
+  }
+
   const ghost = (
     <span
       data-ghost-text="true"
@@ -89,9 +96,10 @@ export function GhostText({
         opacity: opacity,
         textRendering: 'optimizeLegibility',
         fontVariantLigatures: 'normal',
+        transform: 'translateY(-1px)',
       }}
     >
-      {text}
+      {renderText}
     </span>
   );
 

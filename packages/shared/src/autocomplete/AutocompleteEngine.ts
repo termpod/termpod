@@ -31,6 +31,7 @@ export class AutocompleteEngine {
   private cachedDirectories: string[] = [];
   private cachedFiles: string[] = [];
   private fsRefreshToken = 0;
+  private contextSelectionCounts: Map<string, number> = new Map();
   private onSuggestionCallbacks: Array<(suggestion: string | null) => void> = [];
   private onSuggestionsCallbacks: Array<(suggestions: Suggestion[]) => void> = [];
 
@@ -296,6 +297,18 @@ export class AutocompleteEngine {
     return this.historyIndex.getStats();
   }
 
+  /**
+   * Record that a suggestion/command was accepted to improve future ranking.
+   */
+  recordAcceptedCommand(command: string): void {
+    const parsed = this.parseFirstArgCommand(command);
+    if (!parsed) return;
+
+    const { cmd, arg } = parsed;
+    const key = this.makeContextKey(cmd, arg);
+    this.contextSelectionCounts.set(key, (this.contextSelectionCounts.get(key) ?? 0) + 1);
+  }
+
   private async refreshFsCache(): Promise<void> {
     const cwd = this.currentDirectory;
     const lister = this.listPathEntries;
@@ -390,38 +403,69 @@ export class AutocompleteEngine {
     const out: Suggestion[] = [];
 
     const pushDirectory = (name: string, index: number) => {
+      const usageBoost = this.getContextUsageBoost(cmd, `${name}/`);
       out.push({
         text: `${cmd} ${name}/`,
         type: 'file',
         description: 'Directory',
-        score: 220 - index,
+        score: 220 + usageBoost - index,
       });
     };
     const pushFile = (name: string, index: number) => {
+      const usageBoost = this.getContextUsageBoost(cmd, name);
       out.push({
         text: `${cmd} ${name}`,
         type: 'file',
         description: 'File',
-        score: 200 - index,
+        score: 200 + usageBoost - index,
       });
     };
 
     if (dirOnlyCommands.has(cmd)) {
       matchesDirs.slice(0, 60).forEach(pushDirectory);
-      return out;
+      return this.sortContextSuggestions(out);
     }
 
     if (fileOnlyCommands.has(cmd)) {
       matchesFiles.slice(0, 60).forEach(pushFile);
-      return out;
+      return this.sortContextSuggestions(out);
     }
 
     if (fileOrDirCommands.has(cmd)) {
       matchesDirs.slice(0, 40).forEach(pushDirectory);
       matchesFiles.slice(0, 40).forEach(pushFile);
-      return out;
+      return this.sortContextSuggestions(out);
     }
 
     return [];
+  }
+
+  private sortContextSuggestions(suggestions: Suggestion[]): Suggestion[] {
+    return suggestions.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.text.localeCompare(b.text, undefined, { sensitivity: 'base' });
+    });
+  }
+
+  private getContextUsageBoost(cmd: string, arg: string): number {
+    const key = this.makeContextKey(cmd, arg);
+    const count = this.contextSelectionCounts.get(key) ?? 0;
+    // Sublinear boost to avoid hard pinning one choice forever.
+    return Math.floor(Math.sqrt(count) * 25);
+  }
+
+  private makeContextKey(cmd: string, arg: string): string {
+    const normalizedArg = arg.trim().replace(/\/+$/, '').toLowerCase();
+    return `${cmd.toLowerCase()}::${normalizedArg}`;
+  }
+
+  private parseFirstArgCommand(command: string): { cmd: string; arg: string } | null {
+    const trimmed = command.trim();
+    if (!trimmed) return null;
+
+    const match = trimmed.match(/^([^\s]+)\s+([^\s]+)/);
+    if (!match) return null;
+
+    return { cmd: match[1].toLowerCase(), arg: match[2] };
   }
 }
