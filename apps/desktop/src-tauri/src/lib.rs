@@ -158,6 +158,17 @@ fn open_url(url: String) {
     let _ = std::process::Command::new("open").arg(&url).spawn();
 }
 
+#[tauri::command]
+async fn read_file(path: String) -> Result<String, String> {
+    // Read file as bytes first to handle non-UTF-8 content (e.g., shell history with binary data)
+    let bytes = tokio::fs::read(&path)
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    // Convert to string lossily, replacing invalid UTF-8 sequences with replacement character
+    Ok(String::from_utf8_lossy(&bytes).to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -174,6 +185,7 @@ pub fn run() {
             check_full_disk_access,
             copy_to_clipboard,
             open_url,
+            read_file,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_read,

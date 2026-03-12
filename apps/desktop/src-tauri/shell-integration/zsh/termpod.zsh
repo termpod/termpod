@@ -1,9 +1,6 @@
 # TermPod shell integration for zsh
 # Emits OSC 133 semantic prompt markers (FinalTerm / Kitty / Ghostty standard)
-#
-# Lifecycle per command:
-#   A (prompt start) → [prompt text] → B (prompt end) → [user input] →
-#   C (command executed) → [output] → D (command finished, exit code)
+# Also provides OSC 134 for autocomplete input capture
 
 # Guard against double-sourcing
 (( ${+TERMPOD_SHELL_INTEGRATION} )) && return
@@ -12,6 +9,10 @@ builtin typeset -g TERMPOD_SHELL_INTEGRATION=1
 # Track whether a command has been executed (controls D marker emission)
 builtin typeset -g _termpod_executing=""
 
+# Track current input buffer for autocomplete
+builtin typeset -g _termpod_last_buffer=""
+builtin typeset -g _termpod_last_cursor=0
+
 # Save exit status FIRST (before any other precmd modifies $?)
 _termpod_save_status() {
     builtin typeset -g _termpod_last_status=$?
@@ -19,6 +20,9 @@ _termpod_save_status() {
 
 # Emit D (previous command finished) and A (prompt start) markers
 _termpod_precmd() {
+    # Re-apply widget wrappers in case user startup/plugins rebind widgets.
+    _termpod_setup_widgets
+
     if [[ -n "$_termpod_executing" ]]; then
         builtin printf '\e]133;D;%d\a' "$_termpod_last_status"
     fi
@@ -41,9 +45,77 @@ _termpod_preexec() {
     _termpod_executing=1
 }
 
+# Capture input buffer and cursor position for autocomplete
+# Uses OSC 134 to send input state to the terminal
+_termpod_capture_input() {
+    local buffer="$BUFFER"
+    local cursor=$CURSOR
+    
+    # Only emit if buffer changed
+    if [[ "$buffer" != "$_termpod_last_buffer" || $cursor -ne $_termpod_last_cursor ]]; then
+        _termpod_last_buffer="$buffer"
+        _termpod_last_cursor=$cursor
+        
+        # Base64 encode the buffer to safely transmit special characters
+        local encoded=$(builtin printf '%s' "$buffer" | builtin command base64)
+        
+        builtin printf '\e]134;input;%s;%d\a' "$encoded" "$cursor"
+    fi
+}
+
+# Wrap an existing widget to add capture after execution
+# $1: widget name
+_termpod_wrap_widget() {
+    local widget_name="$1"
+    local wrapped_name="_termpod_wrapped_${widget_name}"
+    local orig_alias="_${wrapped_name}_orig"
+    local current_widget="${widgets[$widget_name]:-}"
+
+    # Widget must exist.
+    [[ -n "$current_widget" ]] || return
+
+    # Already wrapped by us.
+    [[ "$current_widget" == "user:${wrapped_name}" ]] && return
+
+    # Always alias the original widget. This works for builtin/user/completion
+    # widgets and avoids relying on widgets[$name] string formats.
+    zle -A "$widget_name" "$orig_alias" || return
+
+    eval "function $wrapped_name() {
+        zle $orig_alias \"\$@\"
+        _termpod_capture_input
+    }"
+
+    # Install our wrapper
+    zle -N "$widget_name" "$wrapped_name"
+}
+
+# Setup widget wrappers for input capture
+_termpod_setup_widgets() {
+    # Wrap the widgets we care about
+    _termpod_wrap_widget "self-insert"
+    _termpod_wrap_widget "backward-delete-char"
+    _termpod_wrap_widget "delete-char"
+    _termpod_wrap_widget "accept-line"
+    _termpod_wrap_widget "vi-delete-char"
+    _termpod_wrap_widget "vi-backward-delete-char"
+}
+
+# Call setup immediately
+_termpod_setup_widgets
+
+# Capture before executing command
+_termpod_preexec_capture() {
+    # Clear input state when executing
+    _termpod_last_buffer=""
+    _termpod_last_cursor=0
+    builtin printf '\e]134;execute\a'
+    _termpod_preexec
+}
+
 # Register hooks:
 # - _termpod_save_status FIRST (captures $? before anything else)
 # - _termpod_precmd early (emits A, D)
 # - _termpod_update_ps1 LAST (appends B after prompt frameworks set PS1)
 precmd_functions=(_termpod_save_status _termpod_precmd "${precmd_functions[@]}" _termpod_update_ps1)
-preexec_functions=(_termpod_preexec "${preexec_functions[@]}")
+preexec_functions=(_termpod_preexec_capture "${preexec_functions[@]}")

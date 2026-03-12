@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Terminal } from '@termpod/ui';
 import type { TerminalThemeColors } from '@termpod/ui';
 import type { PtySize } from '@termpod/protocol';
 import type { BlockBoundary } from '@termpod/shared';
+import { AutocompleteEngine } from '@termpod/shared';
 import type { TerminalSession } from '../hooks/useSessionManager';
 import { useRelayBridge } from '../hooks/useRelayBridge';
 import type { RelayStatus, MergedDevice } from '../hooks/useRelayConnection';
@@ -60,6 +61,8 @@ interface TerminalPanelProps {
   notifyOnBell?: boolean;
   backgroundOpacity?: number;
   scrollbarVisibility?: 'always' | 'when-scrolling' | 'never';
+  // Autocomplete settings
+  autocompleteEnabled?: boolean;
   onRelayChange?: (info: RelayInfo) => void;
   onSessionRegistered?: (relaySessionId: string) => void;
   onCreateSessionRequest?: (
@@ -110,6 +113,7 @@ export function TerminalPanel({
   notifyOnBell,
   backgroundOpacity,
   scrollbarVisibility,
+  autocompleteEnabled = true,
   onRelayChange,
   onSessionRegistered,
   onCreateSessionRequest,
@@ -124,6 +128,19 @@ export function TerminalPanel({
   onWebRTCMuxResize,
   getSharedWebRTC,
 }: TerminalPanelProps) {
+  // Initialize autocomplete engine
+  const [autocompleteEngine] = useState(() => {
+    return new AutocompleteEngine(
+      {
+        enabled: autocompleteEnabled,
+        ghostTextEnabled: false, // Disable ghost text
+        popupEnabled: true, // Enable popup instead
+      },
+      async (path: string) => {
+        return await invoke<string>('read_file', { path });
+      },
+    );
+  });
   const onTermReadyRef = useRef(onTermReady);
   onTermReadyRef.current = onTermReady;
   const onCreateSessionRequestRef = useRef(onCreateSessionRequest);
@@ -292,6 +309,39 @@ export function TerminalPanel({
     onTermReadyRef.current?.(session.id);
   }, [session.id]);
 
+  // Load shell history when session starts
+  useEffect(() => {
+    if (!autocompleteEnabled) return;
+
+    const loadHistory = async () => {
+      try {
+        const home = await invoke<string>('get_home_dir');
+        const historyPaths = [
+          `${home}/.zsh_history`,
+          `${home}/.bash_history`,
+          `${home}/.local/share/fish/fish_history`,
+        ];
+
+        for (const path of historyPaths) {
+          try {
+            await autocompleteEngine.loadHistory(path);
+          } catch {
+            // File doesn't exist, skip
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to load shell history:', error);
+      }
+    };
+
+    loadHistory();
+  }, [autocompleteEnabled, autocompleteEngine]);
+
+  // Update autocomplete engine when enabled state changes
+  useEffect(() => {
+    autocompleteEngine.setEnabled(autocompleteEnabled);
+  }, [autocompleteEnabled, autocompleteEngine]);
+
   const active = visible && !session.closing;
 
   const focusTerminal = useCallback(() => {
@@ -380,6 +430,8 @@ export function TerminalPanel({
         theme={adjustedTheme}
         scrollbarVisibility={scrollbarVisibility}
         onOpenUrl={(url) => invoke('open_url', { url })}
+        autocompleteEnabled={autocompleteEnabled}
+        autocompleteEngine={autocompleteEngine}
       />
     </div>
   );

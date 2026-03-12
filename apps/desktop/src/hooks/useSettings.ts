@@ -1029,6 +1029,9 @@ export interface Settings {
 
   // Connection
   relayUrl: string;
+
+  // Autocomplete
+  autocompleteEnabled: boolean;
 }
 
 const STORAGE_KEY = 'termpod-settings';
@@ -1067,6 +1070,8 @@ const DEFAULTS: Settings = {
   notifyOnProcessExit: true,
 
   relayUrl: '',
+
+  autocompleteEnabled: true,
 };
 
 export function getSettingsSnapshot(): Settings {

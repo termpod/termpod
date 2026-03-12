@@ -1018,6 +1018,7 @@ export function App() {
             notifyOnBell={settings.notifyOnBell}
             backgroundOpacity={settings.backgroundOpacity}
             scrollbarVisibility={settings.scrollbarVisibility}
+            autocompleteEnabled={settings.autocompleteEnabled}
             onRelayChange={(info) => handleRelayChange(session.id, info)}
             onSessionRegistered={(relaySessionId) => {
               const term = session.termRef.current;

@@ -500,6 +500,16 @@ export function SettingsPanel({
 
             {activeTab === 'behavior' && (
               <>
+                <div className="sp-group-label">Autocomplete</div>
+                <div className="sp-group">
+                  <SettingRow label="Enable Autocomplete">
+                    <NativeToggle
+                      value={settings.autocompleteEnabled}
+                      onChange={(v) => onUpdate({ autocompleteEnabled: v })}
+                    />
+                  </SettingRow>
+                </div>
+
                 <div className="sp-group-label">Tabs</div>
                 <div className="sp-group">
                   <SettingRow label="New Tab Directory">

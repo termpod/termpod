@@ -14,8 +14,10 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon } from '@xterm/addon-search';
 import { UnicodeGraphemesAddon } from '@xterm/addon-unicode-graphemes';
 import type { PtySize } from '@termpod/protocol';
-import type { BlockBoundary } from '@termpod/shared';
+import type { BlockBoundary, Suggestion, AutocompleteEngine } from '@termpod/shared';
 import { BlockDecorationManager } from './BlockDecorations';
+import { GhostText } from '../autocomplete/GhostText';
+import { AutocompletePopup } from '../autocomplete/AutocompletePopup';
 
 import '@xterm/xterm/css/xterm.css';
 
@@ -93,6 +95,9 @@ export interface TerminalProps {
   theme?: TerminalThemeColors;
   scrollbarVisibility?: 'always' | 'when-scrolling' | 'never';
   onOpenUrl?: (url: string) => void;
+  // Autocomplete options
+  autocompleteEnabled?: boolean;
+  autocompleteEngine?: AutocompleteEngine;
 }
 
 const SEARCH_DECORATIONS = {
@@ -134,6 +139,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       theme,
       scrollbarVisibility = 'auto',
       onOpenUrl,
+      autocompleteEnabled = true,
+      autocompleteEngine,
     },
     ref,
   ) => {
@@ -145,6 +152,16 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     const [searchVisible, setSearchVisible] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const searchInputRef = useRef<HTMLInputElement>(null);
+
+    // Autocomplete state
+    const [ghostText, setGhostText] = useState<string | null>(null);
+    const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+    const [selectedSuggestion, setSelectedSuggestion] = useState(0);
+    const autocompleteEngineRef = useRef<AutocompleteEngine | null>(null);
+    const autocompleteInputRef = useRef<{ buffer: string; cursor: number }>({
+      buffer: '',
+      cursor: 0,
+    });
 
     // Store callbacks in refs so the xterm instance never needs to be
     // destroyed just because a callback reference changed.
@@ -627,6 +644,44 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         return false;
       });
 
+      // OSC 134: Autocomplete input capture from shell integration
+      // Format: input;<base64_buffer>;<cursor_pos> or execute
+      term.parser.registerOscHandler(134, (data) => {
+        if (!autocompleteEnabled) return false;
+
+        const parts = data.split(';');
+        const type = parts[0];
+
+        if (type === 'execute') {
+          autocompleteEngineRef.current?.handleExecute();
+          autocompleteInputRef.current = { buffer: '', cursor: 0 };
+          setGhostText(null);
+          setSuggestions([]);
+        } else if (type === 'input' && parts.length >= 3) {
+          try {
+            const encodedBuffer = parts[1];
+            const cursorPos = parseInt(parts[2], 10);
+            const buffer = atob(encodedBuffer);
+            autocompleteInputRef.current = { buffer, cursor: cursorPos };
+
+            autocompleteEngineRef.current?.handleInput(buffer, cursorPos);
+
+            // Update ghost text
+            const ghost = autocompleteEngineRef.current?.getGhostText() ?? null;
+            setGhostText(ghost);
+
+            // Update suggestions
+            const sugs = autocompleteEngineRef.current?.getSuggestions() ?? [];
+            setSuggestions(sugs);
+            setSelectedSuggestion(0);
+          } catch {
+            // Invalid base64, ignore
+          }
+        }
+
+        return false;
+      });
+
       // Kitty keyboard protocol support (progressive enhancement)
       // Apps like Claude Code push this mode to get modifier info on keys like Enter.
       // We track the mode stack and respond to queries so the app knows we support it.
@@ -819,6 +874,29 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       el.style.fontVariantLigatures = fontLigatures ? 'normal' : 'none';
     }, [fontSmoothing, fontLigatures]);
 
+    // Sync autocomplete engine reference
+    useEffect(() => {
+      autocompleteEngineRef.current = autocompleteEngine ?? null;
+    }, [autocompleteEngine]);
+
+    // Handle accepting a suggestion
+    const handleAcceptSuggestion = useCallback(
+      (suggestion: Suggestion) => {
+        const { buffer, cursor } = autocompleteInputRef.current;
+        const prefix = buffer.slice(0, cursor);
+        const textToInsert = suggestion.text.slice(prefix.length);
+
+        if (textToInsert) {
+          // Send only the missing suffix to the PTY.
+          onData?.(textToInsert);
+        }
+
+        setGhostText(null);
+        setSuggestions([]);
+      },
+      [onData],
+    );
+
     const hasSelection = contextMenu ? !!terminalRef.current?.getSelection() : false;
 
     return (
@@ -903,6 +981,28 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
             </button>
           </div>
         )}
+        {/* Autocomplete ghost text overlay */}
+        {autocompleteEnabled && (
+          <GhostText
+            terminal={terminalRef.current}
+            text={ghostText}
+            foregroundColor={theme?.foreground || '#c0caf5'}
+            opacity={0.5}
+          />
+        )}
+
+        {/* Autocomplete popup */}
+        {autocompleteEnabled && (
+          <AutocompletePopup
+            terminal={terminalRef.current}
+            suggestions={suggestions}
+            selectedIndex={selectedSuggestion}
+            onSelectedIndexChange={setSelectedSuggestion}
+            onSelect={handleAcceptSuggestion}
+            onClose={() => setSuggestions([])}
+          />
+        )}
+
         <div
           ref={containerRef}
           style={{
