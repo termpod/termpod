@@ -137,6 +137,8 @@ export function TerminalPanel({
   const remoteBootstrapDoneRef = useRef(false);
   const oscBufferRef = useRef('');
   const lastRemoteEntriesRefreshAtRef = useRef(0);
+  const suppressNextSshRefreshRef = useRef(false);
+  const sshInputLineRef = useRef('');
 
   // Initialize autocomplete engine
   const [autocompleteEngine] = useState(() => {
@@ -252,11 +254,34 @@ export function TerminalPanel({
 
   const handleData = useCallback(
     (data: string) => {
+      if (isSshSession) {
+        if (data === '\x04') {
+          // Ctrl+D often exits ssh.
+          suppressNextSshRefreshRef.current = true;
+        } else if (data === '\r' || data === '\n' || data === '\x1b[13;2u') {
+          const cmd = sshInputLineRef.current.trim();
+          if (cmd === 'exit' || cmd === 'logout') {
+            suppressNextSshRefreshRef.current = true;
+          }
+          sshInputLineRef.current = '';
+        } else if (data === '\x7f' || data === '\b') {
+          sshInputLineRef.current = sshInputLineRef.current.slice(0, -1);
+        } else if (!data.startsWith('\x1b')) {
+          for (const ch of data) {
+            if (ch >= ' ' && ch !== '\x7f') {
+              sshInputLineRef.current += ch;
+            }
+          }
+        }
+      } else {
+        sshInputLineRef.current = '';
+      }
+
       if (!session.exited) {
         session.pty.write(data);
       }
     },
-    [session.pty, session.exited],
+    [isSshSession, session.pty, session.exited],
   );
 
   const handleCwdChange = useCallback((cwd: string) => {
@@ -274,6 +299,11 @@ export function TerminalPanel({
 
       // Refresh SSH directory context whenever a new prompt starts.
       if (boundary.marker === 'A') {
+        if (suppressNextSshRefreshRef.current) {
+          suppressNextSshRefreshRef.current = false;
+          return;
+        }
+
         const now = Date.now();
         if (now - lastRemoteEntriesRefreshAtRef.current > 1200) {
           lastRemoteEntriesRefreshAtRef.current = now;
