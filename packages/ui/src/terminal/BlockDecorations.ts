@@ -17,7 +17,11 @@ export class BlockDecorationManager {
   private onRerun?: (command: string) => void;
   private onSaveWorkflow?: (command: string) => void;
 
-  constructor(term: XTerm, onRerun?: (command: string) => void, onSaveWorkflow?: (command: string) => void) {
+  constructor(
+    term: XTerm,
+    onRerun?: (command: string) => void,
+    onSaveWorkflow?: (command: string) => void,
+  ) {
     this.term = term;
     this.onRerun = onRerun;
     this.onSaveWorkflow = onSaveWorkflow;
@@ -32,6 +36,14 @@ export class BlockDecorationManager {
           return;
         }
 
+        // Check if we're at the top of the terminal (e.g., after clear command)
+        const isAtTop = m.line === 0;
+
+        // Add spacing before new prompt (except for first prompt or after clear)
+        if (this.blocks.length > 0 && !isAtTop) {
+          this.term.write('\n');
+        }
+
         const block: TrackedBlock = {
           promptMarker: m,
           inputCol: 0,
@@ -42,7 +54,7 @@ export class BlockDecorationManager {
           actionsDec: null,
         };
 
-        if (this.blocks.length > 0) {
+        if (this.blocks.length > 0 && !isAtTop) {
           this.createSeparator(block);
         }
 
@@ -105,7 +117,9 @@ export class BlockDecorationManager {
       }
 
       el.dataset.init = '1';
-      el.style.borderTop = '1px solid rgba(255, 255, 255, 0.05)';
+      el.style.borderTop = '1px solid rgba(255, 255, 255, 0.15)';
+      // Center separator in the blank line between blocks
+      el.style.transform = 'translateY(50%)';
       el.style.pointerEvents = 'none';
     });
   }
@@ -209,11 +223,15 @@ export class BlockDecorationManager {
       bar.appendChild(divider);
 
       // Copy output button
-      bar.appendChild(this.createButton('Copy', () => {
-        this.copyBlockOutput(block);
-        copyLabel.textContent = 'Copied!';
-        setTimeout(() => { copyLabel.textContent = 'Copy'; }, 1200);
-      }));
+      bar.appendChild(
+        this.createButton('Copy', () => {
+          this.copyBlockOutput(block);
+          copyLabel.textContent = 'Copied!';
+          setTimeout(() => {
+            copyLabel.textContent = 'Copy';
+          }, 1200);
+        }),
+      );
       const copyLabel = bar.lastElementChild as HTMLButtonElement;
 
       // Re-run and Save buttons
