@@ -1,6 +1,11 @@
 # TermPod
 
+[![CI](https://github.com/nicepkg/termpod/actions/workflows/ci.yml/badge.svg)](https://github.com/nicepkg/termpod/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 **Your terminal, everywhere.**
+
+<!-- TODO: Add screenshot or GIF showing Mac ↔ iPhone terminal sharing -->
 
 TermPod is a shared terminal app for developers. Start a session on your Mac — run Claude Code, Codex, or any CLI tool — and pick it up on your iPhone. Both devices see the same live terminal. Type from either one.
 

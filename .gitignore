@@ -21,6 +21,9 @@ Thumbs.db
 *.swp
 *.swo
 
+# Claude Code
+CLAUDE.md
+
 # Xcode
 *.xcuserstate
 xcuserdata/
