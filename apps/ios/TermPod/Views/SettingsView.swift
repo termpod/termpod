@@ -217,11 +217,12 @@ struct SettingsView: View {
 private struct ThemePickerView: View {
 
     @EnvironmentObject private var settings: TerminalSettings
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
-    private let columns = [
-        GridItem(.flexible(), spacing: 12),
-        GridItem(.flexible(), spacing: 12),
-    ]
+    private var columns: [GridItem] {
+        let count = sizeClass == .regular ? 3 : 2
+        return Array(repeating: GridItem(.flexible(), spacing: 12), count: count)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {

@@ -8,10 +8,14 @@ struct DeviceSessionsView: View {
     @EnvironmentObject private var auth: AuthService
     @EnvironmentObject private var deviceService: DeviceService
     @EnvironmentObject private var deviceTransport: DeviceTransportManager
+    @EnvironmentObject private var settings: TerminalSettings
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var sessions: [DeviceService.DeviceSession] = []
     @State private var loading = true
     @State private var joinedSession: Session?
     @State private var requestingSession = false
+    @State private var creationTimedOut = false
+    @State private var loadError = false
     @State private var showDebugLog = false
 
     /// Static cache so session cards survive view recreation (NavigationStack
@@ -23,13 +27,25 @@ struct DeviceSessionsView: View {
         self._sessions = State(initialValue: Self.sessionsCache[device.id] ?? [])
     }
 
-    private let columns = [
-        GridItem(.flexible(), spacing: 16),
-        GridItem(.flexible(), spacing: 16),
-    ]
+    private var columns: [GridItem] {
+        let count = sizeClass == .regular ? 4 : 2
+        return Array(repeating: GridItem(.flexible(), spacing: 16), count: count)
+    }
 
     var body: some View {
         content
+        .overlay {
+            if requestingSession {
+                VStack(spacing: 12) {
+                    ProgressView().controlSize(.regular)
+                    Text(creationTimedOut ? "Waiting for desktop..." : "Creating session...")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.ultraThinMaterial)
+            }
+        }
         .navigationTitle(device.displayName)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -78,8 +94,27 @@ struct DeviceSessionsView: View {
     @ViewBuilder
     private var content: some View {
         if loading && sessions.isEmpty {
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 16) {
+                    ForEach(0..<4, id: \.self) { _ in
+                        SkeletonSessionCard()
+                    }
+                }
+                .padding(16)
+            }
+        } else if sessions.isEmpty && loadError {
+            ContentUnavailableView {
+                Label("Couldn't Load Sessions", systemImage: "wifi.exclamationmark")
+            } description: {
+                Text("Check your connection and try again.")
+            } actions: {
+                Button {
+                    Task { await loadSessions() }
+                } label: {
+                    Label("Retry", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.borderedProminent)
+            }
         } else if sessions.isEmpty {
             ContentUnavailableView {
                 Label("No Sessions", systemImage: "terminal")
@@ -105,7 +140,8 @@ struct DeviceSessionsView: View {
                 ForEach(sessions) { session in
                     SessionCard(
                         session: session,
-                        isActive: appState.sessions.contains { $0.id == session.id }
+                        isActive: appState.sessions.contains { $0.id == session.id },
+                        theme: settings.currentTheme
                     )
                     .transition(.scale.combined(with: .opacity))
                     .onTapGesture { Task { await joinSession(session) } }
@@ -129,22 +165,23 @@ struct DeviceSessionsView: View {
 
         let session: DeviceService.DeviceSession
         let isActive: Bool
+        let theme: TerminalTheme
 
         var body: some View {
             VStack(alignment: .leading, spacing: 0) {
                 // Terminal preview area
                 ZStack(alignment: .bottomLeading) {
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(Color(hex: "1A1B26"))
+                        .fill(Color(theme.background))
                         .frame(height: 100)
 
                     // Fake terminal lines
                     VStack(alignment: .leading, spacing: 3) {
-                        terminalLine("$", command: shortenedCwd, color: Color(hex: "7AA2F7"))
+                        terminalLine("$", command: shortenedCwd, color: Color(theme.ansiColors[4]))
                         if let processName = session.processName, processName != "zsh" && processName != "bash" {
-                            terminalLine(">", command: processName, color: Color(hex: "9ECE6A"))
+                            terminalLine(">", command: processName, color: Color(theme.ansiColors[2]))
                         } else {
-                            terminalLine("$", command: "█", color: Color(hex: "565F89"))
+                            terminalLine("$", command: "█", color: Color(theme.foreground).opacity(0.5))
                         }
                     }
                     .padding(10)
@@ -196,7 +233,7 @@ struct DeviceSessionsView: View {
         private func terminalLine(_ prompt: String, command: String, color: Color) -> some View {
             HStack(spacing: 4) {
                 Text(prompt)
-                    .foregroundStyle(Color(hex: "BB9AF7"))
+                    .foregroundStyle(Color(theme.ansiColors[5]))
                 Text(command)
                     .foregroundStyle(color)
             }
@@ -277,12 +314,13 @@ struct DeviceSessionsView: View {
         .onTapGesture { showDebugLog = true }
         .sheet(isPresented: $showDebugLog) {
             NavigationStack {
-                List(deviceTransport.debugLog.reversed(), id: \.self) { entry in
+                List(deviceTransport.debugLog, id: \.self) { entry in
                     Text(entry)
                         .font(.system(size: 11, design: .monospaced))
                         .listRowInsets(EdgeInsets(top: 2, leading: 8, bottom: 2, trailing: 8))
                         .textSelection(.enabled)
                 }
+                .defaultScrollAnchor(.bottom)
                 .navigationTitle("Transport Log")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -316,6 +354,7 @@ struct DeviceSessionsView: View {
 
     private func loadSessions() async {
         loading = true
+        loadError = false
 
         // Use deviceTransport's sessions if already populated (live-updated)
         if !deviceTransport.sessions.isEmpty {
@@ -372,6 +411,9 @@ struct DeviceSessionsView: View {
         // Fall back to HTTP API if transport didn't return anything
         if fetched.isEmpty {
             let httpFetched = await deviceService.fetchSessions(auth: auth, deviceId: device.id)
+            if httpFetched.isEmpty && sessions.isEmpty {
+                loadError = true
+            }
             mergeSessions(httpFetched)
         } else {
             mergeSessions(fetched)
@@ -397,9 +439,16 @@ struct DeviceSessionsView: View {
 
     private func requestNewSession() async {
         requestingSession = true
+        creationTimedOut = false
         HapticService.shared.playTap()
 
         let requestId = UUID().uuidString
+
+        // Show "Waiting for desktop..." after 3s
+        let timeoutTask = Task {
+            try? await Task.sleep(for: .seconds(3))
+            creationTimedOut = true
+        }
 
         // Use deviceTransport — handles failover (Local → WebRTC → Device WS)
         let result = await withCheckedContinuation { (continuation: CheckedContinuation<(String, String, String, Int, Int)?, Never>) in
@@ -421,6 +470,8 @@ struct DeviceSessionsView: View {
                 continuation.resume(returning: nil)
             }
         }
+
+        timeoutTask.cancel()
 
         if let (sessionId, name, _, _, _) = result {
             guard let ws = await auth.authenticatedWSURL(sessionId: sessionId) else {

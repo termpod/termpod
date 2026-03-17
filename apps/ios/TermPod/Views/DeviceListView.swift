@@ -7,6 +7,7 @@ struct DeviceListView: View {
     @EnvironmentObject private var deviceService: DeviceService
     @EnvironmentObject private var deviceTransport: DeviceTransportManager
     @State private var showSettings = false
+    @State private var fetchFailed = false
 
     private var hostDevices: [DeviceService.Device] {
         deviceService.devices.filter { $0.deviceType == "desktop" }
@@ -18,11 +19,27 @@ struct DeviceListView: View {
                 // Registered devices
                 Section {
                     if deviceService.loading && hostDevices.isEmpty {
-                        HStack {
-                            Spacer()
-                            ProgressView()
-                            Spacer()
+                        ForEach(0..<3, id: \.self) { _ in
+                            SkeletonDeviceRow()
                         }
+                    } else if hostDevices.isEmpty && fetchFailed {
+                        ContentUnavailableView {
+                            Label("Couldn't Load Devices", systemImage: "wifi.exclamationmark")
+                        } description: {
+                            Text("Check your connection and try again.")
+                        } actions: {
+                            Button {
+                                Task {
+                                    fetchFailed = false
+                                    await deviceService.fetchDevices(auth: auth)
+                                    autoConnectFirstDevice()
+                                }
+                            } label: {
+                                Label("Retry", systemImage: "arrow.clockwise")
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                        .listRowBackground(Color.clear)
                     } else if hostDevices.isEmpty {
                         ContentUnavailableView {
                             Label("No Devices", systemImage: "desktopcomputer")
@@ -94,12 +111,14 @@ struct DeviceListView: View {
             }
             .refreshable {
                 await deviceService.fetchDevices(auth: auth)
+                fetchFailed = deviceService.fetchError
                 autoConnectFirstDevice()
             }
             .task {
                 deviceTransport.startDiscovery()
                 await deviceService.registerThisDevice(auth: auth)
                 await deviceService.fetchDevices(auth: auth)
+                fetchFailed = deviceService.fetchError
                 // Auto-connect to the first online device so P2P is
                 // established before the user navigates to a session.
                 autoConnectFirstDevice()

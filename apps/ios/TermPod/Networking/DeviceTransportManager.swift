@@ -245,7 +245,13 @@ final class DeviceTransportManager: ObservableObject {
 
     /// Cached ICE server configs from relay (includes TURN credentials).
     private var cachedIceServerConfigs: [[String: Any]]?
+    private var turnCredentialsFetchedAt: Date?
     private var fetchingIceServers = false
+
+    private var areTurnCredentialsStale: Bool {
+        guard let fetchedAt = turnCredentialsFetchedAt else { return true }
+        return Date().timeIntervalSince(fetchedAt) > 6 * 3600
+    }
 
     /// Create the device-level WebRTC transport on demand (e.g. when first offer arrives).
     private func ensureWebRTCTransport() -> WebRTCTransport {
@@ -301,7 +307,7 @@ final class DeviceTransportManager: ObservableObject {
 
     /// Fetch TURN credentials and call completion when done (or immediately on failure).
     private func fetchTurnCredentialsSync(completion: @escaping () -> Void) {
-        guard cachedIceServerConfigs == nil,
+        guard areTurnCredentialsStale,
               let relayBase = relayBaseURL, let token = authToken
         else {
             completion()
@@ -328,6 +334,7 @@ final class DeviceTransportManager: ObservableObject {
                    let iceServersArray = json["iceServers"] as? [[String: Any]] {
                     self.log("TURN credentials (sync): got \(iceServersArray.count) ICE servers")
                     self.cachedIceServerConfigs = iceServersArray
+                    self.turnCredentialsFetchedAt = Date()
                     self.webrtcTransport?.iceServerConfigs = iceServersArray
                 }
                 completion()
@@ -337,7 +344,7 @@ final class DeviceTransportManager: ObservableObject {
 
     /// Fetch TURN credentials from the relay and cache them.
     private func fetchTurnCredentials() {
-        guard !fetchingIceServers, cachedIceServerConfigs == nil,
+        guard !fetchingIceServers, areTurnCredentialsStale,
               let relayBase = relayBaseURL, let token = authToken
         else { return }
 
@@ -375,6 +382,7 @@ final class DeviceTransportManager: ObservableObject {
 
                 self.log("TURN credentials: got \(iceServersArray.count) ICE servers")
                 self.cachedIceServerConfigs = iceServersArray
+                self.turnCredentialsFetchedAt = Date()
                 self.webrtcTransport?.iceServerConfigs = iceServersArray
             }
         }.resume()
@@ -1236,6 +1244,8 @@ final class DeviceTransportManager: ObservableObject {
                 webrtcTransport?.disconnect()
                 webrtcTransport = nil
                 webrtcMode = nil
+                cachedIceServerConfigs = nil
+                turnCredentialsFetchedAt = nil
                 updateActiveTransport()
                 log("Desktop left — cleared sessions, tore down WebRTC, reset device E2E")
                 onDesktopDisconnected?()
@@ -1283,7 +1293,7 @@ final class DeviceTransportManager: ObservableObject {
 
         case "webrtc_offer":
             log("Signaling (encrypted): \(type)")
-            if cachedIceServerConfigs == nil {
+            if areTurnCredentialsStale {
                 let deferredJson = json
                 fetchTurnCredentialsSync { [weak self] in
                     self?.ensureWebRTCTransport().handleSignaling(deferredJson)

@@ -6,12 +6,22 @@ import SwiftUI
 struct SVGPath: Shape {
     let pathData: String
 
+    private static var cache: [String: Path] = [:]
+
     func path(in rect: CGRect) -> Path {
-        let svgPath = parseSVGPath(pathData)
+        let basePath: Path
+        if let cached = Self.cache[pathData] {
+            basePath = cached
+        } else {
+            let parsed = parseSVGPath(pathData)
+            Self.cache[pathData] = parsed
+            basePath = parsed
+        }
+
         let scaleX = rect.width / 24
         let scaleY = rect.height / 24
 
-        return svgPath.applying(CGAffineTransform(scaleX: scaleX, y: scaleY))
+        return basePath.applying(CGAffineTransform(scaleX: scaleX, y: scaleY))
     }
 
     private func parseSVGPath(_ d: String) -> Path {
@@ -184,9 +194,27 @@ enum ProcessIconLookup {
 
     static func icon(for processName: String?) -> ProcessIconData? {
         guard let name = processName else { return nil }
-        guard let slug = processMap[name] else { return nil }
 
-        return iconRegistry[slug]
+        // Exact match
+        if let slug = processMap[name] {
+            return iconRegistry[slug]
+        }
+
+        // Strip trailing digits/dots: "python3.12" -> "python"
+        let stripped = name.replacingOccurrences(of: "[\\d.]+$", with: "", options: .regularExpression)
+        if !stripped.isEmpty, stripped != name, let slug = processMap[stripped] {
+            return iconRegistry[slug]
+        }
+
+        // Try base before dash: "ruby-3.2" -> "ruby"
+        if let dashIndex = name.firstIndex(of: "-") {
+            let base = String(name[..<dashIndex])
+            if let slug = processMap[base] {
+                return iconRegistry[slug]
+            }
+        }
+
+        return nil
     }
 
     static let folderIcon = ProcessIconData(

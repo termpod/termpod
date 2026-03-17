@@ -6,6 +6,7 @@ struct SearchBarView: View {
     @Binding var isVisible: Bool
     let terminalView: RemoteTerminalView?
     @State private var query = ""
+    @State private var hasMatch = true
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -24,8 +25,9 @@ struct SearchBarView: View {
                     .onChange(of: query) { _, newQuery in
                         if newQuery.isEmpty {
                             terminalView?.clearSearch()
+                            hasMatch = true
                         } else {
-                            terminalView?.findNext(newQuery)
+                            hasMatch = terminalView?.findNext(newQuery) ?? false
                         }
                     }
 
@@ -46,9 +48,15 @@ struct SearchBarView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
 
             if !query.isEmpty {
+                if !hasMatch {
+                    Text("No matches")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                }
+
                 HStack(spacing: 4) {
                     Button {
-                        terminalView?.findPrevious(query)
+                        hasMatch = terminalView?.findPrevious(query) ?? false
                     } label: {
                         Image(systemName: "chevron.up")
                             .font(.system(size: 13, weight: .semibold))
@@ -82,6 +90,8 @@ struct SearchBarView: View {
     @discardableResult
     private func findNext() -> Bool {
         guard !query.isEmpty else { return false }
-        return terminalView?.findNext(query) ?? false
+        let result = terminalView?.findNext(query) ?? false
+        hasMatch = result
+        return result
     }
 }

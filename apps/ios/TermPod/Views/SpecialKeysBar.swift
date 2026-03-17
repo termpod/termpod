@@ -15,6 +15,9 @@ struct SpecialKeysBar: View {
                 // Modifier toggles
                 modifierGroup
 
+                // Paste button
+                pasteButton
+
                 divider
 
                 // Escape & Tab
@@ -151,10 +154,35 @@ struct SpecialKeysBar: View {
         .accessibilityLabel(accessibilityName(for: label))
     }
 
+    // Arrow direction byte -> CSI direction letter
+    private static let arrowDirections: [UInt8: UInt8] = [
+        0x41: 0x41, // Up -> A
+        0x42: 0x42, // Down -> B
+        0x43: 0x43, // Right -> C
+        0x44: 0x44, // Left -> D
+    ]
+
     private func sendKey(_ bytes: [UInt8]) {
         HapticService.shared.playTap()
 
         var finalBytes = bytes
+
+        // Handle modifier + arrow key: emit CSI 1;{mod}{dir}
+        let isArrowKey = bytes.count == 3
+            && bytes[0] == 0x1B && bytes[1] == 0x5B
+            && Self.arrowDirections[bytes[2]] != nil
+
+        if isArrowKey && (ctrlActive || altActive) {
+            let mod: UInt8 = ctrlActive ? 5 : 3 // 5=Ctrl, 3=Alt
+            // ESC [ 1 ; {mod} {dir}
+            finalBytes = [0x1B, 0x5B, 0x31, 0x3B, mod + 0x30, bytes[2]]
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                ctrlActive = false
+                altActive = false
+            }
+            onSendBytes(finalBytes)
+            return
+        }
 
         if altActive, bytes.count == 1 {
             // Prefix with ESC for Alt modifier
@@ -174,6 +202,32 @@ struct SpecialKeysBar: View {
         }
 
         onSendBytes(finalBytes)
+    }
+
+    // MARK: - Paste Button
+
+    private var pasteButton: some View {
+        Button {
+            HapticService.shared.playTap()
+            if let text = UIPasteboard.general.string {
+                onSendString(text)
+            }
+        } label: {
+            Image(systemName: "doc.on.clipboard.fill")
+                .font(.system(size: 12))
+                .foregroundStyle(.primary)
+                .frame(minWidth: 30, minHeight: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(Color(UIColor.systemBackground))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .strokeBorder(Color(UIColor.separator).opacity(0.5), lineWidth: 0.5)
+                )
+        }
+        .buttonStyle(TerminalKeyButtonStyle())
+        .accessibilityLabel("Paste from clipboard")
     }
 
     // MARK: - Clips Button

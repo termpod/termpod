@@ -50,10 +50,14 @@ struct SessionDetailView: View {
 
             // Visual bell flash
             if showVisualBell {
-                Color.white.opacity(0.15)
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
-                    .transition(.opacity)
+                ZStack {
+                    Color.white.opacity(0.3)
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(Color.white.opacity(0.5), lineWidth: 2)
+                }
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+                .transition(.opacity)
             }
         }
         .navigationTitle(terminalTitle)
@@ -136,7 +140,7 @@ struct SessionDetailView: View {
             HapticService.shared.playBellSound()
         case .visual:
             withAnimation(.easeOut(duration: 0.1)) { showVisualBell = true }
-            withAnimation(.easeIn(duration: 0.2).delay(0.1)) { showVisualBell = false }
+            withAnimation(.easeIn(duration: 0.2).delay(0.15)) { showVisualBell = false }
         case .off:
             break
         }
@@ -145,7 +149,7 @@ struct SessionDetailView: View {
     // MARK: - Session Switching
 
     private var sessionSwipeGesture: some Gesture {
-        DragGesture(minimumDistance: 80)
+        DragGesture(minimumDistance: 120)
             .onEnded { value in
                 guard let onSwitchSession, allSessions.count > 1 else { return }
                 guard let currentIndex = allSessions.firstIndex(where: { $0.id == session.id }) else { return }
@@ -153,11 +157,15 @@ struct SessionDetailView: View {
                 let horizontal = value.translation.width
                 guard abs(horizontal) > abs(value.translation.height) else { return }
 
-                if horizontal < -80, currentIndex + 1 < allSessions.count {
+                let triggered = abs(horizontal) > 120
+                    || (abs(horizontal) > 60 && abs(value.velocity.width) > 800)
+                guard triggered else { return }
+
+                if horizontal < 0, currentIndex + 1 < allSessions.count {
                     // Swipe left -> next session
                     HapticService.shared.playTap()
                     onSwitchSession(allSessions[currentIndex + 1])
-                } else if horizontal > 80, currentIndex > 0 {
+                } else if horizontal > 0, currentIndex > 0 {
                     // Swipe right -> previous session
                     HapticService.shared.playTap()
                     onSwitchSession(allSessions[currentIndex - 1])
@@ -264,12 +272,32 @@ struct SessionDetailView: View {
             )
 
         case .disconnected:
-            bannerView(
-                icon: "bolt.slash.fill",
-                text: "Disconnected",
-                color: .red,
-                showSpinner: false
-            )
+            HStack(spacing: 6) {
+                Image(systemName: "bolt.slash.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.red)
+
+                Text("Disconnected")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.red)
+
+                Spacer()
+
+                Button {
+                    connection.reconnectIfNeeded()
+                } label: {
+                    Text("Reconnect")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.red.opacity(0.8))
+                        .clipShape(Capsule())
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Color.red.opacity(0.12))
 
         default:
             EmptyView()

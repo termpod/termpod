@@ -88,6 +88,7 @@ final class DeviceService: ObservableObject {
 
     @Published var devices: [Device] = []
     @Published var loading = false
+    @Published var fetchError = false
 
     private var heartbeatTask: Task<Void, Never>?
 
@@ -147,6 +148,7 @@ final class DeviceService: ObservableObject {
         guard auth.isAuthenticated else { return }
 
         loading = true
+        fetchError = false
 
         do {
             let (data, response) = try await auth.apiFetch(path: "/devices")
@@ -154,9 +156,11 @@ final class DeviceService: ObservableObject {
             if response.statusCode == 200 {
                 let wrapper = try JSONDecoder().decode(DevicesResponse.self, from: data)
                 devices = wrapper.devices
+            } else {
+                fetchError = true
             }
         } catch {
-            let _ = error
+            fetchError = true
         }
 
         loading = false
