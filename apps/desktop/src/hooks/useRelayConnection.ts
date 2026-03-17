@@ -112,8 +112,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
       wsRef.current = null;
     }
 
-    const token = getAccessToken();
-    const wsUrl = `${resolveRelayUrl()}/sessions/${session.sessionId}/ws${token ? `?token=${token}` : ''}`;
+    const wsUrl = `${resolveRelayUrl()}/sessions/${session.sessionId}/ws`;
     const ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
     wsRef.current = ws;
@@ -123,7 +122,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
       connectingRef.current = false;
       reconnectDelayRef.current = RECONNECT.initialDelay;
 
-      // Send auth as first message (token is NOT in the URL)
+      // Send auth as first message
       const token = getAccessToken();
 
       if (token) {

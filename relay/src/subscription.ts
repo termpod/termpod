@@ -33,11 +33,13 @@ export async function verifyPolarWebhook(
   const body = await request.text();
   const signedContent = `${webhookId}.${timestamp}.${body}`;
 
-  // Standard Webhooks secret is base64-encoded with a known prefix
+  // Polar SDK passes the raw secret as UTF-8 to Standard Webhooks' base64 pipeline,
+  // so the effective HMAC key is the raw UTF-8 bytes of the secret (after prefix strip).
+  // Standard Webhooks (whsec_) secrets are base64-encoded HMAC keys.
   let secretBytes: Uint8Array;
 
   try {
-    secretBytes = base64Decode(stripWebhookSecretPrefix(secret));
+    secretBytes = decodeWebhookSecret(secret);
   } catch {
     return null;
   }
@@ -75,16 +77,16 @@ export async function verifyPolarWebhook(
   return null;
 }
 
-function stripWebhookSecretPrefix(secret: string): string {
+function decodeWebhookSecret(secret: string): Uint8Array {
+  // Standard Webhooks (whsec_): base64-encoded HMAC key
   if (secret.startsWith('whsec_')) {
-    return secret.slice(6);
+    return base64Decode(secret.slice(6));
   }
 
-  if (secret.startsWith('polar_whs_')) {
-    return secret.slice(10);
-  }
-
-  return secret;
+  // Polar (polar_whs_): raw UTF-8 bytes used as HMAC key
+  // Polar's SDK does Buffer.from(secret, 'utf-8').toString('base64') then passes
+  // to Standard Webhooks which base64-decodes it back — net effect is UTF-8 bytes.
+  return new TextEncoder().encode(secret);
 }
 
 function base64Decode(str: string): Uint8Array {

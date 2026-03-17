@@ -39,12 +39,15 @@ function getTag(ws: WebSocket): ClientTag | null {
   return tag as ClientTag | null;
 }
 
-export class TerminalSession extends DurableObject {
+interface SessionEnv {
+  USER: DurableObjectNamespace;
+  POLAR_WEBHOOK_SECRET?: string;
+}
+
+export class TerminalSession extends DurableObject<SessionEnv> {
   private ptyCols = 120;
   private ptyRows = 40;
   private jwtSecret: string | null = null;
-  /** User plan from worker-level check (defense-in-depth). */
-  private userPlan: string | null = null;
   /** Whether this is a self-hosted relay (all plan gates bypassed). */
   private selfHosted = false;
   /** Store complete 0xE1 frames for share viewer scrollback replay. */
@@ -65,6 +68,15 @@ export class TerminalSession extends DurableObject {
     }
   }
 
+  private async fetchUserPlan(email: string): Promise<string> {
+    const id = this.env.USER.idFromName(email.toLowerCase());
+    const stub = this.env.USER.get(id);
+    const res = await stub.fetch(new Request('http://internal/subscription'));
+    const data = (await res.json()) as { effectivePlan: string };
+
+    return data.effectivePlan;
+  }
+
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const limited = this.applyRouteRateLimit(url.pathname, request.method);
@@ -81,22 +93,12 @@ export class TerminalSession extends DurableObject {
         this.jwtSecret = secret;
       }
 
-      // Store plan and self-hosted status from worker (defense-in-depth)
-      const plan = request.headers.get('X-User-Plan');
-
-      if (plan) {
-        this.userPlan = plan;
-      }
-
-      this.selfHosted = request.headers.get('X-Self-Hosted') === '1';
+      this.selfHosted = !this.env.POLAR_WEBHOOK_SECRET;
 
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
 
-      // Legacy clients pass X-User-Id (validated by Worker from URL token).
-      // New clients send auth as their first WebSocket message.
       const isShareReadonly = request.headers.get('X-Share-Readonly') === '1';
-      const userId = request.headers.get('X-User-Id');
 
       if (isShareReadonly) {
         // Share token viewer — skip ownership, assign readonly directly
@@ -104,22 +106,8 @@ export class TerminalSession extends DurableObject {
           shareReadonly: true,
           pendingHello: true,
         });
-      } else if (userId) {
-        // Legacy flow: ownership check, then wait for hello
-        const owner = await this.getOwner();
-
-        if (!owner) {
-          await this.setOwner(userId);
-        } else if (owner !== userId) {
-          return new Response('Forbidden', { status: 403 });
-        }
-
-        (server as unknown as { serializeAttachment: (v: unknown) => void }).serializeAttachment({
-          userId,
-          pendingHello: true,
-        });
       } else {
-        // New flow: client must send auth message first
+        // Client must send auth message first
         (server as unknown as { serializeAttachment: (v: unknown) => void }).serializeAttachment({
           pendingAuth: true,
         });
@@ -377,11 +365,15 @@ export class TerminalSession extends DurableObject {
       return;
     }
 
-    // Defense-in-depth: if on hosted relay and plan is free, reject
-    if (!this.selfHosted && this.userPlan === 'free') {
-      ws.close(4403, 'Relay access requires a Pro plan');
+    // Subscription gate: hosted relay requires Pro plan
+    if (!this.selfHosted) {
+      const plan = await this.fetchUserPlan(userId);
 
-      return;
+      if (plan === 'free') {
+        ws.close(4403, 'Relay access requires a Pro plan');
+
+        return;
+      }
     }
 
     // Auth successful — transition to pendingHello state

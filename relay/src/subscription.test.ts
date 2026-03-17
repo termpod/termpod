@@ -3,16 +3,13 @@ import { verifyPolarWebhook } from './subscription';
 
 // --- Helpers ---
 
-function stripPrefix(secret: string): string {
+function decodeSecret(secret: string): Uint8Array {
   if (secret.startsWith('whsec_')) {
-    return secret.slice(6);
+    return base64Decode(secret.slice(6));
   }
 
-  if (secret.startsWith('polar_whs_')) {
-    return secret.slice(10);
-  }
-
-  return secret;
+  // Polar-style: raw UTF-8 bytes
+  return new TextEncoder().encode(secret);
 }
 
 function base64Decode(str: string): Uint8Array {
@@ -33,7 +30,7 @@ async function signWebhook(
   timestamp: string,
   body: string,
 ): Promise<string> {
-  const secretBytes = base64Decode(stripPrefix(secret));
+  const secretBytes = decodeSecret(secret);
   const key = await crypto.subtle.importKey(
     'raw',
     secretBytes,
@@ -195,26 +192,6 @@ describe('verifyPolarWebhook', () => {
     });
 
     const result = await verifyPolarWebhook(request, TEST_SECRET_POLAR);
-
-    expect(result).toEqual(payload);
-  });
-
-  it('handles unpadded base64 secret (missing trailing =)', async () => {
-    // Remove trailing padding from the test secret
-    const unpadded = TEST_SECRET_RAW.replace(/=+$/, '');
-    const payload = { type: 'subscription.active' };
-    const body = JSON.stringify(payload);
-    const webhookId = 'msg_unpadded';
-    const timestamp = String(Math.floor(Date.now() / 1000));
-    const signature = await signWebhook(unpadded, webhookId, timestamp, body);
-
-    const request = makeWebhookRequest(body, {
-      'webhook-id': webhookId,
-      'webhook-timestamp': timestamp,
-      'webhook-signature': signature,
-    });
-
-    const result = await verifyPolarWebhook(request, unpadded);
 
     expect(result).toEqual(payload);
   });
