@@ -16,7 +16,13 @@ import type { RelayMessage, E2ESession, ShareCryptoSession } from '@termpod/prot
 import { RECONNECT } from '@termpod/shared';
 import { getAccessToken, getValidAccessToken, resolveRelayUrl } from './useAuth';
 
-export type RelayStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
+export type RelayStatus =
+  | 'disconnected'
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'error'
+  | 'gated';
 
 export interface ConnectedDevice {
   clientId: string;
@@ -104,7 +110,8 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
       wsRef.current = null;
     }
 
-    const wsUrl = `${resolveRelayUrl()}/sessions/${session.sessionId}/ws`;
+    const token = getAccessToken();
+    const wsUrl = `${resolveRelayUrl()}/sessions/${session.sessionId}/ws${token ? `?token=${token}` : ''}`;
     const ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
     wsRef.current = ws;
@@ -316,11 +323,19 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
       }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
       wsRef.current = null;
       connectingRef.current = false;
       pendingScrollbackRequestsRef.current = [];
       stopPing();
+
+      // 4403 = relay access requires Pro plan — don't reconnect
+      if (event.code === 4403) {
+        intentionalCloseRef.current = true;
+        updateStatus('gated');
+
+        return;
+      }
 
       if (!intentionalCloseRef.current && sessionRef.current) {
         updateStatus('reconnecting');
@@ -468,21 +483,43 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     updateStatus('disconnected');
   }, [updateStatus, stopPing]);
 
+  /** Buffer raw PTY output locally for scrollback replay (always called, regardless of transport). */
+  const appendScrollback = useCallback((data: Uint8Array | number[]) => {
+    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+    scrollbackRef.current.push(bytes.slice());
+    scrollbackSizeRef.current += bytes.length;
+
+    while (scrollbackSizeRef.current > SCROLLBACK_MAX && scrollbackRef.current.length > 0) {
+      const evicted = scrollbackRef.current.shift()!;
+      scrollbackSizeRef.current -= evicted.length;
+    }
+  }, []);
+
+  /** Send share-encrypted frame via relay (share viewers are relay-only). */
+  const sendShareFrame = useCallback((data: Uint8Array | number[]) => {
+    const ws = wsRef.current;
+
+    if (!ws || ws.readyState !== WebSocket.OPEN || !shareE2eRef.current) {
+      return;
+    }
+
+    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+
+    encryptShareFrame(shareE2eRef.current, bytes)
+      .then((encrypted) => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(encodeShareEncryptedFrame(encrypted.subarray(0, 12), encrypted.subarray(12)));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  /** Send E2E encrypted terminal data through relay WS. */
   const sendTerminalData = useCallback((data: Uint8Array | number[]) => {
     const ws = wsRef.current;
 
     if (ws?.readyState === WebSocket.OPEN) {
       const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
-
-      // Append to local scrollback buffer for E2E scrollback replay
-      scrollbackRef.current.push(bytes.slice());
-      scrollbackSizeRef.current += bytes.length;
-
-      while (scrollbackSizeRef.current > SCROLLBACK_MAX && scrollbackRef.current.length > 0) {
-        const evicted = scrollbackRef.current.shift()!;
-        scrollbackSizeRef.current -= evicted.length;
-      }
-
       const plainFrame = encodeTerminalData(bytes);
 
       if (e2eRef.current) {
@@ -498,19 +535,6 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
           .catch((err) => {
             console.error('[Relay] E2E encryption failed — dropping frame:', err);
           });
-      }
-      // No plaintext fallback — terminal data is only sent after E2E is established.
-      // Viewers receive encrypted scrollback from desktop after key exchange completes.
-
-      // Also send share-encrypted frame if sharing is active
-      if (shareE2eRef.current) {
-        encryptShareFrame(shareE2eRef.current, bytes)
-          .then((encrypted) => {
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(encodeShareEncryptedFrame(encrypted.subarray(0, 12), encrypted.subarray(12)));
-            }
-          })
-          .catch(() => {});
       }
     }
   }, []);
@@ -604,6 +628,8 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     clientId: clientIdRef.current,
     connect,
     disconnect,
+    appendScrollback,
+    sendShareFrame,
     sendTerminalData,
     sendResize,
     sendSignaling,

@@ -360,6 +360,51 @@ describe('Subscription feature gates', () => {
     });
   });
 
+  /**
+   * Mirrors the relay session WS gate in handleWebSocket (worker.ts).
+   * Returns an error string if blocked, null if allowed.
+   */
+  function checkRelaySessionGate(
+    effectivePlan: EffectivePlan,
+    selfHosted: boolean,
+    isShareViewer: boolean,
+  ): string | null {
+    if (selfHosted) {
+      return null;
+    }
+
+    if (isShareViewer) {
+      return null;
+    }
+
+    if (effectivePlan === 'free') {
+      return 'Relay access requires a Pro plan.';
+    }
+
+    return null;
+  }
+
+  describe('relay session gate', () => {
+    it('free tier blocks relay session access', () => {
+      const result = checkRelaySessionGate('free', false, false);
+
+      expect(result).not.toBeNull();
+      expect(result).toContain('Pro plan');
+    });
+
+    it('pro tier allows relay session access', () => {
+      expect(checkRelaySessionGate('pro', false, false)).toBeNull();
+    });
+
+    it('self-hosted bypasses relay gate', () => {
+      expect(checkRelaySessionGate('free', true, false)).toBeNull();
+    });
+
+    it('share viewers bypass relay gate regardless of plan', () => {
+      expect(checkRelaySessionGate('free', false, true)).toBeNull();
+    });
+  });
+
   describe('share token gate', () => {
     it('free tier blocks share token creation', () => {
       const result = checkShareGate('free', false);

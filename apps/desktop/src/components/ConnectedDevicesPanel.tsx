@@ -19,6 +19,7 @@ const STATUS_COLORS: Record<RelayStatus, string> = {
   reconnecting: 'var(--warning)',
   connected: 'var(--success)',
   error: 'var(--error)',
+  gated: 'var(--warning)',
 };
 
 const STATUS_LABELS: Record<RelayStatus, string> = {
@@ -27,6 +28,7 @@ const STATUS_LABELS: Record<RelayStatus, string> = {
   reconnecting: 'Reconnecting...',
   connected: 'Connected',
   error: 'Error',
+  gated: 'Relay (Pro)',
 };
 
 const DEVICE_LABELS: Record<string, string> = {

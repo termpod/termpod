@@ -91,6 +91,8 @@ interface TerminalPanelProps {
     sendResize: (sessionId: string, cols: number, rows: number) => void;
     isConnected: boolean;
   } | null;
+  /** Whether the user is allowed to send terminal data via relay (Pro/trial/self-hosted). */
+  isRelayAllowed?: boolean;
 }
 
 export function TerminalPanel({
@@ -131,6 +133,7 @@ export function TerminalPanel({
   onWebRTCMuxInput,
   onWebRTCMuxResize,
   getSharedWebRTC,
+  isRelayAllowed,
 }: TerminalPanelProps) {
   const isSshSession = (session.processName ?? '').toLowerCase() === 'ssh';
   const remoteEntriesRef = useRef<string[]>([]);
@@ -202,6 +205,7 @@ export function TerminalPanel({
     onWebRTCMuxResize: (sessionId, cols, rows) =>
       onWebRTCMuxResizeRef.current?.(sessionId, cols, rows),
     getSharedWebRTC: () => getSharedWebRTCRef.current?.() ?? null,
+    isRelayAllowed,
   });
   const onRelayChangeRef = useRef(onRelayChange);
   onRelayChangeRef.current = onRelayChange;

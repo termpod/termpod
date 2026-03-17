@@ -273,6 +273,7 @@ const STATUS_COLORS: Record<RelayStatusType, string> = {
   reconnecting: '#f0a030',
   connected: '#50c878',
   error: '#e05050',
+  gated: '#f0a030',
 };
 
 const STATUS_LABELS: Record<RelayStatusType, string> = {
@@ -281,6 +282,7 @@ const STATUS_LABELS: Record<RelayStatusType, string> = {
   reconnecting: 'Reconnecting',
   connected: 'Connected',
   error: 'Connection error',
+  gated: 'Relay (Pro)',
 };
 
 function RelayDot({

@@ -28,6 +28,8 @@ interface UseRelayBridgeOptions {
     sendResize: (sessionId: string, cols: number, rows: number) => void;
     isConnected: boolean;
   } | null;
+  /** Whether the user is allowed to send terminal data via relay (Pro/trial/self-hosted). */
+  isRelayAllowed?: boolean;
 }
 
 export function useRelayBridge(
@@ -114,7 +116,15 @@ export function useRelayBridge(
     },
   });
 
-  const { connect, disconnect, sendTerminalData, sendResize, sendSignaling } = relay;
+  const {
+    connect,
+    disconnect,
+    appendScrollback,
+    sendShareFrame,
+    sendTerminalData,
+    sendResize,
+    sendSignaling,
+  } = relay;
 
   // Keep sessionId in a ref so the PTY data listener always has the current value
   const relaySessionIdRef = useRef(relay.sessionId);
@@ -238,8 +248,10 @@ export function useRelayBridge(
     localClientId: bridgeOptionsRef.current?.deviceClientId ?? relay.clientId,
   });
 
-  // Keep ref in sync on every render so the PTY listener reads fresh values
+  // Keep refs in sync on every render so the PTY listener reads fresh values
   webrtcConnectedRef.current = webrtc.isConnected;
+  const isRelayAllowedRef = useRef(bridgeOptions?.isRelayAllowed ?? true);
+  isRelayAllowedRef.current = bridgeOptions?.isRelayAllowed ?? true;
 
   useEffect(() => {
     if (!session || session.exited) {
@@ -256,23 +268,33 @@ export function useRelayBridge(
     const listener = (data: Uint8Array | number[]) => {
       const sid = relaySessionIdRef.current;
 
-      // Send through all available transports — the mobile client
-      // filters to the one it wants via its transport override setting.
-      sendTerminalData(data);
+      // Always buffer scrollback locally (needed for viewer join on any transport)
+      appendScrollback(data);
 
-      if (sid) {
+      // Always send share frames via relay (share viewers are relay-only)
+      sendShareFrame(data);
+
+      const hasLocal = localServer.localViewers > 0;
+      const sharedWrtc = bridgeOptionsRef.current?.getSharedWebRTC?.();
+      const hasWebRTC = sharedWrtc?.isConnected || webrtcConnectedRef.current;
+
+      // Send via Local if viewers present
+      if (hasLocal && sid) {
         localServer.broadcastTerminalData(sid, data);
       }
 
-      const sharedWrtc = bridgeOptionsRef.current?.getSharedWebRTC?.();
-      const isWebRTCActive = sharedWrtc?.isConnected || webrtcConnectedRef.current;
-
-      if (isWebRTCActive && sid) {
+      // Send via WebRTC if connected
+      if (hasWebRTC && sid) {
         if (sharedWrtc?.isConnected) {
           sharedWrtc.sendTerminalData(sid, data);
         } else if (webrtcConnectedRef.current) {
           webrtc.sendTerminalData(sid, data);
         }
+      }
+
+      // Send via relay ONLY if no better transport has viewers AND relay is allowed
+      if (!hasLocal && !hasWebRTC && isRelayAllowedRef.current) {
+        sendTerminalData(data);
       }
     };
 
@@ -283,7 +305,15 @@ export function useRelayBridge(
       disconnect();
       webrtc.close();
     };
-  }, [session?.id, session?.exited, connect, disconnect, sendTerminalData]);
+  }, [
+    session?.id,
+    session?.exited,
+    connect,
+    disconnect,
+    appendScrollback,
+    sendShareFrame,
+    sendTerminalData,
+  ]);
 
   // Combine connected devices from all transports, merging entries that represent
   // the same physical device (e.g. an iPhone connected via relay + local + WebRTC).

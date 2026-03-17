@@ -1220,7 +1220,28 @@ async function handleWebSocket(request: Request, env: Env, sessionId: string): P
       }
 
       headers.set('X-User-Id', payload.sub);
+
+      // Subscription gate: free users on hosted relay cannot use session relay
+      if (env.POLAR_WEBHOOK_SECRET) {
+        const userStub = getUserDO(env, payload.sub);
+        const subRes = await userStub.fetch(new Request('http://internal/subscription'));
+        const subData = (await subRes.json()) as { effectivePlan: string };
+
+        headers.set('X-User-Plan', subData.effectivePlan);
+
+        if (subData.effectivePlan === 'free') {
+          return corsJson(
+            { error: 'Relay access requires a Pro plan.', code: 'RELAY_UPGRADE_REQUIRED' },
+            { status: 403 },
+          );
+        }
+      }
     }
+  }
+
+  // Self-hosted relay: mark as such so the Session DO skips plan checks
+  if (!env.POLAR_WEBHOOK_SECRET) {
+    headers.set('X-Self-Hosted', '1');
   }
 
   // Always pass JWT secret so DO can handle first-message auth for new clients

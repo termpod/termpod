@@ -14,6 +14,7 @@ import { ConnectedDevicesPanel } from './components/ConnectedDevicesPanel';
 import { LoginScreen } from './components/LoginScreen';
 import { FullDiskAccessBanner } from './components/FullDiskAccessBanner';
 import { UpdateBanner } from './components/UpdateBanner';
+import { RelayGatedBanner } from './components/RelayGatedBanner';
 import { useUpdater } from './hooks/useUpdater';
 import { KeybindingsPanel } from './components/KeybindingsPanel';
 import { CommandPalette } from './components/CommandPalette';
@@ -948,6 +949,7 @@ export function App() {
         devicesPanelOpen={showDevicesPanel}
       />
       <UpdateBanner {...updater} />
+      <RelayGatedBanner visible={!isPro && !selfHosted} />
       <FullDiskAccessBanner />
       {activeId && shareMap.has(activeId) && (
         <div className="share-bar">
@@ -1064,6 +1066,7 @@ export function App() {
             onWebRTCMuxInput={handleWebRTCMuxInput}
             onWebRTCMuxResize={handleWebRTCMuxResize}
             getSharedWebRTC={getSharedWebRTC}
+            isRelayAllowed={isPro || selfHosted}
             onCwdChange={(cwd) => {
               updateSessionCwd(session.id, cwd);
               const relayInfo = relayMapRef.current.get(session.id);

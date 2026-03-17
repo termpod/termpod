@@ -43,6 +43,10 @@ export class TerminalSession extends DurableObject {
   private ptyCols = 120;
   private ptyRows = 40;
   private jwtSecret: string | null = null;
+  /** User plan from worker-level check (defense-in-depth). */
+  private userPlan: string | null = null;
+  /** Whether this is a self-hosted relay (all plan gates bypassed). */
+  private selfHosted = false;
   /** Store complete 0xE1 frames for share viewer scrollback replay. */
   private shareFrames: ArrayBuffer[] = [];
   private shareFramesSize = 0;
@@ -76,6 +80,15 @@ export class TerminalSession extends DurableObject {
       if (secret) {
         this.jwtSecret = secret;
       }
+
+      // Store plan and self-hosted status from worker (defense-in-depth)
+      const plan = request.headers.get('X-User-Plan');
+
+      if (plan) {
+        this.userPlan = plan;
+      }
+
+      this.selfHosted = request.headers.get('X-Self-Hosted') === '1';
 
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
@@ -360,6 +373,13 @@ export class TerminalSession extends DurableObject {
       await this.setOwner(userId);
     } else if (owner !== userId) {
       ws.close(1008, 'Forbidden');
+
+      return;
+    }
+
+    // Defense-in-depth: if on hosted relay and plan is free, reject
+    if (!this.selfHosted && this.userPlan === 'free') {
+      ws.close(4403, 'Relay access requires a Pro plan');
 
       return;
     }
