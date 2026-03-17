@@ -46,6 +46,7 @@
 		A8A3E032031E613D680D8728 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 67E0E7A70B0425BD15A1D034 /* Assets.xcassets */; };
 		AB30547F26E32CC6654EB911 /* DeviceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB5D3714B7A41054A075566F /* DeviceListView.swift */; };
 		B0934BB883F78D1F7DB4788F /* SpecialKeysBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78CD626EAADBF090C1A20B0A /* SpecialKeysBar.swift */; };
+		B12465A823443ECB0219461C /* SentrySwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 849F9F02CA714332673A2118 /* SentrySwiftUI */; };
 		B71016EB1E13D185478B1E5F /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D653DE01157D8934F0943A9 /* Session.swift */; };
 		BCF5A627D61A119A0AA54D1B /* SearchBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0847EF1E05138048DA864079 /* SearchBarView.swift */; };
 		BFB001DEE3F8416678778971 /* DeviceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDAA21D4EF7A351D890F412 /* DeviceService.swift */; };
@@ -147,6 +148,7 @@
 			files = (
 				56C9D79E78A541ACFA8F2C6D /* SwiftTerm in Frameworks */,
 				208941FF81697CC3C6C72249 /* LiveKitWebRTC in Frameworks */,
+				B12465A823443ECB0219461C /* SentrySwiftUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -327,6 +329,7 @@
 			packageProductDependencies = (
 				B3B9A88023B1AFE3F76F9692 /* SwiftTerm */,
 				C686E12D6D627D78D4E10351 /* LiveKitWebRTC */,
+				849F9F02CA714332673A2118 /* SentrySwiftUI */,
 			);
 			productName = TermPod;
 			productReference = 6EFA137D6BCE65AB2585ABFD /* TermPod.app */;
@@ -376,6 +379,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				36279F12B70B8EDB5078E75F /* XCRemoteSwiftPackageReference "webrtc-xcframework" */,
+				E2CB272F3C25FA520735BD90 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
 				5248F832886BFB62F9DB6DAC /* XCRemoteSwiftPackageReference "SwiftTerm" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -733,9 +737,22 @@
 				minimumVersion = 1.0.0;
 			};
 		};
+		E2CB272F3C25FA520735BD90 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.40.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		849F9F02CA714332673A2118 /* SentrySwiftUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E2CB272F3C25FA520735BD90 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = SentrySwiftUI;
+		};
 		B3B9A88023B1AFE3F76F9692 /* SwiftTerm */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 5248F832886BFB62F9DB6DAC /* XCRemoteSwiftPackageReference "SwiftTerm" */;
