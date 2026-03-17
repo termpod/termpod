@@ -282,7 +282,7 @@ const STATUS_LABELS: Record<RelayStatusType, string> = {
   reconnecting: 'Reconnecting',
   connected: 'Connected',
   error: 'Connection error',
-  gated: 'Relay (Pro)',
+  gated: 'Free Plan',
 };
 
 function RelayDot({

@@ -28,7 +28,7 @@ const STATUS_LABELS: Record<RelayStatus, string> = {
   reconnecting: 'Reconnecting...',
   connected: 'Connected',
   error: 'Error',
-  gated: 'Relay (Pro)',
+  gated: 'Free Plan',
 };
 
 const DEVICE_LABELS: Record<string, string> = {
