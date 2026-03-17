@@ -50,6 +50,8 @@ interface UseRelayConnectionOptions {
   onSignaling?: (msg: Record<string, unknown>) => void;
   onCreateSessionRequest?: (requestId: string) => void;
   onSessionClosed?: () => void;
+  /** When false, skip relay WS connection and set status to 'gated'. Session ID still created for Local/WebRTC. */
+  isRelayAllowed?: boolean;
 }
 
 const PING_INTERVAL = 30_000;
@@ -428,6 +430,9 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
 
   const ptySizeRef = useRef<{ cols: number; rows: number } | null>(null);
 
+  const isRelayAllowedRef = useRef(options.isRelayAllowed ?? true);
+  isRelayAllowedRef.current = options.isRelayAllowed ?? true;
+
   const createSession = useCallback(async () => {
     if (!ptySizeRef.current || !connectingRef.current) {
       return;
@@ -438,8 +443,16 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     sessionRef.current = session;
     setSessionId(relaySessionId);
 
+    // Skip relay WS if user is on free plan — session ID still needed for Local/WebRTC
+    if (!isRelayAllowedRef.current) {
+      connectingRef.current = false;
+      updateStatus('gated');
+
+      return;
+    }
+
     connectWebSocketRef.current(session);
-  }, []);
+  }, [updateStatus]);
 
   const connect = useCallback(
     async (ptySize: { cols: number; rows: number }) => {

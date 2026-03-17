@@ -9,6 +9,7 @@ import type {
 } from '../hooks/useSettings';
 import { THEMES } from '../hooks/useSettings';
 import { ThemePicker } from './ThemePicker';
+import { resolveRelayUrl } from '../hooks/useAuth';
 
 type SettingsTab = 'appearance' | 'terminal' | 'behavior' | 'connection' | 'account';
 
@@ -671,7 +672,7 @@ export function SettingsPanel({
                   )}
                 </div>
 
-                {subscription && !subscription.selfHosted && (
+                {subscription && (
                   <>
                     <div className="sp-group-label">Plan</div>
                     <div className="sp-group">
@@ -686,13 +687,32 @@ export function SettingsPanel({
                                 : undefined,
                           }}
                         >
-                          {subscription.isPro
-                            ? 'Pro'
-                            : subscription.isOnTrial
-                              ? `Trial (${subscription.trialDaysLeft}d left)`
-                              : 'Free'}
+                          {subscription.selfHosted
+                            ? /localhost|127\.0\.0\.1/.test(resolveRelayUrl())
+                              ? 'Local Dev'
+                              : 'Self-Hosted'
+                            : subscription.isPro
+                              ? 'Pro'
+                              : subscription.isOnTrial
+                                ? `Trial (${subscription.trialDaysLeft}d left)`
+                                : 'Free'}
                         </span>
                       </SettingRow>
+                      {!subscription.selfHosted && (
+                        <>
+                          <div className="sp-separator" />
+                          <SettingRow label="Relay">
+                            <span
+                              className="sp-account-value"
+                              style={{
+                                color: subscription.isPro ? '#9ece6a' : 'var(--text-muted)',
+                              }}
+                            >
+                              {subscription.isPro ? 'Active' : 'Disabled (Pro required)'}
+                            </span>
+                          </SettingRow>
+                        </>
+                      )}
                       {subscription.cancelAtPeriodEnd && subscription.isPro && (
                         <>
                           <div className="sp-separator" />
@@ -703,31 +723,37 @@ export function SettingsPanel({
                           </SettingRow>
                         </>
                       )}
-                      <div className="sp-separator" />
-                      <div className="sp-row sp-row-center">
-                        {subscription.isPro && !subscription.isOnTrial ? (
-                          <button
-                            className="sp-action-btn"
-                            onClick={() => window.open('https://polar.sh/termpod/portal', '_blank')}
-                          >
-                            Manage Subscription
-                          </button>
-                        ) : (
-                          <button
-                            className="sp-action-btn"
-                            onClick={() => {
-                              const params = email
-                                ? `?customer_email=${encodeURIComponent(email)}`
-                                : '';
-                              window.open(`https://termpod.dev/pricing${params}`, '_blank');
-                            }}
-                          >
-                            {subscription.isOnTrial
-                              ? 'Upgrade — Keep Pro After Trial'
-                              : 'Upgrade to Pro'}
-                          </button>
-                        )}
-                      </div>
+                      {!subscription.selfHosted && (
+                        <>
+                          <div className="sp-separator" />
+                          <div className="sp-row sp-row-center">
+                            {subscription.isPro && !subscription.isOnTrial ? (
+                              <button
+                                className="sp-action-btn"
+                                onClick={() =>
+                                  window.open('https://polar.sh/termpod/portal', '_blank')
+                                }
+                              >
+                                Manage Subscription
+                              </button>
+                            ) : (
+                              <button
+                                className="sp-action-btn"
+                                onClick={() => {
+                                  const params = email
+                                    ? `?customer_email=${encodeURIComponent(email)}`
+                                    : '';
+                                  window.open(`https://termpod.dev/pricing${params}`, '_blank');
+                                }}
+                              >
+                                {subscription.isOnTrial
+                                  ? 'Upgrade — Keep Pro After Trial'
+                                  : 'Upgrade to Pro'}
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </>
                 )}

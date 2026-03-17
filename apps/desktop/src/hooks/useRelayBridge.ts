@@ -114,6 +114,7 @@ export function useRelayBridge(
     onSessionClosed: () => {
       bridgeOptionsRef.current?.onSessionClosed?.();
     },
+    isRelayAllowed: bridgeOptions?.isRelayAllowed,
   });
 
   const {
