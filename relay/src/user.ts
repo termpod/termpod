@@ -177,6 +177,13 @@ export class User extends DurableObject<UserEnv> {
         );
       }
 
+      // Migrate: add reset attempt tracking
+      if (!profileCols.includes('reset_attempts')) {
+        this.ctx.storage.sql.exec(
+          'ALTER TABLE profile ADD COLUMN reset_attempts INTEGER DEFAULT 0',
+        );
+      }
+
       // Migrate: add subscription columns
       if (!profileCols.includes('plan')) {
         this.ctx.storage.sql.exec(
@@ -505,7 +512,7 @@ export class User extends DurableObject<UserEnv> {
     const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour
 
     this.ctx.storage.sql.exec(
-      'UPDATE profile SET reset_code = ?, reset_code_expires_at = ?',
+      'UPDATE profile SET reset_code = ?, reset_code_expires_at = ?, reset_attempts = 0',
       code,
       expiresAt,
     );
@@ -521,25 +528,38 @@ export class User extends DurableObject<UserEnv> {
     }
 
     const rows = this.ctx.storage.sql
-      .exec('SELECT reset_code, reset_code_expires_at FROM profile LIMIT 1')
+      .exec('SELECT reset_code, reset_code_expires_at, reset_attempts FROM profile LIMIT 1')
       .toArray();
 
     if (rows.length === 0) {
       return Response.json({ error: 'Invalid or expired code' }, { status: 400 });
     }
 
-    const { reset_code, reset_code_expires_at } = rows[0] as {
+    const { reset_code, reset_code_expires_at, reset_attempts } = rows[0] as {
       reset_code: string | null;
       reset_code_expires_at: number | null;
+      reset_attempts: number;
     };
 
     if (!reset_code || !reset_code_expires_at) {
       return Response.json({ error: 'Invalid or expired code' }, { status: 400 });
     }
 
+    // Invalidate code after 5 failed attempts (prevents brute-force on 6-digit code)
+    if (reset_attempts >= 5) {
+      this.ctx.storage.sql.exec(
+        'UPDATE profile SET reset_code = NULL, reset_code_expires_at = NULL, reset_attempts = 0',
+      );
+
+      return Response.json(
+        { error: 'Too many failed attempts. Request a new code.' },
+        { status: 400 },
+      );
+    }
+
     if (Date.now() > reset_code_expires_at) {
       this.ctx.storage.sql.exec(
-        'UPDATE profile SET reset_code = NULL, reset_code_expires_at = NULL',
+        'UPDATE profile SET reset_code = NULL, reset_code_expires_at = NULL, reset_attempts = 0',
       );
 
       return Response.json({ error: 'Code has expired' }, { status: 400 });
@@ -549,13 +569,16 @@ export class User extends DurableObject<UserEnv> {
     const encoder = new TextEncoder();
 
     if (!crypto.subtle.timingSafeEqual(encoder.encode(code), encoder.encode(reset_code))) {
+      // Increment attempt counter on wrong code
+      this.ctx.storage.sql.exec('UPDATE profile SET reset_attempts = reset_attempts + 1');
+
       return Response.json({ error: 'Invalid or expired code' }, { status: 400 });
     }
 
     const { hash, salt } = await hashPassword(password);
 
     this.ctx.storage.sql.exec(
-      'UPDATE profile SET password_hash = ?, salt = ?, reset_code = NULL, reset_code_expires_at = NULL',
+      'UPDATE profile SET password_hash = ?, salt = ?, reset_code = NULL, reset_code_expires_at = NULL, reset_attempts = 0',
       hash,
       salt,
     );

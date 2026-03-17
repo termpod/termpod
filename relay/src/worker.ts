@@ -382,10 +382,28 @@ async function handleForgotPassword(request: Request, env: Env): Promise<Respons
     return corsJson({ error: 'Email service not configured' }, { status: 503 });
   }
 
+  // IP-level rate limit: 5 requests per hour per IP (prevents email enumeration)
+  const clientIP = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+
+  if (!checkForgotPasswordIPLimit(clientIP)) {
+    return corsJson({ error: 'Too many requests. Try again later.' }, { status: 429 });
+  }
+
   const limited = await consumeUserRateLimit(env, email.toLowerCase(), 'auth.forgot_password');
 
   if (limited) {
     return limited;
+  }
+
+  // Daily cap: max 5 reset emails per user per 24 hours
+  const dailyLimited = await consumeUserRateLimit(
+    env,
+    email.toLowerCase(),
+    'auth.forgot_password_daily',
+  );
+
+  if (dailyLimited) {
+    return dailyLimited;
   }
 
   const stub = getUserDO(env, email);
@@ -434,6 +452,13 @@ async function handleResetPassword(request: Request, env: Env): Promise<Response
 
   if (!password || password.length < 8) {
     return corsJson({ error: 'Password must be at least 8 characters' }, { status: 400 });
+  }
+
+  // Per-user rate limit: 5 reset attempts per 15 minutes (prevents brute-force on 6-digit code)
+  const resetLimited = await consumeUserRateLimit(env, email.toLowerCase(), 'auth.reset_password');
+
+  if (resetLimited) {
+    return resetLimited;
   }
 
   const stub = getUserDO(env, email);
@@ -866,6 +891,39 @@ async function handleSubscription(request: Request, env: Env): Promise<Response>
 // Simple in-memory dedup for webhook retries within the same Worker instance
 const processedWebhookIds = new Set<string>();
 const MAX_WEBHOOK_IDS = 100;
+
+// IP-based rate limit for forgot-password (prevents email enumeration attacks)
+const forgotPasswordByIP = new Map<string, { count: number; resetAt: number }>();
+const FORGOT_PASSWORD_IP_MAX = 5;
+const FORGOT_PASSWORD_IP_WINDOW = 60 * 60 * 1000; // 1 hour
+const MAX_IP_ENTRIES = 1000;
+
+function checkForgotPasswordIPLimit(ip: string): boolean {
+  const now = Date.now();
+
+  // Clean up stale entries periodically
+  if (forgotPasswordByIP.size > MAX_IP_ENTRIES) {
+    for (const [key, val] of forgotPasswordByIP) {
+      if (val.resetAt <= now) {
+        forgotPasswordByIP.delete(key);
+      }
+    }
+  }
+
+  const entry = forgotPasswordByIP.get(ip);
+
+  if (!entry || entry.resetAt <= now) {
+    forgotPasswordByIP.set(ip, { count: 1, resetAt: now + FORGOT_PASSWORD_IP_WINDOW });
+    return true;
+  }
+
+  if (entry.count >= FORGOT_PASSWORD_IP_MAX) {
+    return false;
+  }
+
+  entry.count += 1;
+  return true;
+}
 
 async function handlePolarWebhook(request: Request, env: Env): Promise<Response> {
   if (!env.POLAR_WEBHOOK_SECRET) {
