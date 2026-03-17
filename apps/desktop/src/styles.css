@@ -1533,6 +1533,23 @@ body,
   background: var(--error-subtle);
 }
 
+.sp-action-btn {
+  padding: 5px 16px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.sp-action-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 /* ── Text Input ── */
 .sp-input-wrap {
   display: flex;

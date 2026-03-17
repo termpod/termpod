@@ -845,9 +845,20 @@ async function handleSubscription(request: Request, env: Env): Promise<Response>
 
 // --- Polar webhook handler ---
 
+// Simple in-memory dedup for webhook retries within the same Worker instance
+const processedWebhookIds = new Set<string>();
+const MAX_WEBHOOK_IDS = 100;
+
 async function handlePolarWebhook(request: Request, env: Env): Promise<Response> {
   if (!env.POLAR_WEBHOOK_SECRET) {
     return corsJson({ error: 'Webhooks not configured' }, { status: 503 });
+  }
+
+  // Idempotency: check webhook-id before verification to skip duplicates fast
+  const webhookId = request.headers.get('webhook-id');
+
+  if (webhookId && processedWebhookIds.has(webhookId)) {
+    return corsJson({ received: true }, { status: 200 });
   }
 
   const payload = await verifyPolarWebhook(request, env.POLAR_WEBHOOK_SECRET);
@@ -855,6 +866,19 @@ async function handlePolarWebhook(request: Request, env: Env): Promise<Response>
   if (!payload) {
     console.error('Polar webhook: signature verification failed');
     return corsJson({ received: true }, { status: 200 });
+  }
+
+  // Mark as processed after successful verification
+  if (webhookId) {
+    processedWebhookIds.add(webhookId);
+
+    if (processedWebhookIds.size > MAX_WEBHOOK_IDS) {
+      const first = processedWebhookIds.values().next().value;
+
+      if (first) {
+        processedWebhookIds.delete(first);
+      }
+    }
   }
 
   const type = payload.type as string;

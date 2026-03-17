@@ -127,6 +127,7 @@ final class AuthService: ObservableObject {
             guard let self else { return }
             Task { @MainActor in
                 _ = await self.refresh()
+                await self.fetchSubscription()
             }
         }
     }
