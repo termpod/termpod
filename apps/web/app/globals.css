@@ -2,7 +2,53 @@
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
 
+/* Override Fumadocs theme to match landing page */
+@theme {
+  --color-fd-background: #0A0A0A;
+  --color-fd-foreground: #FFFFFF;
+  --color-fd-muted: #111111;
+  --color-fd-muted-foreground: #999999;
+  --color-fd-popover: #0F0F0F;
+  --color-fd-popover-foreground: #FFFFFF;
+  --color-fd-card: #111111;
+  --color-fd-card-foreground: #FFFFFF;
+  --color-fd-border: #33333333;
+  --color-fd-primary: #C9A962;
+  --color-fd-primary-foreground: #0A0A0A;
+  --color-fd-secondary: #191919;
+  --color-fd-secondary-foreground: #FFFFFF;
+  --color-fd-accent: #1A1A1A;
+  --color-fd-accent-foreground: #FFFFFF;
+  --color-fd-ring: #C9A962;
+}
+
+.dark {
+  --color-fd-background: #0A0A0A;
+  --color-fd-foreground: #FFFFFF;
+  --color-fd-muted: #111111;
+  --color-fd-muted-foreground: #999999;
+  --color-fd-popover: #0F0F0F;
+  --color-fd-popover-foreground: #FFFFFF;
+  --color-fd-card: #111111;
+  --color-fd-card-foreground: #FFFFFF;
+  --color-fd-border: #33333333;
+  --color-fd-primary: #C9A962;
+  --color-fd-primary-foreground: #0A0A0A;
+  --color-fd-secondary: #191919;
+  --color-fd-secondary-foreground: #FFFFFF;
+  --color-fd-accent: #1A1A1A;
+  --color-fd-accent-foreground: #FFFFFF;
+  --color-fd-ring: #C9A962;
+}
+
+.dark #nd-sidebar {
+  --color-fd-muted: #111111;
+  --color-fd-secondary: #161616;
+  --color-fd-muted-foreground: #999999;
+}
+
 @theme inline {
+  --font-sans: var(--font-space-grotesk);
   --color-bg: #0A0A0A;
   --color-bg-card: #111111;
   --color-bg-inset: #0F0F0F;
@@ -29,7 +75,19 @@ html {
 body {
   background: var(--color-bg);
   color: var(--color-text-white);
+}
+
+/* Landing page uses mono body text; docs inherit Space Grotesk from Tailwind base */
+body:not(:has(#nd-docs-layout)) {
   font-family: var(--font-mono);
+}
+
+/* Docs headings use Space Grotesk */
+#nd-docs-layout h1,
+#nd-docs-layout h2,
+#nd-docs-layout h3,
+#nd-docs-layout h4 {
+  font-family: var(--font-heading);
 }
 
 ::selection {

@@ -56,11 +56,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${spaceGrotesk.variable} ${ibmPlexMono.variable} grain antialiased`}
-      >
-        <RootProvider>{children}</RootProvider>
+    <html
+      lang="en"
+      className={`dark ${spaceGrotesk.variable} ${ibmPlexMono.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="grain antialiased">
+        <RootProvider theme={{ forcedTheme: "dark" }}>
+          {children}
+        </RootProvider>
       </body>
     </html>
   );
