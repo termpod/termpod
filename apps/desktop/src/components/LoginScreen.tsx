@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { saveCustomRelayUrl, getPersistedCustomRelayUrl, resolveRelayUrl } from '../hooks/useAuth';
 
 interface LoginScreenProps {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -9,10 +10,36 @@ interface LoginScreenProps {
 
 type View = 'login' | 'forgot-email' | 'forgot-code';
 
-const RELAY_URL =
-  (import.meta.env.VITE_RELAY_URL as string | undefined)
-    ?.replace(/^wss?:\/\//, 'https://')
-    .replace(/\/$/, '') ?? 'https://relay.termpod.dev';
+function isValidUrl(url: string): boolean {
+  try {
+    const normalized = url.trim().replace(/^wss?:\/\//, 'https://');
+    new URL(normalized);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function displayUrl(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
+
+function getInitialCustomUrl(): string {
+  const persisted = getPersistedCustomRelayUrl();
+  if (persisted) {
+    return persisted;
+  }
+  const resolved = resolveRelayUrl();
+  return resolved === 'https://relay.termpod.dev' ? '' : resolved;
+}
+
+function getInitialShowCustom(): boolean {
+  return !!getPersistedCustomRelayUrl();
+}
 
 export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenProps) {
   const [isSignup, setIsSignup] = useState(false);
@@ -29,8 +56,28 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
   const [forgotError, setForgotError] = useState<string | null>(null);
   const [forgotSuccess, setForgotSuccess] = useState<string | null>(null);
 
+  // Custom server state
+  const [showCustomServer, setShowCustomServer] = useState(getInitialShowCustom);
+  const [customRelayUrl, setCustomRelayUrl] = useState(getInitialCustomUrl);
+  const [customUrlError, setCustomUrlError] = useState<string | null>(null);
+
+  const applyAndGetRelayUrl = (): string | null => {
+    const trimmed = customRelayUrl.trim();
+    if (trimmed && !isValidUrl(trimmed)) {
+      setCustomUrlError('Invalid URL format');
+      return null;
+    }
+    saveCustomRelayUrl(trimmed);
+    return resolveRelayUrl();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setCustomUrlError(null);
+
+    if (applyAndGetRelayUrl() === null) {
+      return;
+    }
 
     try {
       if (isSignup) {
@@ -43,6 +90,10 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
     }
   };
 
+  const getRelayForForgot = (): string => {
+    return resolveRelayUrl();
+  };
+
   const handleForgotSubmitEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setForgotLoading(true);
@@ -50,7 +101,8 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
     setForgotSuccess(null);
 
     try {
-      const res = await fetch(`${RELAY_URL}/auth/forgot-password`, {
+      const relayUrl = getRelayForForgot();
+      const res = await fetch(`${relayUrl}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: forgotEmail }),
@@ -77,7 +129,8 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
     setForgotError(null);
 
     try {
-      const res = await fetch(`${RELAY_URL}/auth/reset-password`, {
+      const relayUrl = getRelayForForgot();
+      const res = await fetch(`${relayUrl}/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: forgotEmail, code: resetCode, password: newPassword }),
@@ -92,8 +145,6 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
       if (!res.ok) {
         setForgotError(data.error ?? 'Reset failed. Check your code and try again.');
       } else {
-        // Auto-login with returned tokens — store them and trigger auth state update
-        // The simplest path: just call onLogin with the new credentials
         setView('login');
         setEmail(forgotEmail);
         setPassword(newPassword);
@@ -114,6 +165,42 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
     setForgotError(null);
     setForgotSuccess(null);
   };
+
+  const customServerSection = (
+    <div className="login-custom-server">
+      <button
+        type="button"
+        className="login-custom-server-toggle"
+        onClick={() => setShowCustomServer((s) => !s)}
+      >
+        <span
+          className="login-custom-server-chevron"
+          style={{ transform: showCustomServer ? 'rotate(90deg)' : 'none' }}
+        >
+          &#9656;
+        </span>
+        {showCustomServer && customRelayUrl ? displayUrl(customRelayUrl) : 'Custom server'}
+      </button>
+      {showCustomServer && (
+        <div className="login-custom-server-body">
+          <input
+            type="text"
+            placeholder="https://relay.example.com"
+            value={customRelayUrl}
+            onChange={(e) => {
+              setCustomRelayUrl(e.target.value);
+              setCustomUrlError(null);
+            }}
+            className={`login-input login-custom-server-input ${customUrlError ? 'login-input-error' : ''}`}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+          />
+          {customUrlError && <div className="login-custom-server-error">{customUrlError}</div>}
+        </div>
+      )}
+    </div>
+  );
 
   if (view === 'forgot-email') {
     return (
@@ -272,6 +359,8 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
         <button className="login-switch" onClick={() => setIsSignup(!isSignup)}>
           {isSignup ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
         </button>
+
+        {customServerSection}
       </div>
     </div>
   );

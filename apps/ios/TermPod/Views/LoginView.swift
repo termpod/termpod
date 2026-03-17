@@ -14,6 +14,11 @@ struct LoginView: View {
     @State private var newPassword = ""
     @State private var forgotMessage: String? = nil
 
+    // Custom server
+    @State private var showCustomServer: Bool = !AuthService.getCustomRelayURL().isEmpty
+    @State private var customRelayURL: String = AuthService.getCustomRelayURL()
+    @State private var customURLError: String? = nil
+
     enum LoginViewState {
         case login
         case forgotEmail
@@ -28,6 +33,78 @@ struct LoginView: View {
             forgotEmailView
         case .forgotCode:
             forgotCodeView
+        }
+    }
+
+    // MARK: - Custom Server
+
+    private func applyCustomURL() -> Bool {
+        let trimmed = customRelayURL.trimmingCharacters(in: .whitespaces)
+        if !trimmed.isEmpty {
+            var normalized = trimmed
+                .replacingOccurrences(of: "wss://", with: "https://")
+                .replacingOccurrences(of: "ws://", with: "http://")
+            if URL(string: normalized) == nil {
+                customURLError = "Invalid URL format"
+                return false
+            }
+            normalized = normalized.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            auth.setCustomRelayURL(normalized)
+        } else {
+            auth.setCustomRelayURL("")
+        }
+        customURLError = nil
+        return true
+    }
+
+    private var customServerSection: some View {
+        VStack(spacing: 8) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    showCustomServer.toggle()
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .medium))
+                        .rotationEffect(.degrees(showCustomServer ? 90 : 0))
+                        .animation(.easeInOut(duration: 0.15), value: showCustomServer)
+
+                    if showCustomServer, !customRelayURL.isEmpty,
+                       let host = URL(string: customRelayURL)?.host {
+                        Text(host)
+                            .font(.caption2)
+                    } else {
+                        Text("Custom server")
+                            .font(.caption2)
+                    }
+                }
+                .foregroundStyle(.secondary)
+                .opacity(0.7)
+            }
+            .buttonStyle(.plain)
+
+            if showCustomServer {
+                VStack(alignment: .leading, spacing: 4) {
+                    TextField("https://relay.example.com", text: $customRelayURL)
+                        .font(.caption)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.URL)
+                        .textFieldStyle(.roundedBorder)
+                        .onChange(of: customRelayURL) { _, _ in
+                            customURLError = nil
+                        }
+
+                    if let err = customURLError {
+                        Text(err)
+                            .font(.caption2)
+                            .foregroundStyle(.red)
+                    }
+                }
+                .padding(.horizontal, 32)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
     }
 
@@ -76,6 +153,7 @@ struct LoginView: View {
                 }
 
                 Button {
+                    guard applyCustomURL() else { return }
                     Task {
                         if isSignup {
                             await auth.signup(email: email, password: password)
@@ -119,6 +197,8 @@ struct LoginView: View {
                 Text(isSignup ? "Already have an account? Sign in" : "Don't have an account? Sign up")
                     .font(.footnote)
             }
+
+            customServerSection
 
             Spacer()
         }

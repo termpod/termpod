@@ -46,11 +46,40 @@ final class AuthService: ObservableObject {
     }
 
     private static let defaultRelayURL = "https://relay.termpod.dev"
+    private static let customRelayURLKey = "termpod-relay-url"
+
+    private static func resolveRelayURL() -> String {
+        if let custom = UserDefaults.standard.string(forKey: customRelayURLKey),
+           !custom.isEmpty {
+            return custom
+        }
+        let plistURL = Bundle.main.object(forInfoDictionaryKey: "RelayBaseURL") as? String
+        if let plistURL, !plistURL.isEmpty {
+            return plistURL
+        }
+        return defaultRelayURL
+    }
+
+    func setCustomRelayURL(_ url: String) {
+        let normalized = url
+            .trimmingCharacters(in: .whitespaces)
+            .replacingOccurrences(of: "wss://", with: "https://")
+            .replacingOccurrences(of: "ws://", with: "http://")
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        if normalized.isEmpty {
+            UserDefaults.standard.removeObject(forKey: Self.customRelayURLKey)
+        } else {
+            UserDefaults.standard.set(normalized, forKey: Self.customRelayURLKey)
+        }
+        self.relayHTTP = Self.resolveRelayURL()
+    }
+
+    static func getCustomRelayURL() -> String {
+        return UserDefaults.standard.string(forKey: customRelayURLKey) ?? ""
+    }
 
     init() {
-        let plistURL = Bundle.main.object(forInfoDictionaryKey: "RelayBaseURL") as? String
-        let base = (plistURL?.isEmpty == false) ? plistURL! : Self.defaultRelayURL
-        self.relayHTTP = base
+        self.relayHTTP = Self.resolveRelayURL()
 
         // Restore session from keychain
         if let token = KeychainService.load(key: Self.accessTokenKey) {

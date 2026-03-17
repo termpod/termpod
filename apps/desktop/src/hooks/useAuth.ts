@@ -2,9 +2,43 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 import { RELAY_URL } from '@termpod/shared';
 import { getSettingsSnapshot } from './useSettings';
 
+const CUSTOM_RELAY_URL_KEY = 'termpod-relay-url';
+const DEFAULT_RELAY_URL = 'https://relay.termpod.dev';
+
+export function resolveRelayUrl(): string {
+  const persisted = localStorage.getItem(CUSTOM_RELAY_URL_KEY)?.trim();
+  if (persisted) {
+    return persisted;
+  }
+  const fromSettings = getSettingsSnapshot().relayUrl?.trim();
+  if (fromSettings) {
+    return fromSettings;
+  }
+  return (
+    (import.meta.env.VITE_RELAY_URL as string | undefined)
+      ?.replace(/^wss?:\/\//, 'https://')
+      .replace(/\/$/, '') ?? DEFAULT_RELAY_URL
+  );
+}
+
+export function saveCustomRelayUrl(url: string): void {
+  const normalized = url
+    .trim()
+    .replace(/^wss?:\/\//, 'https://')
+    .replace(/\/$/, '');
+  if (normalized) {
+    localStorage.setItem(CUSTOM_RELAY_URL_KEY, normalized);
+  } else {
+    localStorage.removeItem(CUSTOM_RELAY_URL_KEY);
+  }
+}
+
+export function getPersistedCustomRelayUrl(): string {
+  return localStorage.getItem(CUSTOM_RELAY_URL_KEY)?.trim() ?? '';
+}
+
 function getRelayBase(): string {
-  const custom = getSettingsSnapshot().relayUrl?.trim();
-  return custom || import.meta.env.VITE_RELAY_URL || RELAY_URL.production;
+  return resolveRelayUrl();
 }
 
 function wsToHttp(url: string): string {

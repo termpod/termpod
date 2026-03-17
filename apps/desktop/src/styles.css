@@ -2360,6 +2360,58 @@ body,
   color: var(--accent);
 }
 
+.login-custom-server {
+  width: 100%;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.login-custom-server-toggle {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
+}
+
+.login-custom-server-toggle:hover {
+  opacity: 1;
+}
+
+.login-custom-server-chevron {
+  display: inline-block;
+  font-size: 9px;
+  transition: transform 0.15s ease;
+}
+
+.login-custom-server-body {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.login-custom-server-input {
+  font-size: 12px;
+  padding: 8px 10px;
+}
+
+.login-custom-server-error {
+  font-size: 11px;
+  font-family: var(--font-sans);
+  color: var(--error);
+  text-align: left;
+}
+
 /* ── Share Dialog ── */
 
 .sd {

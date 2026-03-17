@@ -13,9 +13,8 @@ import {
   encryptShareFrame,
 } from '@termpod/protocol';
 import type { RelayMessage, E2ESession, ShareCryptoSession } from '@termpod/protocol';
-import { RELAY_URL, RECONNECT } from '@termpod/shared';
-import { getAccessToken, getValidAccessToken } from './useAuth';
-import { getSettingsSnapshot } from './useSettings';
+import { RECONNECT } from '@termpod/shared';
+import { getAccessToken, getValidAccessToken, resolveRelayUrl } from './useAuth';
 
 export type RelayStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 
@@ -47,10 +46,6 @@ interface UseRelayConnectionOptions {
   onSessionClosed?: () => void;
 }
 
-function getRelayBase(): string {
-  const custom = getSettingsSnapshot().relayUrl?.trim();
-  return custom || import.meta.env.VITE_RELAY_URL || RELAY_URL.production;
-}
 const PING_INTERVAL = 30_000;
 const SCROLLBACK_MAX = 512 * 1024;
 
@@ -109,7 +104,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
       wsRef.current = null;
     }
 
-    const wsUrl = `${getRelayBase()}/sessions/${session.sessionId}/ws`;
+    const wsUrl = `${resolveRelayUrl()}/sessions/${session.sessionId}/ws`;
     const ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
     wsRef.current = ws;
