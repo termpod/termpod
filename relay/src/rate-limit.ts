@@ -86,6 +86,7 @@ const userRoutePolicies: Array<{
 
 const internalPolicies: Record<string, RequestRateLimitRule> = {
   'auth.refresh': { key: 'auth.refresh', max: 12, windowMs: MINUTE },
+  'auth.forgot_password': { key: 'auth.forgot_password', max: 1, windowMs: MINUTE },
   'turn.credentials': { key: 'turn.credentials', max: 6, windowMs: MINUTE },
 };
 

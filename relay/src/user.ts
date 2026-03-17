@@ -154,6 +154,21 @@ export class User extends DurableObject {
       }
     }
 
+    // Migrate: add reset_code columns to profile if missing
+    if (tables.includes('profile')) {
+      const profileCols = this.ctx.storage.sql
+        .exec('PRAGMA table_info(profile)')
+        .toArray()
+        .map((r) => r.name as string);
+
+      if (!profileCols.includes('reset_code')) {
+        this.ctx.storage.sql.exec('ALTER TABLE profile ADD COLUMN reset_code TEXT DEFAULT NULL');
+        this.ctx.storage.sql.exec(
+          'ALTER TABLE profile ADD COLUMN reset_code_expires_at INTEGER DEFAULT NULL',
+        );
+      }
+    }
+
     this.initialized = true;
   }
 
@@ -187,6 +202,14 @@ export class User extends DurableObject {
 
     if (path === '/login' && request.method === 'POST') {
       return this.handleLogin(request);
+    }
+
+    if (path === '/forgot-password' && request.method === 'POST') {
+      return this.handleForgotPassword();
+    }
+
+    if (path === '/reset-password' && request.method === 'POST') {
+      return this.handleResetPassword(request);
     }
 
     // Device routes
@@ -417,6 +440,79 @@ export class User extends DurableObject {
 
     // Clear failed attempts on successful login
     this.ctx.storage.sql.exec('DELETE FROM login_attempts');
+
+    return Response.json({ ok: true });
+  }
+
+  private handleForgotPassword(): Response {
+    const rows = this.ctx.storage.sql.exec('SELECT email FROM profile LIMIT 1').toArray();
+
+    if (rows.length === 0) {
+      // Return success regardless — prevent email enumeration
+      return Response.json({ code: null });
+    }
+
+    // Generate 6-digit numeric code
+    const code = String(
+      Math.floor(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000)),
+    ).padStart(6, '0');
+    const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour
+
+    this.ctx.storage.sql.exec(
+      'UPDATE profile SET reset_code = ?, reset_code_expires_at = ?',
+      code,
+      expiresAt,
+    );
+
+    return Response.json({ code });
+  }
+
+  private async handleResetPassword(request: Request): Promise<Response> {
+    const { code, password } = (await request.json()) as { code: string; password: string };
+
+    if (!code || !password || password.length < 8) {
+      return Response.json({ error: 'Code and password (min 8 chars) required' }, { status: 400 });
+    }
+
+    const rows = this.ctx.storage.sql
+      .exec('SELECT reset_code, reset_code_expires_at FROM profile LIMIT 1')
+      .toArray();
+
+    if (rows.length === 0) {
+      return Response.json({ error: 'Invalid or expired code' }, { status: 400 });
+    }
+
+    const { reset_code, reset_code_expires_at } = rows[0] as {
+      reset_code: string | null;
+      reset_code_expires_at: number | null;
+    };
+
+    if (!reset_code || !reset_code_expires_at) {
+      return Response.json({ error: 'Invalid or expired code' }, { status: 400 });
+    }
+
+    if (Date.now() > reset_code_expires_at) {
+      this.ctx.storage.sql.exec(
+        'UPDATE profile SET reset_code = NULL, reset_code_expires_at = NULL',
+      );
+
+      return Response.json({ error: 'Code has expired' }, { status: 400 });
+    }
+
+    // Constant-time comparison
+    const encoder = new TextEncoder();
+
+    if (!crypto.subtle.timingSafeEqual(encoder.encode(code), encoder.encode(reset_code))) {
+      return Response.json({ error: 'Invalid or expired code' }, { status: 400 });
+    }
+
+    const { hash, salt } = await hashPassword(password);
+
+    this.ctx.storage.sql.exec(
+      'UPDATE profile SET password_hash = ?, salt = ?, reset_code = NULL, reset_code_expires_at = NULL',
+      hash,
+      salt,
+    );
 
     return Response.json({ ok: true });
   }

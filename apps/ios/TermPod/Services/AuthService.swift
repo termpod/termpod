@@ -154,6 +154,90 @@ final class AuthService: ObservableObject {
         loading = false
     }
 
+    func forgotPassword(email: String) async {
+        loading = true
+        error = nil
+
+        do {
+            let body = try JSONSerialization.data(withJSONObject: ["email": email])
+
+            var request = URLRequest(url: URL(string: "\(relayHTTP)/auth/forgot-password")!)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = body
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw AuthError.networkError
+            }
+
+            if httpResponse.statusCode == 503 {
+                throw AuthError.serverError("Email service temporarily unavailable")
+            }
+
+            if httpResponse.statusCode == 429 {
+                throw AuthError.serverError("Too many requests. Wait a minute and try again.")
+            }
+
+            if httpResponse.statusCode != 200 {
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let message = json["error"] as? String {
+                    throw AuthError.serverError(message)
+                }
+
+                throw AuthError.serverError("Request failed")
+            }
+        } catch let err as AuthError {
+            self.error = err.message
+        } catch {
+            self.error = error.localizedDescription
+        }
+
+        loading = false
+    }
+
+    func resetPassword(email: String, code: String, newPassword: String) async {
+        loading = true
+        error = nil
+
+        do {
+            let body = try JSONSerialization.data(withJSONObject: [
+                "email": email,
+                "code": code,
+                "password": newPassword,
+            ])
+
+            var request = URLRequest(url: URL(string: "\(relayHTTP)/auth/reset-password")!)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = body
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw AuthError.networkError
+            }
+
+            if httpResponse.statusCode != 200 {
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let message = json["error"] as? String {
+                    throw AuthError.serverError(message)
+                }
+
+                throw AuthError.serverError("Reset failed. Check your code and try again.")
+            }
+
+            try saveTokens(from: data, email: email)
+        } catch let err as AuthError {
+            self.error = err.message
+        } catch {
+            self.error = error.localizedDescription
+        }
+
+        loading = false
+    }
+
     func logout() {
         stopAutoRefresh()
         KeychainService.delete(key: Self.accessTokenKey)

@@ -12,6 +12,7 @@ interface Env {
   TURN_KEY_ID: string;
   TURN_KEY_API_TOKEN: string;
   SENTRY_DSN?: string;
+  RESEND_API_KEY?: string;
 }
 
 // Origin: * is acceptable here — auth uses Bearer tokens (not cookies),
@@ -158,6 +159,14 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 
   if (url.pathname === '/auth/refresh' && request.method === 'POST') {
     return handleRefresh(request, env);
+  }
+
+  if (url.pathname === '/auth/forgot-password' && request.method === 'POST') {
+    return handleForgotPassword(request, env);
+  }
+
+  if (url.pathname === '/auth/reset-password' && request.method === 'POST') {
+    return handleResetPassword(request, env);
   }
 
   // --- Authenticated routes ---
@@ -345,6 +354,121 @@ async function handleRefresh(request: Request, env: Env): Promise<Response> {
   const newRefreshToken = await signJWT(payload.sub, env.JWT_SECRET, 'refresh');
 
   return corsJson({ accessToken, refreshToken: newRefreshToken });
+}
+
+async function handleForgotPassword(request: Request, env: Env): Promise<Response> {
+  const { email } = (await request.json()) as { email?: string };
+
+  if (!email || !EMAIL_REGEX.test(email)) {
+    return corsJson({ error: 'Valid email required' }, { status: 400 });
+  }
+
+  if (!env.RESEND_API_KEY) {
+    return corsJson({ error: 'Email service not configured' }, { status: 503 });
+  }
+
+  const limited = await consumeUserRateLimit(env, email.toLowerCase(), 'auth.forgot_password');
+
+  if (limited) {
+    return limited;
+  }
+
+  const stub = getUserDO(env, email);
+  const res = await stub.fetch(new Request('http://internal/forgot-password', { method: 'POST' }));
+
+  if (!res.ok) {
+    // Always return success to prevent email enumeration
+    return corsJson({ message: 'If an account exists, a reset code has been sent' });
+  }
+
+  const { code } = (await res.json()) as { code: string | null };
+
+  if (code) {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'TermPod <noreply@termpod.dev>',
+        to: [email.toLowerCase()],
+        subject: 'Your TermPod reset code',
+        html: buildResetEmail(code),
+      }),
+    });
+  }
+
+  return corsJson({ message: 'If an account exists, a reset code has been sent' });
+}
+
+async function handleResetPassword(request: Request, env: Env): Promise<Response> {
+  const { email, code, password } = (await request.json()) as {
+    email?: string;
+    code?: string;
+    password?: string;
+  };
+
+  if (!email || !EMAIL_REGEX.test(email)) {
+    return corsJson({ error: 'Valid email required' }, { status: 400 });
+  }
+
+  if (!code || !/^\d{6}$/.test(code)) {
+    return corsJson({ error: 'Valid 6-digit code required' }, { status: 400 });
+  }
+
+  if (!password || password.length < 8) {
+    return corsJson({ error: 'Password must be at least 8 characters' }, { status: 400 });
+  }
+
+  const stub = getUserDO(env, email);
+  const res = await stub.fetch(
+    new Request('http://internal/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ code, password }),
+    }),
+  );
+
+  if (!res.ok) {
+    return corsJsonFromUpstream(res);
+  }
+
+  const accessToken = await signJWT(email.toLowerCase(), env.JWT_SECRET, 'access');
+  const refreshToken = await signJWT(email.toLowerCase(), env.JWT_SECRET, 'refresh');
+
+  return corsJson({ accessToken, refreshToken });
+}
+
+function buildResetEmail(code: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your TermPod reset code</title>
+</head>
+<body style="margin:0;padding:0;background:#1a1b26;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#1a1b26;min-height:100vh;">
+    <tr>
+      <td align="center" style="padding:48px 16px;">
+        <table width="480" cellpadding="0" cellspacing="0" style="background:#1e2030;border-radius:12px;border:1px solid rgba(255,255,255,0.08);max-width:480px;width:100%;">
+          <tr>
+            <td style="padding:40px 40px 32px;">
+              <p style="margin:0 0 8px;font-size:20px;font-weight:700;color:#c0caf5;">TermPod</p>
+              <p style="margin:0 0 32px;font-size:14px;color:rgba(192,202,245,0.5);">Password reset</p>
+              <p style="margin:0 0 16px;font-size:15px;color:#c0caf5;">Use this code to reset your password. It expires in 1 hour.</p>
+              <div style="background:#13141c;border-radius:8px;border:1px solid rgba(255,255,255,0.06);padding:24px;text-align:center;margin:0 0 32px;">
+                <span style="font-size:36px;font-weight:700;letter-spacing:8px;color:#7aa2f7;font-family:Menlo,Monaco,'Courier New',monospace;">${code}</span>
+              </div>
+              <p style="margin:0;font-size:13px;color:rgba(192,202,245,0.4);">If you didn't request a password reset, you can safely ignore this email.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 }
 
 // --- Device handlers ---
