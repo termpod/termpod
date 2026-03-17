@@ -17,7 +17,9 @@ function uniqueDeviceId(): string {
   return `device-${uid()}`;
 }
 
-async function createUserAndGetToken(email = uniqueEmail()): Promise<{ token: string; email: string }> {
+async function createUserAndGetToken(
+  email = uniqueEmail(),
+): Promise<{ token: string; email: string }> {
   const res = await SELF.fetch(`${BASE}/auth/signup`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -344,7 +344,12 @@ describe('Auth gating on protected routes', () => {
       .replace(/\//g, '_')
       .replace(/=+$/, '');
     const fakePayload = btoa(
-      JSON.stringify({ sub: 'test@example.com', iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 900, type: 'access' }),
+      JSON.stringify({
+        sub: 'test@example.com',
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 900,
+        type: 'access',
+      }),
     )
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
