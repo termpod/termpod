@@ -33,8 +33,14 @@ export async function verifyPolarWebhook(
   const body = await request.text();
   const signedContent = `${webhookId}.${timestamp}.${body}`;
 
-  // Standard Webhooks secret is base64-encoded, prefixed with "whsec_"
-  const secretBytes = base64Decode(secret.startsWith('whsec_') ? secret.slice(6) : secret);
+  // Standard Webhooks secret is base64-encoded with a known prefix
+  let secretBytes: Uint8Array;
+
+  try {
+    secretBytes = base64Decode(stripWebhookSecretPrefix(secret));
+  } catch {
+    return null;
+  }
 
   const key = await crypto.subtle.importKey(
     'raw',
@@ -69,8 +75,22 @@ export async function verifyPolarWebhook(
   return null;
 }
 
+function stripWebhookSecretPrefix(secret: string): string {
+  if (secret.startsWith('whsec_')) {
+    return secret.slice(6);
+  }
+
+  if (secret.startsWith('polar_whs_')) {
+    return secret.slice(10);
+  }
+
+  return secret;
+}
+
 function base64Decode(str: string): Uint8Array {
-  const binary = atob(str);
+  // Add padding if missing — some providers omit trailing '='
+  const padded = str.length % 4 === 0 ? str : str + '='.repeat(4 - (str.length % 4));
+  const binary = atob(padded);
   const bytes = new Uint8Array(binary.length);
 
   for (let i = 0; i < binary.length; i++) {
