@@ -648,6 +648,38 @@ Content-Type: application/json
 { "accessToken": "JWT", "refreshToken": "JWT" }
 ```
 
+#### `POST /auth/forgot-password`
+
+Sends a 6-digit reset code to the user's email via Resend. Always returns success to prevent email enumeration. Rate limited to 1 request per minute per email.
+
+```
+Content-Type: application/json
+
+{ "email": "user@example.com" }
+
+→ 200 OK
+{ "message": "If an account exists, a reset code has been sent" }
+
+→ 503 Service Unavailable (if RESEND_API_KEY not configured)
+{ "error": "Email service not configured" }
+```
+
+#### `POST /auth/reset-password`
+
+Validates the 6-digit code and updates the password. Returns JWT tokens on success (auto-login). Code expires after 1 hour.
+
+```
+Content-Type: application/json
+
+{ "email": "user@example.com", "code": "123456", "password": "newpassword" }
+
+→ 200 OK
+{ "accessToken": "JWT", "refreshToken": "JWT" }
+
+→ 400 Bad Request
+{ "error": "Invalid or expired reset code" }
+```
+
 ### Device Endpoints (Authenticated)
 
 #### `GET /devices`

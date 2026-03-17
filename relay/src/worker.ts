@@ -391,7 +391,7 @@ async function handleForgotPassword(request: Request, env: Env): Promise<Respons
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'TermPod <noreply@termpod.dev>',
+        from: 'TermPod <noreply@email.termpod.dev>',
         to: [email.toLowerCase()],
         subject: 'Your TermPod reset code',
         html: buildResetEmail(code),

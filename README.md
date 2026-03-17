@@ -44,6 +44,8 @@ Sessions survive disconnects — close the app, reopen it, and you're right wher
 - **Auto-updates** — Desktop app updates automatically via relay proxy
 - **E2E encryption** — Relay transport encrypted with ECDH + AES-256-GCM; relay can't read your data
 - **Local auth** — Bonjour connections authenticated via shared secret exchanged over relay
+- **Password reset** — Email-based 6-digit code reset via Resend
+- **Error tracking** — Sentry integration across desktop, relay, and iOS
 - **Works with everything** — Claude Code, Codex, npm, docker, any CLI
 
 ## Tech Stack
@@ -134,6 +136,13 @@ APPLE_SIGNING_IDENTITY=Developer ID Application: Your Name (YOUR_TEAM_ID)
 APPLE_ID=your-apple-id@example.com
 APPLE_PASSWORD=your-app-specific-password
 
+# Resend (for password reset emails — set via wrangler secret)
+# RESEND_API_KEY=re_xxxx
+
+# Sentry error tracking (optional)
+VITE_SENTRY_DSN=
+# SENTRY_DSN= (relay: wrangler secret, iOS: via generate-config.sh)
+
 # Cloudflare TURN (optional, for WebRTC P2P across restrictive NATs)
 # Create at: https://dash.cloudflare.com → Calls → TURN Keys
 # TURN_KEY_ID=your-turn-key-id
@@ -182,8 +191,11 @@ pnpm build:release
 
 # Relay (deploy to Cloudflare)
 cd relay
-wrangler secret put JWT_SECRET  # set your production secret
-wrangler secret put TURN_KEY_ID  # optional, for TURN support
+wrangler secret put JWT_SECRET           # required
+wrangler secret put RESEND_API_KEY       # for password reset emails
+wrangler secret put SENTRY_DSN           # optional, error tracking
+wrangler secret put GITHUB_TOKEN         # for update proxy
+wrangler secret put TURN_KEY_ID          # optional, for TURN support
 wrangler secret put TURN_KEY_API_TOKEN
 wrangler deploy
 ```
