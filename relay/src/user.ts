@@ -8,6 +8,14 @@ import {
 } from './rate-limit';
 import type { Plan, SubscriptionStatus } from './subscription';
 
+/** Subset of Worker env bindings needed by the User DO (alarm emails, etc.) */
+interface UserEnv {
+  RESEND_API_KEY?: string;
+  EMAIL_FROM?: string;
+  POLAR_WEBHOOK_SECRET?: string;
+  [key: string]: unknown;
+}
+
 export interface UserProfile {
   email: string;
   createdAt: string;
@@ -69,7 +77,7 @@ interface RateLimitWindow {
   resetAt: number;
 }
 
-export class User extends DurableObject {
+export class User extends DurableObject<UserEnv> {
   private initialized = false;
   private jwtSecret: string | null = null;
   /** Last sessions_updated write timestamp per device ID */
@@ -422,6 +430,13 @@ export class User extends DurableObject {
       new Date().toISOString(),
       trialEndsAt,
     );
+
+    // Schedule trial expiry warning email 1 day before trial ends.
+    // DO alarms support only one alarm at a time — the warning alarm
+    // will reschedule itself to fire again at exact expiry.
+    const warningAt = trialEndsAt - 24 * 60 * 60 * 1000;
+
+    await this.ctx.storage.setAlarm(warningAt);
 
     return Response.json({ ok: true });
   }
@@ -1498,4 +1513,169 @@ export class User extends DurableObject {
       }
     }
   }
+
+  // --- Trial expiry alarm ---
+
+  async alarm(): Promise<void> {
+    this.ensureSchema();
+
+    // Self-hosted relays don't send trial emails
+    if (!this.env.POLAR_WEBHOOK_SECRET) {
+      return;
+    }
+
+    if (!this.env.RESEND_API_KEY) {
+      return;
+    }
+
+    const rows = this.ctx.storage.sql
+      .exec('SELECT email, plan, trial_ends_at FROM profile LIMIT 1')
+      .toArray();
+
+    if (rows.length === 0) {
+      return;
+    }
+
+    const { email, plan, trial_ends_at } = rows[0] as {
+      email: string;
+      plan: string;
+      trial_ends_at: number | null;
+    };
+
+    if (!trial_ends_at) {
+      return;
+    }
+
+    // Don't email users who already upgraded
+    if (plan === 'pro') {
+      return;
+    }
+
+    const now = Date.now();
+
+    if (now < trial_ends_at) {
+      // Trial hasn't expired yet — this is the warning alarm (1 day before)
+      await this.sendTrialEmail(
+        email,
+        'Your TermPod trial ends tomorrow',
+        buildTrialWarningEmail(),
+      );
+
+      // Schedule the expiry alarm for when the trial actually ends
+      await this.ctx.storage.setAlarm(trial_ends_at);
+
+      return;
+    }
+
+    // Trial has expired
+    await this.sendTrialEmail(email, 'Your TermPod trial has ended', buildTrialExpiredEmail());
+  }
+
+  private async sendTrialEmail(to: string, subject: string, html: string): Promise<void> {
+    const apiKey = this.env.RESEND_API_KEY;
+
+    if (!apiKey) {
+      return;
+    }
+
+    try {
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: this.env.EMAIL_FROM || 'TermPod <noreply@email.termpod.dev>',
+          to: [to],
+          subject,
+          html,
+        }),
+      });
+    } catch {
+      // Email delivery is best-effort — don't crash the alarm
+      console.error(`Failed to send trial email to ${to}`);
+    }
+  }
+}
+
+// --- Trial email templates ---
+
+function buildTrialWarningEmail(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your TermPod trial ends tomorrow</title>
+</head>
+<body style="margin:0;padding:0;background:#1a1b26;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#1a1b26;min-height:100vh;">
+    <tr>
+      <td align="center" style="padding:48px 16px;">
+        <table width="480" cellpadding="0" cellspacing="0" style="background:#1e2030;border-radius:12px;border:1px solid rgba(255,255,255,0.08);max-width:480px;width:100%;">
+          <tr>
+            <td style="padding:40px 40px 32px;">
+              <p style="margin:0 0 8px;font-size:20px;font-weight:700;color:#c0caf5;">TermPod</p>
+              <p style="margin:0 0 32px;font-size:14px;color:rgba(192,202,245,0.5);">Trial ending soon</p>
+              <p style="margin:0 0 16px;font-size:15px;color:#c0caf5;">Your 7-day Pro trial ends <strong style="color:#7aa2f7;">tomorrow</strong>. After that, your account will move to the Free plan.</p>
+              <p style="margin:0 0 24px;font-size:15px;color:#c0caf5;">Upgrade now to keep access to:</p>
+              <table cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
+                <tr><td style="padding:6px 0;font-size:14px;color:#c0caf5;">&#x2022;&nbsp; Relay access (connect from anywhere)</td></tr>
+                <tr><td style="padding:6px 0;font-size:14px;color:#c0caf5;">&#x2022;&nbsp; Unlimited devices</td></tr>
+                <tr><td style="padding:6px 0;font-size:14px;color:#c0caf5;">&#x2022;&nbsp; Share links</td></tr>
+                <tr><td style="padding:6px 0;font-size:14px;color:#c0caf5;">&#x2022;&nbsp; TURN relay (fallback when P2P fails)</td></tr>
+              </table>
+              <div style="text-align:center;margin:0 0 32px;">
+                <a href="https://termpod.dev/pricing" style="display:inline-block;background:#7aa2f7;color:#1a1b26;font-size:15px;font-weight:600;text-decoration:none;padding:12px 32px;border-radius:8px;">Upgrade to Pro</a>
+              </div>
+              <p style="margin:0;font-size:13px;color:rgba(192,202,245,0.4);">Local P2P and WebRTC connections are always free — no account required.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+function buildTrialExpiredEmail(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your TermPod trial has ended</title>
+</head>
+<body style="margin:0;padding:0;background:#1a1b26;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#1a1b26;min-height:100vh;">
+    <tr>
+      <td align="center" style="padding:48px 16px;">
+        <table width="480" cellpadding="0" cellspacing="0" style="background:#1e2030;border-radius:12px;border:1px solid rgba(255,255,255,0.08);max-width:480px;width:100%;">
+          <tr>
+            <td style="padding:40px 40px 32px;">
+              <p style="margin:0 0 8px;font-size:20px;font-weight:700;color:#c0caf5;">TermPod</p>
+              <p style="margin:0 0 32px;font-size:14px;color:rgba(192,202,245,0.5);">Trial ended</p>
+              <p style="margin:0 0 16px;font-size:15px;color:#c0caf5;">Your 7-day Pro trial has ended and your account is now on the <strong style="color:#c0caf5;">Free</strong> plan.</p>
+              <p style="margin:0 0 24px;font-size:15px;color:#c0caf5;">Here's what you're missing:</p>
+              <table cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
+                <tr><td style="padding:6px 0;font-size:14px;color:rgba(192,202,245,0.6);">&#x2022;&nbsp; Relay access (connect from anywhere)</td></tr>
+                <tr><td style="padding:6px 0;font-size:14px;color:rgba(192,202,245,0.6);">&#x2022;&nbsp; Unlimited devices (limited to 1 desktop)</td></tr>
+                <tr><td style="padding:6px 0;font-size:14px;color:rgba(192,202,245,0.6);">&#x2022;&nbsp; Share links</td></tr>
+                <tr><td style="padding:6px 0;font-size:14px;color:rgba(192,202,245,0.6);">&#x2022;&nbsp; TURN relay (fallback when P2P fails)</td></tr>
+              </table>
+              <div style="text-align:center;margin:0 0 32px;">
+                <a href="https://termpod.dev/pricing" style="display:inline-block;background:#7aa2f7;color:#1a1b26;font-size:15px;font-weight:600;text-decoration:none;padding:12px 32px;border-radius:8px;">Upgrade to Pro</a>
+              </div>
+              <p style="margin:0 0 12px;font-size:13px;color:rgba(192,202,245,0.4);">Local P2P and WebRTC connections are always free — your same-network setup still works perfectly.</p>
+              <p style="margin:0;font-size:13px;color:rgba(192,202,245,0.4);">You can also self-host the relay for free. <a href="https://termpod.dev/docs/self-hosting" style="color:#7aa2f7;text-decoration:underline;">Learn more</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 }
