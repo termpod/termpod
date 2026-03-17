@@ -12,14 +12,12 @@ export function RelayGatedBanner({ visible }: Props) {
       <span className="relay-gated-text">
         Remote access via relay requires Pro. Local and P2P connections still work.
       </span>
-      <a
+      <button
         className="relay-gated-link"
-        href="https://termpod.dev/#pricing"
-        target="_blank"
-        rel="noopener noreferrer"
+        onClick={() => window.open('https://termpod.dev/pricing', '_blank')}
       >
         Upgrade
-      </a>
+      </button>
     </div>
   );
 }
