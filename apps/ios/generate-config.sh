@@ -12,6 +12,7 @@ fi
 
 TEAM_ID="${APPLE_TEAM_ID:-}"
 RELAY_URL="${VITE_RELAY_URL:-https://relay.termpod.dev}"
+SENTRY_DSN_VAL="${SENTRY_DSN:-}"
 
 # Normalize WS URLs to HTTPS (AuthService handles the reverse conversion for WebSocket)
 RELAY_URL=$(echo "$RELAY_URL" | sed 's|^wss://|https://|' | sed 's|^ws://|http://|')
@@ -29,6 +30,9 @@ echo -n "TERMPOD_RELAY_URL = ${PROTOCOL}:" >> "$CONFIG_FILE"
 echo -n '$()/$()/'"$HOST" >> "$CONFIG_FILE"
 echo "" >> "$CONFIG_FILE"
 
+echo "SENTRY_DSN = $SENTRY_DSN_VAL" >> "$CONFIG_FILE"
+
 echo "Generated $CONFIG_FILE"
 echo "  TERMPOD_TEAM_ID = $TEAM_ID"
 echo "  TERMPOD_RELAY_URL = $RELAY_URL"
+echo "  SENTRY_DSN = ${SENTRY_DSN_VAL:-<empty>}"

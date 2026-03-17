@@ -1,3 +1,4 @@
+import { Toucan } from 'toucan-js';
 import { signJWT, verifyJWT } from './jwt';
 
 export { TerminalSession } from './session';
@@ -10,6 +11,7 @@ interface Env {
   GITHUB_TOKEN: string;
   TURN_KEY_ID: string;
   TURN_KEY_API_TOKEN: string;
+  SENTRY_DSN?: string;
 }
 
 // Origin: * is acceptable here — auth uses Bearer tokens (not cookies),
@@ -109,14 +111,19 @@ function getUserDO(env: Env, email: string): DurableObjectStub {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     if (request.method === 'OPTIONS') {
       return corsResponse(204);
     }
 
+    const sentry = env.SENTRY_DSN
+      ? new Toucan({ dsn: env.SENTRY_DSN, context: ctx, request })
+      : null;
+
     try {
       return await handleRequest(request, env);
     } catch (err) {
+      sentry?.captureException(err);
       console.error('Unhandled error:', err);
 
       return corsJson({ error: 'Internal server error' }, { status: 500 });

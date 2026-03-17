@@ -21,7 +21,6 @@
     "@termpod/protocol": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.8.2",
-    "@types/vitest": "^4.0.0"
+    "typescript": "^5.8.2"
   }
 }

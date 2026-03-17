@@ -1,3 +1,4 @@
+import Sentry
 import SwiftUI
 
 @main
@@ -14,6 +15,17 @@ struct TermPodApp: App {
     @State private var wasBackgrounded = false
 
     init() {
+        if let dsn = Bundle.main.infoDictionary?["SentryDSN"] as? String, !dsn.isEmpty {
+            SentrySDK.start { options in
+                options.dsn = dsn
+                options.tracesSampleRate = 0.1
+                options.attachStacktrace = true
+                #if DEBUG
+                options.enabled = false
+                #endif
+            }
+        }
+
         NotificationService.shared.requestPermission()
     }
 

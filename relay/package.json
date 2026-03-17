@@ -11,7 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@termpod/protocol": "workspace:*"
+    "@termpod/protocol": "workspace:*",
+    "toucan-js": "^4.1.1"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250310.0",
