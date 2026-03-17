@@ -52,7 +52,7 @@ termpod/
 
 ## Code Style
 
-- **TypeScript**: Prettier for formatting (`pnpm format`), ESLint for linting
+- **TypeScript**: Prettier for formatting (`pnpm format`), `tsc --noEmit` for type checking (`pnpm lint`)
 - **Rust**: Clippy (`cargo clippy`)
 - **Swift**: Standard Swift conventions
 
