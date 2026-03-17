@@ -59,7 +59,7 @@ export default function SuccessPage() {
           {/* Actions */}
           <div className="flex flex-col items-center gap-3">
             <a
-              href="#manage-subscription"
+              href={process.env.NEXT_PUBLIC_POLAR_PORTAL_URL ?? "#"}
               className="font-mono text-xs text-text-dark transition-colors hover:text-text-white"
             >
               Manage subscription

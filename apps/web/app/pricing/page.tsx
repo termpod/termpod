@@ -166,7 +166,7 @@ export default function PricingPage() {
               ))}
             </ul>
             <a
-              href="#pro-trial"
+              href={process.env.NEXT_PUBLIC_POLAR_CHECKOUT_URL ?? "#"}
               className="flex items-center justify-center gap-2 bg-gold px-6 py-3 font-mono text-xs font-semibold tracking-wider text-bg transition-opacity hover:opacity-90"
             >
               START FREE TRIAL
