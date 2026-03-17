@@ -949,7 +949,7 @@ export function App() {
         devicesPanelOpen={showDevicesPanel}
       />
       <UpdateBanner {...updater} />
-      <RelayGatedBanner visible={!isPro && !selfHosted} />
+      <RelayGatedBanner visible={!!subscription && !isPro && !selfHosted} />
       <TrialExpiringBanner visible={isOnTrial && trialDaysLeft <= 2} daysLeft={trialDaysLeft} />
       <FullDiskAccessBanner />
       {activeId && shareMap.has(activeId) && (
