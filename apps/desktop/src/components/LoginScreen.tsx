@@ -41,6 +41,65 @@ function getInitialShowCustom(): boolean {
   return !!getPersistedCustomRelayUrl();
 }
 
+const TerminalIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polyline points="4 17 10 11 4 5" />
+    <line x1="12" y1="19" x2="20" y2="19" />
+  </svg>
+);
+
+const EmailIcon = () => (
+  <svg
+    className="login-input-icon"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="1.5" y="3" width="13" height="10" rx="2" />
+    <path d="M1.5 5.5L8 9.5L14.5 5.5" />
+  </svg>
+);
+
+const LockIcon = () => (
+  <svg
+    className="login-input-icon"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="3" y="7" width="10" height="7" rx="2" />
+    <path d="M5 7V5a3 3 0 0 1 6 0v2" />
+  </svg>
+);
+
+const KeyIcon = () => (
+  <svg
+    className="login-input-icon"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="5.5" cy="5.5" r="3" />
+    <path d="M8 8l6 6M11 11l2 2M12 10l2 2" />
+  </svg>
+);
+
 export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenProps) {
   const [isSignup, setIsSignup] = useState(false);
   const [view, setView] = useState<View>('login');
@@ -166,6 +225,12 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
     setForgotSuccess(null);
   };
 
+  const logo = (
+    <div className="login-logo">
+      <TerminalIcon />
+    </div>
+  );
+
   const customServerSection = (
     <div className="login-custom-server">
       <button
@@ -179,7 +244,7 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
         >
           &#9656;
         </span>
-        {showCustomServer && customRelayUrl ? displayUrl(customRelayUrl) : 'Custom server'}
+        {!showCustomServer && customRelayUrl ? displayUrl(customRelayUrl) : 'Custom server'}
       </button>
       {showCustomServer && (
         <div className="login-custom-server-body">
@@ -191,7 +256,7 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
               setCustomRelayUrl(e.target.value);
               setCustomUrlError(null);
             }}
-            className={`login-input login-custom-server-input ${customUrlError ? 'login-input-error' : ''}`}
+            className={`login-input login-input-plain login-custom-server-input ${customUrlError ? 'login-input-error' : ''}`}
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
@@ -206,20 +271,23 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
     return (
       <div className="login-screen">
         <div className="login-card">
-          <div className="login-icon">&#9654;</div>
-          <h1 className="login-title">TermPod</h1>
-          <p className="login-subtitle">Reset your password</p>
+          {logo}
+          <h1 className="login-title">Reset password</h1>
+          <p className="login-subtitle">Enter your email to receive a reset code</p>
 
           <form onSubmit={handleForgotSubmitEmail} className="login-form">
-            <input
-              type="email"
-              placeholder="Email"
-              value={forgotEmail}
-              onChange={(e) => setForgotEmail(e.target.value)}
-              className={`login-input ${forgotError ? 'login-input-error' : ''}`}
-              autoFocus
-              required
-            />
+            <div className="login-input-group">
+              <EmailIcon />
+              <input
+                type="email"
+                placeholder="Email"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                className={`login-input ${forgotError ? 'login-input-error' : ''}`}
+                autoFocus
+                required
+              />
+            </div>
 
             {forgotError && <div className="login-error">{forgotError}</div>}
 
@@ -245,37 +313,43 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
     return (
       <div className="login-screen">
         <div className="login-card">
-          <div className="login-icon">&#9654;</div>
-          <h1 className="login-title">TermPod</h1>
-          <p className="login-subtitle">Enter your reset code</p>
+          {logo}
+          <h1 className="login-title">Enter reset code</h1>
+          <p className="login-subtitle">Check your email for a 6-digit code</p>
 
           {forgotSuccess && (
-            <div className="login-hint" style={{ textAlign: 'center', marginBottom: 8 }}>
+            <div className="login-hint" style={{ textAlign: 'center' }}>
               {forgotSuccess}
             </div>
           )}
 
           <form onSubmit={handleForgotSubmitCode} className="login-form">
-            <input
-              type="text"
-              placeholder="6-digit code"
-              value={resetCode}
-              onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              className={`login-input ${forgotError ? 'login-input-error' : ''}`}
-              inputMode="numeric"
-              pattern="\d{6}"
-              autoFocus
-              required
-            />
-            <input
-              type="password"
-              placeholder="New password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className={`login-input ${forgotError ? 'login-input-error' : ''}`}
-              minLength={8}
-              required
-            />
+            <div className="login-input-group">
+              <KeyIcon />
+              <input
+                type="text"
+                placeholder="6-digit code"
+                value={resetCode}
+                onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                className={`login-input ${forgotError ? 'login-input-error' : ''}`}
+                inputMode="numeric"
+                pattern="\d{6}"
+                autoFocus
+                required
+              />
+            </div>
+            <div className="login-input-group">
+              <LockIcon />
+              <input
+                type="password"
+                placeholder="New password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className={`login-input ${forgotError ? 'login-input-error' : ''}`}
+                minLength={8}
+                required
+              />
+            </div>
             <p className="login-hint">Minimum 8 characters</p>
 
             {forgotError && <div className="login-error">{forgotError}</div>}
@@ -290,12 +364,14 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
             </button>
           </form>
 
-          <button className="login-switch" onClick={() => setView('forgot-email')}>
-            Resend code
-          </button>
-          <button className="login-switch" onClick={resetForgotFlow} style={{ marginTop: 4 }}>
-            Back to sign in
-          </button>
+          <div className="login-links">
+            <button className="login-switch" onClick={() => setView('forgot-email')}>
+              Resend code
+            </button>
+            <button className="login-switch" onClick={resetForgotFlow}>
+              Back to sign in
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -304,31 +380,37 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
   return (
     <div className="login-screen">
       <div className="login-card">
-        <div className="login-icon">&#9654;</div>
+        {logo}
         <h1 className="login-title">TermPod</h1>
         <p className="login-subtitle">
           {isSignup ? 'Create your account' : 'Sign in to your account'}
         </p>
 
         <form onSubmit={handleSubmit} className="login-form">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={`login-input ${error ? 'login-input-error' : ''}`}
-            autoFocus
-            required
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={`login-input ${error ? 'login-input-error' : ''}`}
-            minLength={8}
-            required
-          />
+          <div className="login-input-group">
+            <EmailIcon />
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={`login-input ${error ? 'login-input-error' : ''}`}
+              autoFocus
+              required
+            />
+          </div>
+          <div className="login-input-group">
+            <LockIcon />
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={`login-input ${error ? 'login-input-error' : ''}`}
+              minLength={8}
+              required
+            />
+          </div>
           {isSignup && <p className="login-hint">Minimum 8 characters</p>}
 
           {error && <div className="login-error">{error}</div>}
@@ -343,22 +425,26 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
           </button>
         </form>
 
-        {!isSignup && (
-          <button
-            className="login-switch"
-            onClick={() => {
-              setForgotEmail(email);
-              setView('forgot-email');
-            }}
-            style={{ marginBottom: 4 }}
-          >
-            Forgot password?
-          </button>
-        )}
+        <div className="login-links">
+          {!isSignup && (
+            <button
+              className="login-switch"
+              onClick={() => {
+                setForgotEmail(email);
+                setView('forgot-email');
+              }}
+            >
+              Forgot password?
+            </button>
+          )}
 
-        <button className="login-switch" onClick={() => setIsSignup(!isSignup)}>
-          {isSignup ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
-        </button>
+          <button
+            className="login-switch login-switch-primary"
+            onClick={() => setIsSignup(!isSignup)}
+          >
+            {isSignup ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+          </button>
+        </div>
 
         {customServerSection}
       </div>

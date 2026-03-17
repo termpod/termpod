@@ -66,32 +66,35 @@ struct LoginView: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.system(size: 8, weight: .medium))
                         .rotationEffect(.degrees(showCustomServer ? 90 : 0))
                         .animation(.easeInOut(duration: 0.15), value: showCustomServer)
 
-                    if showCustomServer, !customRelayURL.isEmpty,
+                    if !showCustomServer, !customRelayURL.isEmpty,
                        let host = URL(string: customRelayURL)?.host {
                         Text(host)
-                            .font(.caption2)
+                            .font(.system(size: 11, design: .monospaced))
                     } else {
                         Text("Custom server")
-                            .font(.caption2)
+                            .font(.system(size: 11, design: .monospaced))
                     }
                 }
                 .foregroundStyle(.secondary)
-                .opacity(0.7)
+                .opacity(0.5)
             }
             .buttonStyle(.plain)
 
             if showCustomServer {
                 VStack(alignment: .leading, spacing: 4) {
                     TextField("https://relay.example.com", text: $customRelayURL)
-                        .font(.caption)
+                        .font(.system(size: 13, design: .monospaced))
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                         .keyboardType(.URL)
-                        .textFieldStyle(.roundedBorder)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(Color(UIColor.tertiarySystemGroupedBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                         .onChange(of: customRelayURL) { _, _ in
                             customURLError = nil
                         }
@@ -108,48 +111,112 @@ struct LoginView: View {
         }
     }
 
+    // MARK: - Shared Components
+
+    private static let gold = Color(red: 201 / 255, green: 169 / 255, blue: 98 / 255)
+
+    private var logoView: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 16)
+                .fill(
+                    LinearGradient(
+                        colors: [Self.gold, Self.gold.opacity(0.8)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 64, height: 64)
+                .shadow(color: Self.gold.opacity(0.25), radius: 20, y: 6)
+
+            Image(systemName: "terminal")
+                .font(.system(size: 28, weight: .medium))
+                .foregroundStyle(.black)
+        }
+    }
+
+    private func headerView(title: String, subtitle: String) -> some View {
+        VStack(spacing: 8) {
+            logoView
+
+            Text(title)
+                .font(.title2)
+                .fontWeight(.bold)
+
+            Text(subtitle)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func inputField(
+        icon: String,
+        placeholder: String,
+        text: Binding<String>,
+        isSecure: Bool = false,
+        contentType: UITextContentType? = nil,
+        keyboardType: UIKeyboardType = .default
+    ) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .foregroundStyle(.secondary)
+                .frame(width: 18)
+
+            if isSecure {
+                SecureField(placeholder, text: text)
+                    .textContentType(contentType)
+            } else {
+                TextField(placeholder, text: text)
+                    .textContentType(contentType)
+                    .keyboardType(keyboardType)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(Color(UIColor.tertiarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
     // MARK: - Login
 
     private var loginView: some View {
         VStack(spacing: 24) {
             Spacer()
 
-            Image(systemName: "terminal")
-                .font(.system(size: 48))
-                .foregroundStyle(.tint)
+            headerView(
+                title: "TermPod",
+                subtitle: isSignup ? "Create your account" : "Sign in to your account"
+            )
 
-            Text("TermPod")
-                .font(.largeTitle)
-                .fontWeight(.bold)
+            VStack(spacing: 10) {
+                inputField(
+                    icon: "envelope",
+                    placeholder: "Email",
+                    text: $email,
+                    contentType: .emailAddress,
+                    keyboardType: .emailAddress
+                )
 
-            Text(isSignup ? "Create your account" : "Sign in to your account")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            VStack(spacing: 12) {
-                TextField("Email", text: $email)
-                    .textContentType(.emailAddress)
-                    .keyboardType(.emailAddress)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .textFieldStyle(.roundedBorder)
-
-                SecureField("Password", text: $password)
-                    .textContentType(isSignup ? .newPassword : .password)
-                    .textFieldStyle(.roundedBorder)
+                inputField(
+                    icon: "lock",
+                    placeholder: "Password",
+                    text: $password,
+                    isSecure: true,
+                    contentType: isSignup ? .newPassword : .password
+                )
 
                 if isSignup {
                     Text("Minimum 8 characters")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.tertiary)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.leading, 4)
                 }
 
                 if let error = auth.error {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .transition(.opacity)
+                    errorBanner(error)
                 }
 
                 Button {
@@ -164,38 +231,45 @@ struct LoginView: View {
                 } label: {
                     if auth.loading {
                         ProgressView()
+                            .tint(.white)
                             .frame(maxWidth: .infinity)
                     } else {
                         Text(isSignup ? "Create Account" : "Sign In")
+                            .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
                     }
                 }
                 .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.roundedRectangle(radius: 10))
+                .controlSize(.large)
                 .disabled(email.isEmpty || password.count < 8 || auth.loading)
             }
             .padding(.horizontal, 32)
 
-            if !isSignup {
+            VStack(spacing: 8) {
+                if !isSignup {
+                    Button {
+                        forgotEmail = email
+                        auth.error = nil
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            view = .forgotEmail
+                        }
+                    } label: {
+                        Text("Forgot password?")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Button {
-                    forgotEmail = email
-                    auth.error = nil
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        view = .forgotEmail
+                        isSignup.toggle()
+                        auth.error = nil
                     }
                 } label: {
-                    Text("Forgot password?")
+                    Text(isSignup ? "Already have an account? **Sign in**" : "Don't have an account? **Sign up**")
                         .font(.footnote)
                 }
-            }
-
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isSignup.toggle()
-                    auth.error = nil
-                }
-            } label: {
-                Text(isSignup ? "Already have an account? Sign in" : "Don't have an account? Sign up")
-                    .font(.footnote)
             }
 
             customServerSection
@@ -210,31 +284,22 @@ struct LoginView: View {
         VStack(spacing: 24) {
             Spacer()
 
-            Image(systemName: "terminal")
-                .font(.system(size: 48))
-                .foregroundStyle(.tint)
+            headerView(
+                title: "Reset password",
+                subtitle: "Enter your email to receive a reset code"
+            )
 
-            Text("TermPod")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-
-            Text("Reset your password")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            VStack(spacing: 12) {
-                TextField("Email", text: $forgotEmail)
-                    .textContentType(.emailAddress)
-                    .keyboardType(.emailAddress)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .textFieldStyle(.roundedBorder)
+            VStack(spacing: 10) {
+                inputField(
+                    icon: "envelope",
+                    placeholder: "Email",
+                    text: $forgotEmail,
+                    contentType: .emailAddress,
+                    keyboardType: .emailAddress
+                )
 
                 if let error = auth.error {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .transition(.opacity)
+                    errorBanner(error)
                 }
 
                 Button {
@@ -252,13 +317,17 @@ struct LoginView: View {
                 } label: {
                     if auth.loading {
                         ProgressView()
+                            .tint(.white)
                             .frame(maxWidth: .infinity)
                     } else {
                         Text("Send Reset Code")
+                            .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
                     }
                 }
                 .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.roundedRectangle(radius: 10))
+                .controlSize(.large)
                 .disabled(forgotEmail.isEmpty || auth.loading)
             }
             .padding(.horizontal, 32)
@@ -271,6 +340,7 @@ struct LoginView: View {
             } label: {
                 Text("Back to sign in")
                     .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
 
             Spacer()
@@ -283,19 +353,12 @@ struct LoginView: View {
         VStack(spacing: 24) {
             Spacer()
 
-            Image(systemName: "terminal")
-                .font(.system(size: 48))
-                .foregroundStyle(.tint)
+            headerView(
+                title: "Enter reset code",
+                subtitle: "Check your email for a 6-digit code"
+            )
 
-            Text("TermPod")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-
-            Text("Enter your reset code")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            VStack(spacing: 12) {
+            VStack(spacing: 10) {
                 if let msg = forgotMessage {
                     Text(msg)
                         .font(.caption)
@@ -304,80 +367,106 @@ struct LoginView: View {
                         .frame(maxWidth: .infinity)
                 }
 
-                TextField("6-digit code", text: $resetCode)
-                    .keyboardType(.numberPad)
-                    .textContentType(.oneTimeCode)
-                    .autocorrectionDisabled()
-                    .textFieldStyle(.roundedBorder)
-                    .onChange(of: resetCode) { _, newValue in
-                        resetCode = String(newValue.filter(\.isNumber).prefix(6))
-                    }
+                inputField(
+                    icon: "number",
+                    placeholder: "6-digit code",
+                    text: $resetCode,
+                    keyboardType: .numberPad
+                )
+                .onChange(of: resetCode) { _, newValue in
+                    resetCode = String(newValue.filter(\.isNumber).prefix(6))
+                }
 
-                SecureField("New password", text: $newPassword)
-                    .textContentType(.newPassword)
-                    .textFieldStyle(.roundedBorder)
+                inputField(
+                    icon: "lock",
+                    placeholder: "New password",
+                    text: $newPassword,
+                    isSecure: true,
+                    contentType: .newPassword
+                )
 
                 Text("Minimum 8 characters")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.tertiary)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, 4)
 
                 if let error = auth.error {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .transition(.opacity)
+                    errorBanner(error)
                 }
 
                 Button {
                     Task {
                         auth.error = nil
                         await auth.resetPassword(email: forgotEmail, code: resetCode, newPassword: newPassword)
-
-                        if auth.error == nil {
-                            // Auto-logged in — auth.isAuthenticated will flip via saveTokens
-                        }
                     }
                 } label: {
                     if auth.loading {
                         ProgressView()
+                            .tint(.white)
                             .frame(maxWidth: .infinity)
                     } else {
                         Text("Reset Password")
+                            .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
                     }
                 }
                 .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.roundedRectangle(radius: 10))
+                .controlSize(.large)
                 .disabled(resetCode.count != 6 || newPassword.count < 8 || auth.loading)
             }
             .padding(.horizontal, 32)
 
-            Button {
-                auth.error = nil
-                Task {
-                    await auth.forgotPassword(email: forgotEmail)
-
-                    if auth.error == nil {
-                        forgotMessage = "A new code has been sent to your email."
-                    }
-                }
-            } label: {
-                Text("Resend code")
-                    .font(.footnote)
-            }
-            .disabled(auth.loading)
-
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
+            VStack(spacing: 8) {
+                Button {
                     auth.error = nil
-                    view = .login
+                    Task {
+                        await auth.forgotPassword(email: forgotEmail)
+
+                        if auth.error == nil {
+                            forgotMessage = "A new code has been sent to your email."
+                        }
+                    }
+                } label: {
+                    Text("Resend code")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
-            } label: {
-                Text("Back to sign in")
-                    .font(.footnote)
+                .disabled(auth.loading)
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        auth.error = nil
+                        view = .login
+                    }
+                } label: {
+                    Text("Back to sign in")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Spacer()
         }
+    }
+
+    // MARK: - Error Banner
+
+    private func errorBanner(_ message: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .font(.system(size: 14))
+
+            Text(message)
+                .font(.caption)
+        }
+        .foregroundStyle(.red)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.red.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .transition(.opacity)
     }
 }
