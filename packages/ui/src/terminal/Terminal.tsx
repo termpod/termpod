@@ -754,6 +754,13 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       });
       term.onTitleChange((title) => onTitleChangeRef.current?.(title));
 
+      // Clear autocomplete when switching to alternate screen (TUI apps)
+      term.buffer.onBufferChange(() => {
+        if (term.buffer.active.type === 'alternate') {
+          clearAutocompleteUi();
+        }
+      });
+
       // Copy on select: auto-copy to clipboard when text is selected
       term.onSelectionChange(() => {
         if (!copyOnSelectRef.current) return;
@@ -825,6 +832,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       // Format: input;<base64_buffer>;<cursor_pos> or execute
       term.parser.registerOscHandler(134, (data) => {
         if (!autocompleteEnabledRef.current) return false;
+        // Suppress autocomplete in TUI apps (vim, claude, etc.) that use alternate screen
+        if (term.buffer.active.type === 'alternate') return false;
 
         const parts = data.split(';');
         const type = parts[0];
