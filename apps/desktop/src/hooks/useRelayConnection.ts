@@ -619,6 +619,16 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     [],
   );
 
+  // Auto-connect relay when plan upgrades from free to pro (gated → allowed)
+  const isRelayAllowed = options.isRelayAllowed ?? true;
+
+  useEffect(() => {
+    if (isRelayAllowed && status === 'gated' && sessionRef.current) {
+      updateStatus('connecting');
+      connectWebSocketRef.current(sessionRef.current);
+    }
+  }, [isRelayAllowed, status, updateStatus]);
+
   useEffect(() => {
     return () => {
       intentionalCloseRef.current = true;

@@ -510,6 +510,7 @@ struct DeviceSessionsView: View {
     private func createAndJoinSession(id: String, name: String, wsURL: URL, token: String? = nil) {
         let connection = ConnectionManager(sessionId: id)
         connection.sessionName = name
+        connection.isRelayAllowed = (auth.subscription?.isPro ?? false) || (auth.subscription?.selfHosted ?? false)
         connection.deviceTransport = deviceTransport
         connection.configureLocalTransport(with: deviceTransport)
         let newSession = Session(id: id, name: name, connection: connection)

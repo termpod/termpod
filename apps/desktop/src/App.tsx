@@ -14,7 +14,7 @@ import { ConnectedDevicesPanel } from './components/ConnectedDevicesPanel';
 import { LoginScreen } from './components/LoginScreen';
 import { FullDiskAccessBanner } from './components/FullDiskAccessBanner';
 import { UpdateBanner } from './components/UpdateBanner';
-import { RelayGatedBanner } from './components/RelayGatedBanner';
+import { RelayGatedBanner, TrialExpiringBanner } from './components/RelayGatedBanner';
 import { useUpdater } from './hooks/useUpdater';
 import { KeybindingsPanel } from './components/KeybindingsPanel';
 import { CommandPalette } from './components/CommandPalette';
@@ -950,6 +950,7 @@ export function App() {
       />
       <UpdateBanner {...updater} />
       <RelayGatedBanner visible={!isPro && !selfHosted} />
+      <TrialExpiringBanner visible={isOnTrial && trialDaysLeft <= 2} daysLeft={trialDaysLeft} />
       <FullDiskAccessBanner />
       {activeId && shareMap.has(activeId) && (
         <div className="share-bar">

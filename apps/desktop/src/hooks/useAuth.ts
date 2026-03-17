@@ -371,6 +371,8 @@ function updateSubscriptionState(next: SubscriptionState | null): void {
   }
 }
 
+let lastSubscriptionFetchAt = 0;
+
 async function fetchSubscription(): Promise<void> {
   if (!store.state.accessToken) {
     updateSubscriptionState(null);
@@ -386,6 +388,7 @@ async function fetchSubscription(): Promise<void> {
 
     const data = (await res.json()) as SubscriptionState;
     updateSubscriptionState(data);
+    lastSubscriptionFetchAt = Date.now();
   } catch {}
 }
 
@@ -444,3 +447,17 @@ setInterval(
   },
   30 * 60 * 1000,
 );
+
+// Re-fetch subscription when app regains focus (e.g. user upgraded in browser)
+const SUBSCRIPTION_DEBOUNCE = 10_000;
+
+document.addEventListener('visibilitychange', () => {
+  if (
+    document.visibilityState === 'visible' &&
+    store.state.accessToken &&
+    Date.now() - lastSubscriptionFetchAt > SUBSCRIPTION_DEBOUNCE
+  ) {
+    lastSubscriptionFetchAt = Date.now();
+    fetchSubscription();
+  }
+});

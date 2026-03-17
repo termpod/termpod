@@ -15,6 +15,8 @@ final class ConnectionManager: ObservableObject {
     @Published var state: RelayClient.ConnectionState = .disconnected
     @Published var connectedViewers: Int = 0
     @Published var ptySize: (cols: Int, rows: Int) = (80, 24)
+    /// When false, skip relay connection (free plan on hosted relay). Local/WebRTC still work.
+    var isRelayAllowed = true
     var isBackgrounded = false
     var sessionName: String = ""
     weak var terminalView: RemoteTerminalView?
@@ -105,7 +107,10 @@ final class ConnectionManager: ObservableObject {
     // MARK: - Connection
 
     func connect(wsURL: URL, token: String? = nil) {
-        relay.connect(wsURL: wsURL, token: token)
+        if isRelayAllowed {
+            relay.connect(wsURL: wsURL, token: token)
+        }
+
         localTransport.startDiscovery()
     }
 
@@ -143,7 +148,7 @@ final class ConnectionManager: ObservableObject {
             localTransport.sendInput(data)
         } else if isWebRTCAvailable {
             deviceTransport?.sendWebRTCSessionInput(sessionId: sessionId, data: data)
-        } else {
+        } else if isRelayAllowed {
             relay.sendInput(data)
         }
     }
@@ -176,7 +181,7 @@ final class ConnectionManager: ObservableObject {
             localTransport.sendResize(cols: cols, rows: rows)
         } else if isWebRTCAvailable {
             deviceTransport?.sendWebRTCSessionResize(sessionId: sessionId, cols: cols, rows: rows)
-        } else {
+        } else if isRelayAllowed {
             relay.sendResize(cols: cols, rows: rows)
         }
     }

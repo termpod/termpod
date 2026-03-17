@@ -2066,6 +2066,27 @@ body,
   text-decoration: underline;
 }
 
+.relay-gated-dismiss {
+  font-size: 14px;
+  font-family: var(--font-sans);
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  padding: 0 2px;
+  cursor: pointer;
+  line-height: 1;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.relay-gated-dismiss:hover {
+  opacity: 1;
+}
+
+.relay-gated-banner.trial-expiring {
+  border-bottom-color: rgba(224, 175, 104, 0.15);
+}
+
 /* ── Terminal Area ── */
 .terminal-area {
   position: relative;

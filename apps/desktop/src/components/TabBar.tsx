@@ -273,7 +273,7 @@ const STATUS_COLORS: Record<RelayStatusType, string> = {
   reconnecting: '#f0a030',
   connected: '#50c878',
   error: '#e05050',
-  gated: '#f0a030',
+  gated: '#8b8fa3',
 };
 
 const STATUS_LABELS: Record<RelayStatusType, string> = {
