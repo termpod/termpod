@@ -694,3 +694,270 @@ describe('Request rate-limit policies', () => {
     });
   });
 });
+
+// --- Password reset rate limiting ---
+
+describe('Password reset rate limit policies', () => {
+  it('has per-minute limit on forgot-password', () => {
+    const rule = getInternalRateLimitRule('auth.forgot_password');
+    expect(rule).not.toBeNull();
+    expect(rule!.max).toBe(1);
+    expect(rule!.windowMs).toBe(60_000);
+  });
+
+  it('has daily cap on forgot-password emails', () => {
+    const rule = getInternalRateLimitRule('auth.forgot_password_daily');
+    expect(rule).not.toBeNull();
+    expect(rule!.max).toBe(5);
+    expect(rule!.windowMs).toBe(24 * 60 * 60_000);
+  });
+
+  it('has per-user rate limit on reset-password attempts', () => {
+    const rule = getInternalRateLimitRule('auth.reset_password');
+    expect(rule).not.toBeNull();
+    expect(rule!.max).toBe(5);
+    expect(rule!.windowMs).toBe(15 * 60_000);
+  });
+});
+
+// --- Reset code brute-force protection (mirrors handleResetPassword) ---
+
+describe('Reset code brute-force protection', () => {
+  const MAX_RESET_ATTEMPTS = 5;
+
+  interface ResetState {
+    resetCode: string | null;
+    resetCodeExpiresAt: number | null;
+    resetAttempts: number;
+  }
+
+  function validateResetCode(
+    state: ResetState,
+    submittedCode: string,
+  ): { ok: boolean; error?: string; newState: ResetState } {
+    if (!state.resetCode || !state.resetCodeExpiresAt) {
+      return { ok: false, error: 'Invalid or expired code', newState: state };
+    }
+
+    if (state.resetAttempts >= MAX_RESET_ATTEMPTS) {
+      return {
+        ok: false,
+        error: 'Too many failed attempts. Request a new code.',
+        newState: { resetCode: null, resetCodeExpiresAt: null, resetAttempts: 0 },
+      };
+    }
+
+    if (Date.now() > state.resetCodeExpiresAt) {
+      return {
+        ok: false,
+        error: 'Code has expired',
+        newState: { resetCode: null, resetCodeExpiresAt: null, resetAttempts: 0 },
+      };
+    }
+
+    if (submittedCode !== state.resetCode) {
+      return {
+        ok: false,
+        error: 'Invalid or expired code',
+        newState: { ...state, resetAttempts: state.resetAttempts + 1 },
+      };
+    }
+
+    return {
+      ok: true,
+      newState: { resetCode: null, resetCodeExpiresAt: null, resetAttempts: 0 },
+    };
+  }
+
+  it('accepts correct code on first attempt', () => {
+    const state: ResetState = {
+      resetCode: '123456',
+      resetCodeExpiresAt: Date.now() + 60_000,
+      resetAttempts: 0,
+    };
+
+    const result = validateResetCode(state, '123456');
+    expect(result.ok).toBe(true);
+    expect(result.newState.resetCode).toBeNull();
+    expect(result.newState.resetAttempts).toBe(0);
+  });
+
+  it('increments attempts on wrong code', () => {
+    const state: ResetState = {
+      resetCode: '123456',
+      resetCodeExpiresAt: Date.now() + 60_000,
+      resetAttempts: 0,
+    };
+
+    const result = validateResetCode(state, '000000');
+    expect(result.ok).toBe(false);
+    expect(result.newState.resetAttempts).toBe(1);
+    expect(result.newState.resetCode).toBe('123456'); // code still valid
+  });
+
+  it('invalidates code after 5 failed attempts', () => {
+    const state: ResetState = {
+      resetCode: '123456',
+      resetCodeExpiresAt: Date.now() + 60_000,
+      resetAttempts: 5,
+    };
+
+    const result = validateResetCode(state, '123456'); // even correct code fails
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('Too many failed attempts');
+    expect(result.newState.resetCode).toBeNull(); // code invalidated
+  });
+
+  it('allows attempts up to the limit', () => {
+    let state: ResetState = {
+      resetCode: '123456',
+      resetCodeExpiresAt: Date.now() + 60_000,
+      resetAttempts: 0,
+    };
+
+    // 4 wrong attempts — should still work
+    for (let i = 0; i < 4; i++) {
+      const result = validateResetCode(state, '000000');
+      expect(result.ok).toBe(false);
+      state = result.newState;
+    }
+
+    expect(state.resetAttempts).toBe(4);
+    expect(state.resetCode).toBe('123456'); // code still valid
+
+    // 5th wrong attempt — still fails with incremented counter
+    const fifthResult = validateResetCode(state, '000000');
+    expect(fifthResult.ok).toBe(false);
+    state = fifthResult.newState;
+    expect(state.resetAttempts).toBe(5);
+
+    // 6th attempt (correct code) — blocked, code invalidated
+    const sixthResult = validateResetCode(state, '123456');
+    expect(sixthResult.ok).toBe(false);
+    expect(sixthResult.error).toContain('Too many failed attempts');
+    expect(sixthResult.newState.resetCode).toBeNull();
+  });
+
+  it('rejects expired code', () => {
+    const state: ResetState = {
+      resetCode: '123456',
+      resetCodeExpiresAt: Date.now() - 1000, // expired
+      resetAttempts: 0,
+    };
+
+    const result = validateResetCode(state, '123456');
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('expired');
+    expect(result.newState.resetCode).toBeNull();
+  });
+
+  it('rejects when no code is set', () => {
+    const state: ResetState = {
+      resetCode: null,
+      resetCodeExpiresAt: null,
+      resetAttempts: 0,
+    };
+
+    const result = validateResetCode(state, '123456');
+    expect(result.ok).toBe(false);
+  });
+
+  it('accepts correct code after 4 failures', () => {
+    let state: ResetState = {
+      resetCode: '123456',
+      resetCodeExpiresAt: Date.now() + 60_000,
+      resetAttempts: 0,
+    };
+
+    // 4 wrong attempts
+    for (let i = 0; i < 4; i++) {
+      state = validateResetCode(state, '000000').newState;
+    }
+
+    // 5th attempt with correct code — should succeed
+    const result = validateResetCode(state, '123456');
+    expect(result.ok).toBe(true);
+  });
+});
+
+// --- IP rate limiting for forgot-password (mirrors Worker-level check) ---
+
+describe('IP rate limiting for forgot-password', () => {
+  const IP_MAX = 5;
+
+  function createIPLimiter() {
+    const counters = new Map<string, { count: number; resetAt: number }>();
+
+    return {
+      check(ip: string): boolean {
+        const now = Date.now();
+        const entry = counters.get(ip);
+
+        if (!entry || entry.resetAt <= now) {
+          counters.set(ip, { count: 1, resetAt: now + 60 * 60 * 1000 });
+          return true;
+        }
+
+        if (entry.count >= IP_MAX) {
+          return false;
+        }
+
+        entry.count += 1;
+        return true;
+      },
+      counters,
+    };
+  }
+
+  it('allows first request from an IP', () => {
+    const limiter = createIPLimiter();
+    expect(limiter.check('1.2.3.4')).toBe(true);
+  });
+
+  it('allows up to 5 requests from the same IP', () => {
+    const limiter = createIPLimiter();
+
+    for (let i = 0; i < 5; i++) {
+      expect(limiter.check('1.2.3.4')).toBe(true);
+    }
+  });
+
+  it('blocks the 6th request from the same IP', () => {
+    const limiter = createIPLimiter();
+
+    for (let i = 0; i < 5; i++) {
+      limiter.check('1.2.3.4');
+    }
+
+    expect(limiter.check('1.2.3.4')).toBe(false);
+  });
+
+  it('tracks IPs independently', () => {
+    const limiter = createIPLimiter();
+
+    for (let i = 0; i < 5; i++) {
+      limiter.check('1.2.3.4');
+    }
+
+    // Different IP should still be allowed
+    expect(limiter.check('5.6.7.8')).toBe(true);
+    // Original IP is blocked
+    expect(limiter.check('1.2.3.4')).toBe(false);
+  });
+
+  it('resets after window expires', () => {
+    const limiter = createIPLimiter();
+
+    for (let i = 0; i < 5; i++) {
+      limiter.check('1.2.3.4');
+    }
+
+    expect(limiter.check('1.2.3.4')).toBe(false);
+
+    // Simulate window expiry
+    const entry = limiter.counters.get('1.2.3.4')!;
+    entry.resetAt = Date.now() - 1;
+
+    expect(limiter.check('1.2.3.4')).toBe(true);
+  });
+});
