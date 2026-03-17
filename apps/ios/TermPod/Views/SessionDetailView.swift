@@ -39,11 +39,11 @@ struct SessionDetailView: View {
                     .animation(.easeInOut(duration: 0.25), value: connection.state.isTransient)
 
                 TerminalHostView(connection: connection)
-                    .opacity(connection.state == .live ? 1 : 0)
+                    .opacity(connection.isSessionReady ? 1 : 0)
             }
 
             // Connecting overlay — shown until session is live
-            if connection.state != .live && connection.state != .disconnected {
+            if !connection.isSessionReady && connection.state != .disconnected {
                 connectingOverlay
                     .transition(.opacity)
             }
@@ -87,7 +87,7 @@ struct SessionDetailView: View {
         .onReceive(NotificationCenter.default.publisher(for: .terminalBell)) { _ in
             handleBell()
         }
-        .animation(.easeInOut(duration: 0.3), value: connection.state == .live)
+        .animation(.easeInOut(duration: 0.3), value: connection.isSessionReady)
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = settings.keepScreenAwake
         }

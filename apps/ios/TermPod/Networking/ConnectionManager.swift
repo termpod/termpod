@@ -13,8 +13,14 @@ final class ConnectionManager: ObservableObject {
 
     @Published var activeTransport: TransportType = .relay
     @Published var state: RelayClient.ConnectionState = .disconnected
+    @Published var hasReceivedData = false
     @Published var connectedViewers: Int = 0
     @Published var ptySize: (cols: Int, rows: Int) = (80, 24)
+    /// Whether the session is ready to display — either relay is live or any transport has delivered data.
+    var isSessionReady: Bool {
+        state == .live || hasReceivedData
+    }
+
     /// When false, skip relay connection (free plan on hosted relay). Local/WebRTC still work.
     var isRelayAllowed = true
     var isBackgrounded = false
@@ -354,6 +360,9 @@ final class ConnectionManager: ObservableObject {
     }
 
     private func bufferAndDeliver(_ data: Data) {
+        if !hasReceivedData {
+            hasReceivedData = true
+        }
         scrollbackBuffer.append(data)
         if scrollbackBuffer.count > maxScrollbackSize {
             scrollbackBuffer = Data(scrollbackBuffer.suffix(maxScrollbackSize))

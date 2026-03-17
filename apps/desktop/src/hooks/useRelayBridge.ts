@@ -253,6 +253,8 @@ export function useRelayBridge(
   webrtcConnectedRef.current = webrtc.isConnected;
   const isRelayAllowedRef = useRef(bridgeOptions?.isRelayAllowed ?? true);
   isRelayAllowedRef.current = bridgeOptions?.isRelayAllowed ?? true;
+  const localViewersRef = useRef(localServer.localViewers);
+  localViewersRef.current = localServer.localViewers;
 
   useEffect(() => {
     if (!session || session.exited) {
@@ -275,7 +277,7 @@ export function useRelayBridge(
       // Always send share frames via relay (share viewers are relay-only)
       sendShareFrame(data);
 
-      const hasLocal = localServer.localViewers > 0;
+      const hasLocal = localViewersRef.current > 0;
       const sharedWrtc = bridgeOptionsRef.current?.getSharedWebRTC?.();
       const hasWebRTC = sharedWrtc?.isConnected || webrtcConnectedRef.current;
 
