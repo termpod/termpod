@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import type {
   Settings,
   CursorStyle,
@@ -731,7 +732,7 @@ export function SettingsPanel({
                               <button
                                 className="sp-action-btn"
                                 onClick={() =>
-                                  window.open('https://polar.sh/termpod/portal', '_blank')
+                                  invoke('open_url', { url: 'https://polar.sh/termpod/portal' })
                                 }
                               >
                                 Manage Subscription
@@ -743,7 +744,9 @@ export function SettingsPanel({
                                   const params = email
                                     ? `?customer_email=${encodeURIComponent(email)}`
                                     : '';
-                                  window.open(`https://termpod.dev/pricing${params}`, '_blank');
+                                  invoke('open_url', {
+                                    url: `https://termpod.dev/pricing${params}`,
+                                  });
                                 }}
                               >
                                 {subscription.isOnTrial

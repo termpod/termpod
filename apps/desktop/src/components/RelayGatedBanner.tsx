@@ -1,3 +1,5 @@
+import { invoke } from '@tauri-apps/api/core';
+
 interface Props {
   visible: boolean;
 }
@@ -14,7 +16,7 @@ export function RelayGatedBanner({ visible }: Props) {
       </span>
       <button
         className="relay-gated-link"
-        onClick={() => window.open('https://termpod.dev/pricing', '_blank')}
+        onClick={() => invoke('open_url', { url: 'https://termpod.dev/pricing' })}
       >
         Upgrade
       </button>
