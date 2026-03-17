@@ -231,6 +231,23 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
     </div>
   );
 
+  const ServerIcon = () => (
+    <svg
+      className="login-input-icon"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="2" y="2" width="12" height="5" rx="1.5" />
+      <rect x="2" y="9" width="12" height="5" rx="1.5" />
+      <circle cx="5" cy="4.5" r="0.75" fill="currentColor" stroke="none" />
+      <circle cx="5" cy="11.5" r="0.75" fill="currentColor" stroke="none" />
+    </svg>
+  );
+
   const customServerSection = (
     <div className="login-custom-server">
       <button
@@ -238,30 +255,61 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
         className="login-custom-server-toggle"
         onClick={() => setShowCustomServer((s) => !s)}
       >
+        <svg
+          className="login-custom-server-icon"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="2" y="2" width="12" height="5" rx="1.5" />
+          <rect x="2" y="9" width="12" height="5" rx="1.5" />
+          <circle cx="5" cy="4.5" r="0.75" fill="currentColor" stroke="none" />
+          <circle cx="5" cy="11.5" r="0.75" fill="currentColor" stroke="none" />
+        </svg>
+        {!showCustomServer && customRelayUrl ? displayUrl(customRelayUrl) : 'Self-hosted server'}
         <span
           className="login-custom-server-chevron"
           style={{ transform: showCustomServer ? 'rotate(90deg)' : 'none' }}
         >
           &#9656;
         </span>
-        {!showCustomServer && customRelayUrl ? displayUrl(customRelayUrl) : 'Custom server'}
       </button>
       {showCustomServer && (
-        <div className="login-custom-server-body">
-          <input
-            type="text"
-            placeholder="https://relay.example.com"
-            value={customRelayUrl}
-            onChange={(e) => {
-              setCustomRelayUrl(e.target.value);
-              setCustomUrlError(null);
-            }}
-            className={`login-input login-input-plain login-custom-server-input ${customUrlError ? 'login-input-error' : ''}`}
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-          />
-          {customUrlError && <div className="login-custom-server-error">{customUrlError}</div>}
+        <div className="login-custom-server-panel">
+          <div className="login-custom-server-body">
+            <label className="login-custom-server-label">Relay URL</label>
+            <div className="login-input-group">
+              <ServerIcon />
+              <input
+                type="text"
+                placeholder="https://relay.example.com"
+                value={customRelayUrl}
+                onChange={(e) => {
+                  setCustomRelayUrl(e.target.value);
+                  setCustomUrlError(null);
+                }}
+                className={`login-input login-custom-server-input ${customUrlError ? 'login-input-error' : ''}`}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+            </div>
+            {customUrlError && <div className="login-custom-server-error">{customUrlError}</div>}
+            <p className="login-custom-server-hint">
+              Leave empty to use the default hosted relay.{' '}
+              <a
+                href="https://github.com/termpod/termpod/blob/main/docs/SELF-HOSTING.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="login-custom-server-link"
+              >
+                Self-hosting guide &rarr;
+              </a>
+            </p>
+          </div>
         </div>
       )}
     </div>

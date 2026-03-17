@@ -58,53 +58,80 @@ struct LoginView: View {
     }
 
     private var customServerSection: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             Button {
                 withAnimation(.easeInOut(duration: 0.15)) {
                     showCustomServer.toggle()
                 }
             } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 8, weight: .medium))
-                        .rotationEffect(.degrees(showCustomServer ? 90 : 0))
-                        .animation(.easeInOut(duration: 0.15), value: showCustomServer)
+                HStack(spacing: 6) {
+                    Image(systemName: "server.rack")
+                        .font(.system(size: 11))
+                        .opacity(0.6)
 
                     if !showCustomServer, !customRelayURL.isEmpty,
                        let host = URL(string: customRelayURL)?.host {
                         Text(host)
-                            .font(.system(size: 11, design: .monospaced))
+                            .font(.system(size: 12))
                     } else {
-                        Text("Custom server")
-                            .font(.system(size: 11, design: .monospaced))
+                        Text("Self-hosted server")
+                            .font(.system(size: 12))
                     }
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8, weight: .medium))
+                        .rotationEffect(.degrees(showCustomServer ? 90 : 0))
+                        .animation(.easeInOut(duration: 0.15), value: showCustomServer)
+                        .opacity(0.5)
                 }
                 .foregroundStyle(.secondary)
-                .opacity(0.5)
+                .opacity(0.6)
             }
             .buttonStyle(.plain)
 
             if showCustomServer {
-                VStack(alignment: .leading, spacing: 4) {
-                    TextField("https://relay.example.com", text: $customRelayURL)
-                        .font(.system(size: 13, design: .monospaced))
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(.URL)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(Color(UIColor.tertiarySystemGroupedBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .onChange(of: customRelayURL) { _, _ in
-                            customURLError = nil
-                        }
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Relay URL")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 10) {
+                        Image(systemName: "server.rack")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 18)
+
+                        TextField("https://relay.example.com", text: $customRelayURL)
+                            .font(.system(size: 13, design: .monospaced))
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .keyboardType(.URL)
+                            .onChange(of: customRelayURL) { _, _ in
+                                customURLError = nil
+                            }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(Color(UIColor.tertiarySystemGroupedBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
 
                     if let err = customURLError {
                         Text(err)
                             .font(.caption2)
                             .foregroundStyle(.red)
                     }
+
+                    HStack(spacing: 0) {
+                        Text("Leave empty for default relay. ")
+                            .foregroundStyle(.tertiary)
+                        Link("Self-hosting guide \u{2192}", destination: URL(string: "https://github.com/termpod/termpod/blob/main/docs/SELF-HOSTING.md")!)
+                            .foregroundStyle(Self.gold)
+                    }
+                    .font(.system(size: 11))
                 }
+                .padding(14)
+                .background(Color(UIColor.quaternarySystemFill))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
                 .padding(.horizontal, 32)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }

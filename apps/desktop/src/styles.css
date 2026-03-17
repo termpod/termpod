@@ -2501,11 +2501,11 @@ body,
 
 .login-custom-server {
   width: 100%;
-  margin-top: 4px;
+  margin-top: 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 0;
 }
 
 .login-custom-server-toggle {
@@ -2513,31 +2513,55 @@ body,
   background: none;
   color: var(--login-text-dark);
   font-size: 11px;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   transition: color var(--transition-fast);
-  letter-spacing: 0.3px;
+  padding: 4px 0;
 }
 
 .login-custom-server-toggle:hover {
   color: var(--login-text-dim);
 }
 
+.login-custom-server-icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0.6;
+}
+
 .login-custom-server-chevron {
   display: inline-block;
   font-size: 8px;
+  opacity: 0.5;
   transition: transform 0.15s ease;
+  margin-left: 2px;
+}
+
+.login-custom-server-panel {
+  width: 100%;
+  margin-top: 10px;
+  padding: 14px;
+  border: 1px solid var(--login-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  animation: login-expand 0.2s ease;
 }
 
 .login-custom-server-body {
-  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  animation: login-expand 0.2s ease;
+  gap: 6px;
+}
+
+.login-custom-server-label {
+  font-size: 11px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  color: var(--login-text-dim);
+  letter-spacing: 0.3px;
 }
 
 @keyframes login-expand {
@@ -2554,14 +2578,30 @@ body,
 .login-custom-server-input {
   font-size: 12px;
   font-family: var(--font-mono);
-  padding: 8px 10px 8px 10px;
 }
 
 .login-custom-server-error {
   font-size: 11px;
   font-family: var(--font-sans);
   color: var(--error);
-  text-align: left;
+}
+
+.login-custom-server-hint {
+  font-size: 11px;
+  font-family: var(--font-sans);
+  color: var(--login-text-dark);
+  line-height: 1.5;
+  margin-top: 2px;
+}
+
+.login-custom-server-link {
+  color: var(--login-gold);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.login-custom-server-link:hover {
+  color: #d4b46e;
 }
 
 /* ── Share Dialog ── */
