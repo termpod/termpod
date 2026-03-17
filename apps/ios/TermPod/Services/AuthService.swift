@@ -112,7 +112,7 @@ final class AuthService: ObservableObject {
             if isAuthenticated {
                 // Refresh immediately on launch, then every 12 minutes
                 Task {
-                    await self.refresh()
+                    _ = await self.refresh()
                     await self.fetchSubscription()
                 }
                 startAutoRefresh()
