@@ -1,6 +1,6 @@
 # TermPod
 
-[![CI](https://github.com/nicepkg/termpod/actions/workflows/ci.yml/badge.svg)](https://github.com/nicepkg/termpod/actions/workflows/ci.yml)
+[![CI](https://github.com/termpod/termpod/actions/workflows/ci.yml/badge.svg)](https://github.com/termpod/termpod/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **Your terminal, everywhere.**
