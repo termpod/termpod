@@ -14,6 +14,8 @@ The relay handles:
 
 The relay is **zero-knowledge** — all terminal data is E2E encrypted (ECDH + AES-256-GCM). The relay forwards opaque ciphertext and cannot read your terminal content.
 
+On the hosted relay (termpod.dev), relay terminal data forwarding and TURN are gated behind a Pro subscription. **Self-hosted relays bypass all plan gates** — all features are unlocked for all users.
+
 ## Prerequisites
 
 - [Cloudflare account](https://dash.cloudflare.com/sign-up) (free tier works)

@@ -155,7 +155,21 @@ WebRTC signaling flows through the Device WS (User DO), not the per-session WS. 
 
 Transport priority: **Local WS (Bonjour) > WebRTC DataChannel > Relay Device WS**
 
-The mobile app receives data from **all** connected transports simultaneously (whichever delivers first), but sends through the **best available** transport only. The relay Device WS is always connected regardless of P2P status — it serves as the fallback data path and the control plane for session management and WebRTC signaling.
+The desktop sends terminal data through the **single best connected transport** — not all at once. If Local viewers are present, data goes via Local only. If WebRTC is connected, data goes via WebRTC. Relay is the last resort and requires a Pro subscription on hosted relays. Scrollback is always buffered locally regardless of active transport. Share-encrypted frames (`0xE1`) always go via relay since share viewers are relay-only.
+
+The relay Device WS stays connected regardless of P2P status — it serves as the control plane for session management, signaling, and as the fallback data path for Pro users.
+
+### Subscription-Gated Transports
+
+| Transport           | Free tier | Pro tier |
+| ------------------- | --------- | -------- |
+| Local (Bonjour)     | Yes       | Yes      |
+| WebRTC (STUN)       | Yes       | Yes      |
+| WebRTC (TURN)       | No        | Yes      |
+| Relay terminal data | No        | Yes      |
+| Session sharing     | No        | Yes      |
+
+Free users get Local + WebRTC/STUN at zero infrastructure cost. The relay and TURN — the two transports with ongoing bandwidth costs — require a Pro subscription. Self-hosted relays bypass all plan gates.
 
 ### New Viewer Connects (mid-session)
 

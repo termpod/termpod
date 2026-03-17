@@ -108,9 +108,10 @@ For iOS, run `pnpm ios:generate` to generate `Config.xcconfig` from your `.env` 
 
 ### Relay (fallback)
 
-- If both Bonjour and WebRTC are unavailable, all data flows through the relay Device WS
+- If both Bonjour and WebRTC are unavailable, terminal data flows through the relay Device WS
 - Transport badge shows "Relay" (orange)
 - The relay Device WS is always connected for signaling and session management regardless of active transport
+- **Subscription gate**: On hosted relays, session WS returns HTTP 403 for free-tier users. In local dev (Miniflare), `POLAR_WEBHOOK_SECRET` is not set by default, so the relay runs in self-hosted mode with all features unlocked. To test the subscription gate locally, set `POLAR_WEBHOOK_SECRET` in `relay/wrangler.toml` under `[vars]`
 
 ## Security
 

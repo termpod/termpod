@@ -728,7 +728,13 @@ Device-level WebSocket. Auth via `?token=JWT` query param or first-message `auth
 
 #### `GET /sessions/:sessionId/ws`
 
-Session-level WebSocket. Auth via `Authorization: Bearer <token>` header or `?token=JWT`.
+Session-level WebSocket. Auth via `?token=JWT` query param or first-message `auth` JSON.
+
+**Subscription gate**: On hosted relays (`POLAR_WEBHOOK_SECRET` set), free-tier users receive HTTP `403` with `{ code: "RELAY_UPGRADE_REQUIRED" }`. Share token viewers (`?share_token=...`) bypass the gate. Self-hosted relays skip all plan checks. As defense-in-depth, the Session DO also closes the WebSocket with code `4403` if a free user gets through via the first-message auth path.
+
+| Close Code | Meaning                          |
+| ---------- | -------------------------------- |
+| `4403`     | Relay access requires a Pro plan |
 
 ### Auto-Update Proxy (Public)
 
@@ -760,11 +766,15 @@ Authorization: Bearer <token>
 
 TermPod uses three transports in order of preference:
 
-1. **Local WebSocket (Bonjour)** — Same LAN, ~1-5ms. Desktop advertises `_termpod._tcp` via mDNS. Single multiplexed connection per device.
-2. **WebRTC DataChannel** — Different networks, ~10-30ms. STUN/TURN-based P2P. Signaling routed through Device WS.
-3. **Relay Device WS** — Fallback, ~30-80ms. Always connected for signaling, session management, and as fallback data path.
+1. **Local WebSocket (Bonjour)** — Same LAN, ~1-5ms. Desktop advertises `_termpod._tcp` via mDNS. Single multiplexed connection per device. Free tier.
+2. **WebRTC DataChannel** — Different networks, ~10-30ms. STUN-based P2P (free). TURN relay requires Pro plan. Signaling routed through Device WS.
+3. **Relay Device WS** — Fallback, ~30-80ms. Requires Pro plan on hosted relay. Always connected for signaling and session management regardless of plan.
 
-All transports use the same multiplexed binary frame format (`[channel][sid_len][sid][payload]`). The mobile app receives data from ALL connected transports but sends only through the best available one (priority order above).
+All transports use the same multiplexed binary frame format (`[channel][sid_len][sid][payload]`).
+
+**Desktop sends** terminal data through the best connected transport only (not all at once). If Local viewers are present, data goes via Local. Otherwise via WebRTC if connected. Relay is used only when no direct transport is available and the user has a Pro plan. Scrollback is always buffered locally regardless of active transport. Share frames (`0xE1`) always go via relay (share viewers are relay-only, already Pro-gated at token creation).
+
+**Mobile receives** from whichever transport the desktop is sending through, and sends input via the best available transport (same priority order).
 
 ## Versioning
 
