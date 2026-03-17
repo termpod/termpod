@@ -586,7 +586,11 @@ export class TerminalSession extends DurableObject<SessionEnv> {
 
     for (const ws of this.ctx.getWebSockets()) {
       if (ws !== sender) {
-        ws.send(json);
+        try {
+          ws.send(json);
+        } catch {
+          // Socket may have closed concurrently — ignore
+        }
       }
     }
   }
