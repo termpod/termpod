@@ -12,22 +12,40 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        gap: 10px;
         background: #1a1b26;
         z-index: 9999;
         transition: opacity 0.3s ease;
       }
       #splash.hidden { opacity: 0; pointer-events: none; }
-      #splash svg { width: 48px; height: 48px; animation: pulse 1.8s ease-in-out infinite; }
+      #splash .prompt { font-family: 'Space Grotesk', -apple-system, sans-serif; font-size: 28px; font-weight: 700; color: #C9A962; animation: pulse 1.8s ease-in-out infinite; }
+      #splash .name { font-family: 'Space Grotesk', -apple-system, sans-serif; font-size: 22px; font-weight: 700; letter-spacing: 0.15em; color: #c0caf5; }
       @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+    </style>
+    <script>
+      try {
+        var s = JSON.parse(localStorage.getItem('termpod-settings') || '{}');
+        var themes = {"tokyo-night":["#1a1b26","#c0caf5"],"dracula":["#282a36","#f8f8f2"],"catppuccin-mocha":["#1e1e2e","#cdd6f4"],"github-dark":["#0d1117","#c9d1d9"],"one-dark":["#282c34","#abb2bf"],"solarized-dark":["#002b36","#839496"],"nord":["#2e3440","#d8dee9"],"gruvbox-dark":["#282828","#ebdbb2"],"cobalt2":["#122738","#ffffff"],"synthwave-84":["#262335","#ffffff"],"ayu-dark":["#0a0e14","#b3b1ad"],"night-owl":["#011627","#d6deeb"],"rose-pine":["#191724","#e0def4"],"kanagawa":["#1f1f28","#dcd7ba"],"everforest-dark":["#2d353b","#d3c6aa"],"poimandres":["#1b1e28","#a6accd"],"vesper":["#101010","#b0b0b0"],"material-ocean":["#0f111a","#a6accd"],"aura":["#15141b","#edecee"],"moonlight":["#1e2030","#c8d3f5"],"github-light":["#ffffff","#24292e"],"solarized-light":["#fdf6e3","#657b83"],"catppuccin-latte":["#eff1f5","#4c4f69"],"rose-pine-dawn":["#faf4ed","#575279"],"gruvbox-light":["#fbf1c7","#3c3836"],"everforest-light":["#fdf6e3","#5c6a72"],"one-light":["#fafafa","#383a42"],"ayu-light":["#fafafa","#5c6166"],"night-owl-light":["#fbfbfb","#403f53"],"catppuccin-frappe":["#303446","#c6d0f5"],"tokyo-night-light":["#d5d6db","#343b58"],"kanagawa-lotus":["#f2ecbc","#545464"],"poimandres-light":["#f0f0f8","#506477"],"moonlight-light":["#f5f4f1","#444a73"],"paper":["#f2eede","#4d453e"],"winter-light":["#f0f4fc","#374252"],"horizon-light":["#fdf0ed","#403c3d"],"vitesse-light":["#ffffff","#393a34"]};
+        var t = themes[s.theme];
+        if (t) {
+          var bg = t[0], fg = t[1];
+          var r = parseInt(bg.slice(1), 16), lum = ((r >> 16) & 255) * 299 + ((r >> 8) & 255) * 587 + (r & 255) * 114;
+          var isLight = lum / 1000 > 128;
+          document.documentElement.style.cssText = '--splash-bg:' + bg + ';--splash-fg:' + fg + ';--splash-prompt:' + (isLight ? '#8a7030' : '#C9A962');
+        }
+      } catch(e) {}
+    </script>
+    <style>
+      body { background: var(--splash-bg, #1a1b26); }
+      #splash { background: var(--splash-bg, #1a1b26); }
+      #splash .prompt { color: var(--splash-prompt, #C9A962); }
+      #splash .name { color: var(--splash-fg, #c0caf5); }
     </style>
   </head>
   <body>
     <div id="splash">
-      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="2" y="3" width="20" height="18" rx="3" stroke="#7aa2f7" stroke-width="1.5"/>
-        <path d="M6 9l4 3-4 3" stroke="#7aa2f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        <line x1="12" y1="15" x2="18" y2="15" stroke="#7aa2f7" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
+      <span class="prompt">&gt;_</span>
+      <span class="name">TERMPOD</span>
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
