@@ -212,11 +212,18 @@ All sensitive values are configured via environment variables. See `.env.example
 
 - `VITE_RELAY_URL` — Relay WebSocket URL (desktop app, via Vite)
 - `JWT_SECRET` — Relay server signing key (Cloudflare Worker secret)
+- `RESEND_API_KEY` — Email service for password reset (Cloudflare Worker secret)
+- `EMAIL_FROM` — Sender address for emails (optional, defaults to TermPod noreply)
+- `VITE_SENTRY_DSN` — Sentry error tracking for desktop (optional)
+- `SENTRY_DSN` — Sentry error tracking for relay + iOS (optional)
 - `APPLE_TEAM_ID` — Apple Developer Team ID (iOS + macOS signing)
 - `APPLE_SIGNING_IDENTITY` — macOS code signing identity
+- `GITHUB_TOKEN` — GitHub token for auto-update proxy (Cloudflare Worker secret)
 - `TURN_KEY_ID` — Cloudflare TURN key ID (optional, for WebRTC across symmetric NATs)
 - `TURN_KEY_API_TOKEN` — Cloudflare TURN API token (optional)
 
-The iOS app reads relay URL and team ID from `Config.xcconfig`, generated from `.env` by `apps/ios/generate-config.sh`.
+The iOS app reads relay URL, team ID, and Sentry DSN from `Config.xcconfig`, generated from `.env` by `apps/ios/generate-config.sh`.
 
 TURN is optional — if not configured, the relay returns 503 and clients fall back to STUN-only with the relay WebSocket as the final fallback transport.
+
+The relay can be self-hosted on Cloudflare's free tier. See [SELF-HOSTING.md](./SELF-HOSTING.md) for a complete guide.

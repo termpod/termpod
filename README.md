@@ -204,6 +204,7 @@ wrangler deploy
 
 - [Architecture Overview](./docs/ARCHITECTURE.md)
 - [Protocol Specification](./docs/PROTOCOL.md)
+- [Self-Hosting the Relay](./docs/SELF-HOSTING.md)
 - [Contributing](./docs/CONTRIBUTING.md)
 
 ## License
