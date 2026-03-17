@@ -1108,43 +1108,25 @@ async function handleDeviceWebSocket(
     return corsJson({ error: 'Invalid device ID' }, { status: 400 });
   }
 
-  // Auth: first-message flow (DO handles JWT validation)
-  // We still need the userId to route to the correct User DO.
-  // Try to extract from Authorization header or URL token for routing.
-  const headers = new Headers(request.headers);
-  headers.set('X-JWT-Secret', env.JWT_SECRET);
-
-  // Extract userId for DO routing only — actual auth is always via first-message in the DO.
-  // This avoids leaking the JWT in URL query strings to logs/proxies.
-  const auth = request.headers.get('Authorization');
+  // Extract userId from URL token for DO routing only — actual auth is via first-message in the DO.
+  const url = new URL(request.url);
+  const urlToken = url.searchParams.get('token');
   let userId: string | null = null;
 
-  if (auth?.startsWith('Bearer ')) {
-    const token = auth.slice(7);
-    const payload = await verifyJWT(token, env.JWT_SECRET);
+  if (urlToken) {
+    const payload = await verifyJWT(urlToken, env.JWT_SECRET);
 
     if (payload?.type === 'access') {
       userId = payload.sub;
     }
   }
 
-  // Fallback: extract userId from URL token for routing (but do NOT mark as authenticated)
-  if (!userId) {
-    const url = new URL(request.url);
-    const urlToken = url.searchParams.get('token');
-
-    if (urlToken) {
-      const payload = await verifyJWT(urlToken, env.JWT_SECRET);
-
-      if (payload?.type === 'access') {
-        userId = payload.sub;
-      }
-    }
-  }
-
   if (!userId) {
     return corsJson({ error: 'Authentication required' }, { status: 401 });
   }
+
+  const headers = new Headers(request.headers);
+  headers.set('X-JWT-Secret', env.JWT_SECRET);
 
   const stub = getUserDO(env, userId);
 

@@ -1087,28 +1087,11 @@ export class User extends DurableObject<UserEnv> {
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
 
-    // Check if Worker already validated the token
-    const userId = request.headers.get('X-User-Id');
-
-    if (userId) {
-      // Verify the authenticated user matches this DO's owner
-      const ownerRows = this.ctx.storage.sql.exec('SELECT email FROM profile LIMIT 1').toArray();
-
-      if (ownerRows.length === 0 || (ownerRows[0].email as string) !== userId) {
-        return Response.json({ error: 'User mismatch' }, { status: 403 });
-      }
-
-      (server as unknown as { serializeAttachment: (v: unknown) => void }).serializeAttachment({
-        userId,
-        targetDeviceId: deviceId,
-        pendingHello: true,
-      });
-    } else {
-      (server as unknown as { serializeAttachment: (v: unknown) => void }).serializeAttachment({
-        targetDeviceId: deviceId,
-        pendingAuth: true,
-      });
-    }
+    // Client must send auth message first — no pre-authenticated path
+    (server as unknown as { serializeAttachment: (v: unknown) => void }).serializeAttachment({
+      targetDeviceId: deviceId,
+      pendingAuth: true,
+    });
 
     this.ctx.acceptWebSocket(server);
 
