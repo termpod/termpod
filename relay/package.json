@@ -8,15 +8,18 @@
     "build": "wrangler deploy --dry-run",
     "deploy": "wrangler deploy",
     "lint": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "vitest run -c vitest.integration.config.ts"
   },
   "dependencies": {
     "@termpod/protocol": "workspace:*",
     "toucan-js": "^4.1.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250310.0",
+    "@cloudflare/vitest-pool-workers": "^0.13.1",
+    "@cloudflare/workers-types": "^4.20260317.1",
     "typescript": "^5.8.2",
+    "vitest": "^4.1.0",
     "wrangler": "^4.70.0"
   }
 }

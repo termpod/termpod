@@ -8,5 +8,5 @@
     "noEmit": true
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts", "src/test-setup.ts"]
+  "exclude": ["src/**/*.test.ts", "src/**/*.integration.test.ts", "src/test-setup.ts"]
 }

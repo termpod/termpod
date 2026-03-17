@@ -104,7 +104,15 @@ export class User extends DurableObject<UserEnv> {
           email TEXT NOT NULL,
           password_hash TEXT NOT NULL,
           salt TEXT NOT NULL,
-          created_at TEXT NOT NULL
+          created_at TEXT NOT NULL,
+          reset_code TEXT DEFAULT NULL,
+          reset_code_expires_at INTEGER DEFAULT NULL,
+          reset_attempts INTEGER DEFAULT 0,
+          plan TEXT NOT NULL DEFAULT 'free',
+          trial_ends_at INTEGER DEFAULT NULL,
+          plan_expires_at INTEGER DEFAULT NULL,
+          polar_customer_id TEXT DEFAULT NULL,
+          cancel_at_period_end INTEGER DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS devices (
