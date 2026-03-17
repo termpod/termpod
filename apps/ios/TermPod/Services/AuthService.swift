@@ -1,5 +1,27 @@
 import Foundation
 
+struct SubscriptionStatus: Codable {
+    let plan: String
+    let effectivePlan: String
+    let trialEndsAt: Double?
+    let planExpiresAt: Double?
+    let cancelAtPeriodEnd: Bool
+    let selfHosted: Bool
+
+    var isPro: Bool { effectivePlan == "pro" }
+
+    var isOnTrial: Bool {
+        guard let trialEndsAt, Date().timeIntervalSince1970 * 1000 < trialEndsAt else { return false }
+        return plan != "pro"
+    }
+
+    var trialDaysLeft: Int {
+        guard let trialEndsAt else { return 0 }
+        let ms = trialEndsAt - Date().timeIntervalSince1970 * 1000
+        return max(0, Int(ceil(ms / (24 * 60 * 60 * 1000))))
+    }
+}
+
 /// Manages authentication state — JWT tokens stored in Keychain.
 @MainActor
 final class AuthService: ObservableObject {
@@ -8,6 +30,7 @@ final class AuthService: ObservableObject {
     @Published var email: String?
     @Published var loading = false
     @Published var error: String?
+    @Published var subscription: SubscriptionStatus?
 
     private static let accessTokenKey = "termpod-access-token"
     private static let refreshTokenKey = "termpod-refresh-token"
@@ -88,7 +111,10 @@ final class AuthService: ObservableObject {
 
             if isAuthenticated {
                 // Refresh immediately on launch, then every 12 minutes
-                Task { await self.refresh() }
+                Task {
+                    await self.refresh()
+                    await self.fetchSubscription()
+                }
                 startAutoRefresh()
             }
         }
@@ -274,6 +300,7 @@ final class AuthService: ObservableObject {
         KeychainService.delete(key: Self.emailKey)
         isAuthenticated = false
         email = nil
+        subscription = nil
     }
 
     func refresh() async -> Bool {
@@ -305,6 +332,19 @@ final class AuthService: ObservableObject {
         }
     }
 
+    // MARK: - Subscription
+
+    func fetchSubscription() async {
+        do {
+            let (data, response) = try await apiFetch(path: "/subscription")
+
+            guard response.statusCode == 200 else { return }
+
+            let status = try JSONDecoder().decode(SubscriptionStatus.self, from: data)
+            self.subscription = status
+        } catch {}
+    }
+
     // MARK: - Helpers
 
     private func saveTokens(from data: Data, email: String) throws {
@@ -322,6 +362,7 @@ final class AuthService: ObservableObject {
         self.isAuthenticated = true
         self.email = email.lowercased()
         startAutoRefresh()
+        Task { await fetchSubscription() }
     }
 
     /// Build a WebSocket URL for a session. Token is sent separately via first message.

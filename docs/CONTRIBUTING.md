@@ -74,6 +74,8 @@ All sensitive or deployment-specific values come from `.env`. Never commit secre
 | `GITHUB_TOKEN`           | Relay server       | Update proxy (GitHub release access)  |
 | `TURN_KEY_ID`            | Relay server       | Cloudflare TURN for WebRTC (optional) |
 | `TURN_KEY_API_TOKEN`     | Relay server       | Cloudflare TURN for WebRTC (optional) |
+| `POLAR_WEBHOOK_SECRET`   | Relay server       | Polar.sh billing webhook (optional)   |
+| `POLAR_API_KEY`          | Relay server       | Polar.sh API key (optional)           |
 
 For iOS, run `pnpm ios:generate` to generate `Config.xcconfig` from your `.env` and regenerate the Xcode project.
 

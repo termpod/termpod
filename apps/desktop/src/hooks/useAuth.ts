@@ -341,3 +341,106 @@ export async function authFetch(path: string, options: RequestInit = {}): Promis
 export function getRelayHttp(): string {
   return wsToHttp(getRelayBase());
 }
+
+// --- Subscription ---
+
+export interface SubscriptionState {
+  plan: 'free' | 'pro';
+  effectivePlan: 'free' | 'pro';
+  trialEndsAt: number | null;
+  planExpiresAt: number | null;
+  cancelAtPeriodEnd: boolean;
+  selfHosted: boolean;
+}
+
+interface SubscriptionStore {
+  state: SubscriptionState | null;
+  listeners: Set<() => void>;
+}
+
+const subscriptionStore: SubscriptionStore = {
+  state: null,
+  listeners: new Set(),
+};
+
+function updateSubscriptionState(next: SubscriptionState | null): void {
+  subscriptionStore.state = next;
+
+  for (const listener of subscriptionStore.listeners) {
+    listener();
+  }
+}
+
+async function fetchSubscription(): Promise<void> {
+  if (!store.state.accessToken) {
+    updateSubscriptionState(null);
+    return;
+  }
+
+  try {
+    const res = await authFetch('/subscription');
+
+    if (!res.ok) {
+      return;
+    }
+
+    const data = (await res.json()) as SubscriptionState;
+    updateSubscriptionState(data);
+  } catch {}
+}
+
+export function useSubscription() {
+  const subscribe = useCallback((listener: () => void) => {
+    subscriptionStore.listeners.add(listener);
+
+    return () => {
+      subscriptionStore.listeners.delete(listener);
+    };
+  }, []);
+
+  const getSnapshot = useCallback(() => subscriptionStore.state, []);
+  const state = useSyncExternalStore(subscribe, getSnapshot);
+
+  const isPro = state?.effectivePlan === 'pro';
+  const isOnTrial = !!(
+    state?.trialEndsAt &&
+    Date.now() < state.trialEndsAt &&
+    state.plan !== 'pro'
+  );
+  const trialDaysLeft = state?.trialEndsAt
+    ? Math.max(0, Math.ceil((state.trialEndsAt - Date.now()) / (24 * 60 * 60 * 1000)))
+    : 0;
+
+  return {
+    subscription: state,
+    isPro,
+    isOnTrial,
+    trialDaysLeft,
+    selfHosted: state?.selfHosted ?? false,
+    refetch: fetchSubscription,
+  };
+}
+
+// Fetch subscription on login, clear on logout
+store.listeners.add(() => {
+  if (store.state.accessToken) {
+    fetchSubscription();
+  } else {
+    updateSubscriptionState(null);
+  }
+});
+
+// Fetch on initial load if already authenticated
+if (store.state.accessToken) {
+  fetchSubscription();
+}
+
+// Re-fetch subscription every 30 minutes
+setInterval(
+  () => {
+    if (store.state.accessToken) {
+      fetchSubscription();
+    }
+  },
+  30 * 60 * 1000,
+);

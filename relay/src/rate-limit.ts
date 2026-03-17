@@ -82,6 +82,10 @@ const userRoutePolicies: Array<{
     match: (path, method) => path === '/exists' && method === 'GET',
     rule: { key: 'auth.exists', max: 120, windowMs: MINUTE },
   },
+  {
+    match: (path, method) => path === '/subscription' && method === 'GET',
+    rule: { key: 'subscription.get', max: 60, windowMs: MINUTE },
+  },
 ];
 
 const internalPolicies: Record<string, RequestRateLimitRule> = {

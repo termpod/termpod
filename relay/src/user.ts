@@ -6,6 +6,7 @@ import {
   getUserRouteRateLimitRule,
   type RequestRateLimitRule,
 } from './rate-limit';
+import type { Plan, SubscriptionStatus } from './subscription';
 
 export interface UserProfile {
   email: string;
@@ -167,6 +168,25 @@ export class User extends DurableObject {
           'ALTER TABLE profile ADD COLUMN reset_code_expires_at INTEGER DEFAULT NULL',
         );
       }
+
+      // Migrate: add subscription columns
+      if (!profileCols.includes('plan')) {
+        this.ctx.storage.sql.exec(
+          "ALTER TABLE profile ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'",
+        );
+        this.ctx.storage.sql.exec(
+          'ALTER TABLE profile ADD COLUMN trial_ends_at INTEGER DEFAULT NULL',
+        );
+        this.ctx.storage.sql.exec(
+          'ALTER TABLE profile ADD COLUMN plan_expires_at INTEGER DEFAULT NULL',
+        );
+        this.ctx.storage.sql.exec(
+          'ALTER TABLE profile ADD COLUMN polar_customer_id TEXT DEFAULT NULL',
+        );
+        this.ctx.storage.sql.exec(
+          'ALTER TABLE profile ADD COLUMN cancel_at_period_end INTEGER DEFAULT 0',
+        );
+      }
     }
 
     this.initialized = true;
@@ -281,7 +301,7 @@ export class User extends DurableObject {
     const shareMatch = path.match(/^\/sessions\/([^/]+)\/share$/);
 
     if (shareMatch && request.method === 'POST') {
-      return this.handleCreateShareToken(shareMatch[1]);
+      return this.handleCreateShareToken(shareMatch[1], request);
     }
 
     if (shareMatch && request.method === 'DELETE') {
@@ -299,6 +319,15 @@ export class User extends DurableObject {
 
     if (path === '/exists' && request.method === 'GET') {
       return this.handleExists();
+    }
+
+    // Subscription routes
+    if (path === '/subscription' && request.method === 'GET') {
+      return this.handleGetSubscription();
+    }
+
+    if (path === '/subscription' && request.method === 'PATCH') {
+      return this.handleUpdateSubscription(request);
     }
 
     return new Response('Not found', { status: 404 });
@@ -383,13 +412,15 @@ export class User extends DurableObject {
     }
 
     const { hash, salt } = await hashPassword(password);
+    const trialEndsAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7-day trial
 
     this.ctx.storage.sql.exec(
-      'INSERT INTO profile (email, password_hash, salt, created_at) VALUES (?, ?, ?, ?)',
+      'INSERT INTO profile (email, password_hash, salt, created_at, trial_ends_at) VALUES (?, ?, ?, ?, ?)',
       email,
       hash,
       salt,
       new Date().toISOString(),
+      trialEndsAt,
     );
 
     return Response.json({ ok: true });
@@ -581,6 +612,25 @@ export class User extends DurableObject {
 
     if (!['desktop', 'mobile'].includes(body.deviceType)) {
       return Response.json({ error: 'Invalid device type' }, { status: 400 });
+    }
+
+    const selfHosted = request.headers.get('X-Self-Hosted') === '1';
+
+    // Free tier: max 1 desktop device on hosted relay
+    if (!selfHosted && body.deviceType === 'desktop' && this.getEffectivePlan() === 'free') {
+      const existing = this.ctx.storage.sql
+        .exec("SELECT id FROM devices WHERE device_type = 'desktop' AND id != ?", body.id)
+        .toArray();
+
+      if (existing.length > 0) {
+        return Response.json(
+          {
+            error: 'Free plan allows 1 desktop device. Upgrade to Pro for unlimited devices.',
+            code: 'UPGRADE_REQUIRED',
+          },
+          { status: 403 },
+        );
+      }
     }
 
     // Clean up stale sessions from previous launches — desktop starts fresh each time
@@ -785,6 +835,107 @@ export class User extends DurableObject {
     return Response.json({ exists: true });
   }
 
+  // --- Subscription ---
+
+  getEffectivePlan(): Plan {
+    const rows = this.ctx.storage.sql
+      .exec('SELECT plan, trial_ends_at, plan_expires_at FROM profile LIMIT 1')
+      .toArray();
+
+    if (rows.length === 0) {
+      return 'free';
+    }
+
+    const { plan, trial_ends_at, plan_expires_at } = rows[0] as {
+      plan: string;
+      trial_ends_at: number | null;
+      plan_expires_at: number | null;
+    };
+
+    const now = Date.now();
+
+    // Active trial
+    if (trial_ends_at && now < trial_ends_at) {
+      return 'pro';
+    }
+
+    // Active paid plan
+    if (plan === 'pro' && (!plan_expires_at || now < plan_expires_at)) {
+      return 'pro';
+    }
+
+    return 'free';
+  }
+
+  private handleGetSubscription(): Response {
+    const rows = this.ctx.storage.sql
+      .exec(
+        'SELECT plan, trial_ends_at, plan_expires_at, polar_customer_id, cancel_at_period_end FROM profile LIMIT 1',
+      )
+      .toArray();
+
+    if (rows.length === 0) {
+      return Response.json({ error: 'Account not found' }, { status: 404 });
+    }
+
+    const row = rows[0] as {
+      plan: string;
+      trial_ends_at: number | null;
+      plan_expires_at: number | null;
+      polar_customer_id: string | null;
+      cancel_at_period_end: number;
+    };
+
+    const status: SubscriptionStatus = {
+      plan: row.plan as Plan,
+      trialEndsAt: row.trial_ends_at,
+      planExpiresAt: row.plan_expires_at,
+      cancelAtPeriodEnd: row.cancel_at_period_end === 1,
+      polarCustomerId: row.polar_customer_id,
+      selfHosted: false,
+    };
+
+    return Response.json({ ...status, effectivePlan: this.getEffectivePlan() });
+  }
+
+  private async handleUpdateSubscription(request: Request): Promise<Response> {
+    const body = (await request.json()) as {
+      plan?: Plan;
+      planExpiresAt?: number | null;
+      cancelAtPeriodEnd?: boolean;
+      polarCustomerId?: string | null;
+    };
+
+    const sets: string[] = [];
+    const params: unknown[] = [];
+
+    if (body.plan !== undefined) {
+      sets.push('plan = ?');
+      params.push(body.plan);
+    }
+
+    if (body.planExpiresAt !== undefined) {
+      sets.push('plan_expires_at = ?');
+      params.push(body.planExpiresAt);
+    }
+
+    if (body.cancelAtPeriodEnd !== undefined) {
+      sets.push('cancel_at_period_end = ?');
+      params.push(body.cancelAtPeriodEnd ? 1 : 0);
+    }
+
+    if (body.polarCustomerId !== undefined) {
+      sets.push('polar_customer_id = ?');
+      params.push(body.polarCustomerId);
+    }
+
+    if (sets.length > 0) {
+      this.ctx.storage.sql.exec(`UPDATE profile SET ${sets.join(', ')}`, ...params);
+    }
+
+    return Response.json({ ok: true });
+  }
+
   private async handleCheckSessionAccess(request: Request): Promise<Response> {
     const { sessionId } = (await request.json()) as { sessionId: string };
 
@@ -797,7 +948,20 @@ export class User extends DurableObject {
 
   // --- Share tokens ---
 
-  private handleCreateShareToken(sessionId: string): Response {
+  private handleCreateShareToken(sessionId: string, request?: Request): Response {
+    const selfHosted = request?.headers.get('X-Self-Hosted') === '1';
+
+    // Free tier: share links not available (unless self-hosted)
+    if (!selfHosted && this.getEffectivePlan() === 'free') {
+      return Response.json(
+        {
+          error: 'Share links require a Pro plan. Upgrade to share sessions.',
+          code: 'UPGRADE_REQUIRED',
+        },
+        { status: 403 },
+      );
+    }
+
     // Verify session belongs to this user
     const rows = this.ctx.storage.sql
       .exec('SELECT id FROM sessions WHERE id = ?', sessionId)

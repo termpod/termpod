@@ -3,12 +3,14 @@ import SwiftUI
 struct SettingsView: View {
 
     @EnvironmentObject private var settings: TerminalSettings
+    @EnvironmentObject private var auth: AuthService
     @ObservedObject private var clipStore = ClipStore.shared
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             Form {
+                accountSection
                 appearanceSection
                 behaviorSection
                 transportSection
@@ -188,6 +190,104 @@ struct SettingsView: View {
         } footer: {
             Text("Quick command snippets accessible from the terminal keyboard bar.")
         }
+    }
+
+    // MARK: - Account
+
+    private var accountSection: some View {
+        Group {
+            if let sub = auth.subscription, !sub.selfHosted {
+                Section {
+                    HStack {
+                        Text("Email")
+                        Spacer()
+                        Text(auth.email ?? "—")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack {
+                        Text("Plan")
+                        Spacer()
+                        Text(planLabel(sub))
+                            .foregroundStyle(planColor(sub))
+                    }
+
+                    if sub.cancelAtPeriodEnd && sub.isPro {
+                        HStack {
+                            Text("Status")
+                            Spacer()
+                            Text("Cancels at period end")
+                                .foregroundStyle(.orange)
+                        }
+                    }
+
+                    if sub.isPro && !sub.isOnTrial {
+                        Link(destination: URL(string: "https://polar.sh/termpod/portal")!) {
+                            HStack {
+                                Text("Manage Subscription")
+                                Spacer()
+                                Image(systemName: "arrow.up.forward")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    } else {
+                        Link(destination: upgradeURL) {
+                            HStack {
+                                Text(sub.isOnTrial ? "Upgrade — Keep Pro After Trial" : "Upgrade to Pro")
+                                Spacer()
+                                Image(systemName: "arrow.up.forward")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
+                    Button("Sign Out", role: .destructive) {
+                        auth.logout()
+                        dismiss()
+                    }
+                } header: {
+                    Text("Account")
+                }
+            } else if auth.isAuthenticated {
+                Section {
+                    HStack {
+                        Text("Email")
+                        Spacer()
+                        Text(auth.email ?? "—")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Button("Sign Out", role: .destructive) {
+                        auth.logout()
+                        dismiss()
+                    }
+                } header: {
+                    Text("Account")
+                }
+            }
+        }
+    }
+
+    private func planLabel(_ sub: SubscriptionStatus) -> String {
+        if sub.isPro && !sub.isOnTrial { return "Pro" }
+        if sub.isOnTrial { return "Trial (\(sub.trialDaysLeft)d left)" }
+        return "Free"
+    }
+
+    private func planColor(_ sub: SubscriptionStatus) -> Color {
+        if sub.isPro && !sub.isOnTrial { return .green }
+        if sub.isOnTrial { return .orange }
+        return .secondary
+    }
+
+    private var upgradeURL: URL {
+        var urlString = "https://termpod.dev/pricing"
+        if let email = auth.email {
+            urlString += "?customer_email=\(email.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? email)"
+        }
+        return URL(string: urlString)!
     }
 
     // MARK: - About

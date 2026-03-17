@@ -82,6 +82,10 @@ pnpm ios:generate
 
 The desktop app also supports changing the relay URL at runtime in Settings → Connection.
 
+### Subscription billing (not needed for self-hosting)
+
+Self-hosted relays automatically unlock all features — no subscription required. The `POLAR_WEBHOOK_SECRET` env var controls this: when absent, the relay returns `selfHosted: true` and skips all plan checks. You do **not** need to configure Polar unless you're running a hosted multi-user relay.
+
 ## Optional secrets
 
 ```bash

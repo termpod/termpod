@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow, Effect, EffectState } from '@tauri-apps/api/window';
 import { useSessionManager, nameFromCwd } from './hooks/useSessionManager';
 import { useSettings, THEMES, themeToAppStyles, isLightColor } from './hooks/useSettings';
-import { useAuth } from './hooks/useAuth';
+import { useAuth, useSubscription } from './hooks/useAuth';
 import { useDevice } from './hooks/useDevice';
 import { TabBar } from './components/TabBar';
 import { TerminalPanel } from './components/TerminalPanel';
@@ -39,6 +39,7 @@ import {
 
 export function App() {
   const auth = useAuth();
+  const { isPro, isOnTrial, trialDaysLeft, selfHosted, subscription } = useSubscription();
   const createSessionRef = useRef<(() => void) | null>(null);
   const device = useDevice(auth.isAuthenticated, () => createSessionRef.current?.());
 
@@ -1104,6 +1105,17 @@ export function App() {
           onOpenKeybindings={() => setShowKeybindings(true)}
           email={auth.email}
           onLogout={auth.logout}
+          subscription={
+            subscription
+              ? {
+                  isPro,
+                  isOnTrial,
+                  trialDaysLeft,
+                  selfHosted,
+                  cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+                }
+              : null
+          }
         />
       )}
       {showKeybindings && (

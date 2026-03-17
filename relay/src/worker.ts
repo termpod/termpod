@@ -1,5 +1,6 @@
 import { Toucan } from 'toucan-js';
 import { signJWT, verifyJWT } from './jwt';
+import { verifyPolarWebhook } from './subscription';
 
 export { TerminalSession } from './session';
 export { User } from './user';
@@ -14,6 +15,8 @@ interface Env {
   SENTRY_DSN?: string;
   RESEND_API_KEY?: string;
   EMAIL_FROM?: string;
+  POLAR_WEBHOOK_SECRET?: string;
+  POLAR_API_KEY?: string;
 }
 
 // Origin: * is acceptable here — auth uses Bearer tokens (not cookies),
@@ -148,6 +151,12 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     return handleUpdateDownload(env, updateDownloadMatch[1]);
   }
 
+  // --- Polar webhook (public, signature-verified) ---
+
+  if (url.pathname === '/webhooks/polar' && request.method === 'POST') {
+    return handlePolarWebhook(request, env);
+  }
+
   // --- Public auth routes ---
 
   if (url.pathname === '/auth/signup' && request.method === 'POST') {
@@ -241,6 +250,11 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     }
 
     return serveWebViewer(url.origin, viewerMatch[1], viewerMatch[2]);
+  }
+
+  // Subscription status
+  if (url.pathname === '/subscription' && request.method === 'GET') {
+    return handleSubscription(request, env);
   }
 
   // TURN credentials for WebRTC
@@ -491,10 +505,19 @@ async function handleDevices(request: Request, env: Env): Promise<Response> {
 
   // POST — register device
   const body = await request.json();
+
+  // Self-hosted: skip subscription gate in DO by setting plan override
+  const headers: Record<string, string> = {};
+
+  if (!env.POLAR_WEBHOOK_SECRET) {
+    headers['X-Self-Hosted'] = '1';
+  }
+
   const res = await stub.fetch(
     new Request('http://internal/devices', {
       method: 'POST',
       body: JSON.stringify(body),
+      headers,
     }),
   );
 
@@ -792,6 +815,122 @@ async function handleUpdateDownload(env: Env, filename: string): Promise<Respons
   return new Response(assetRes.body, { headers });
 }
 
+// --- Subscription handler ---
+
+async function handleSubscription(request: Request, env: Env): Promise<Response> {
+  const userIdOrError = await requireAuth(request, env);
+
+  if (userIdOrError instanceof Response) {
+    return userIdOrError;
+  }
+
+  // Self-hosted: no webhook secret → all features unlocked
+  if (!env.POLAR_WEBHOOK_SECRET) {
+    return corsJson({
+      plan: 'pro',
+      trialEndsAt: null,
+      planExpiresAt: null,
+      cancelAtPeriodEnd: false,
+      polarCustomerId: null,
+      selfHosted: true,
+      effectivePlan: 'pro',
+    });
+  }
+
+  const stub = getUserDO(env, userIdOrError);
+  const res = await stub.fetch(new Request('http://internal/subscription'));
+
+  return corsJsonFromUpstream(res);
+}
+
+// --- Polar webhook handler ---
+
+async function handlePolarWebhook(request: Request, env: Env): Promise<Response> {
+  if (!env.POLAR_WEBHOOK_SECRET) {
+    return corsJson({ error: 'Webhooks not configured' }, { status: 503 });
+  }
+
+  const payload = await verifyPolarWebhook(request, env.POLAR_WEBHOOK_SECRET);
+
+  if (!payload) {
+    console.error('Polar webhook: signature verification failed');
+    return corsJson({ received: true }, { status: 200 });
+  }
+
+  const type = payload.type as string;
+  const data = payload.data as Record<string, unknown> | undefined;
+
+  if (!data) {
+    return corsJson({ received: true }, { status: 200 });
+  }
+
+  const customer = data.customer as Record<string, unknown> | undefined;
+  const email = customer?.email as string | undefined;
+
+  if (!email) {
+    console.error('Polar webhook: no customer email in payload');
+    return corsJson({ received: true }, { status: 200 });
+  }
+
+  const stub = getUserDO(env, email);
+
+  // Check user exists
+  const existsRes = await stub.fetch(new Request('http://internal/exists'));
+
+  if (!existsRes.ok) {
+    console.error(`Polar webhook: user not found for email ${email}`);
+    return corsJson({ received: true }, { status: 200 });
+  }
+
+  const customerId = (customer?.id as string) ?? null;
+  const currentPeriodEnd = data.current_period_end as string | undefined;
+  const expiresAt = currentPeriodEnd ? new Date(currentPeriodEnd).getTime() : null;
+
+  switch (type) {
+    case 'subscription.active':
+    case 'subscription.updated': {
+      await stub.fetch(
+        new Request('http://internal/subscription', {
+          method: 'PATCH',
+          body: JSON.stringify({
+            plan: 'pro',
+            planExpiresAt: expiresAt,
+            cancelAtPeriodEnd: data.cancel_at_period_end === true,
+            polarCustomerId: customerId,
+          }),
+        }),
+      );
+      break;
+    }
+
+    case 'subscription.canceled': {
+      await stub.fetch(
+        new Request('http://internal/subscription', {
+          method: 'PATCH',
+          body: JSON.stringify({ cancelAtPeriodEnd: true }),
+        }),
+      );
+      break;
+    }
+
+    case 'subscription.revoked': {
+      await stub.fetch(
+        new Request('http://internal/subscription', {
+          method: 'PATCH',
+          body: JSON.stringify({
+            plan: 'free',
+            planExpiresAt: null,
+            cancelAtPeriodEnd: false,
+          }),
+        }),
+      );
+      break;
+    }
+  }
+
+  return corsJson({ received: true }, { status: 200 });
+}
+
 // --- TURN credentials handler ---
 
 async function handleTurnCredentials(request: Request, env: Env): Promise<Response> {
@@ -803,6 +942,20 @@ async function handleTurnCredentials(request: Request, env: Env): Promise<Respon
 
   if (!env.TURN_KEY_ID || !env.TURN_KEY_API_TOKEN) {
     return corsJson({ error: 'TURN not configured' }, { status: 503 });
+  }
+
+  // Self-hosted: skip plan check. Hosted: require Pro plan for TURN.
+  if (env.POLAR_WEBHOOK_SECRET) {
+    const stub = getUserDO(env, userId);
+    const subRes = await stub.fetch(new Request('http://internal/subscription'));
+    const subData = (await subRes.json()) as { effectivePlan: string };
+
+    if (subData.effectivePlan === 'free') {
+      return corsJson(
+        { error: 'TURN relay requires a Pro plan.', code: 'UPGRADE_REQUIRED' },
+        { status: 403 },
+      );
+    }
   }
 
   const limited = await consumeUserRateLimit(env, userId, 'turn.credentials');
@@ -916,8 +1069,17 @@ async function handleSessionShare(
   const stub = getUserDO(env, userIdOrError);
 
   if (request.method === 'POST') {
+    const shareHeaders: Record<string, string> = {};
+
+    if (!env.POLAR_WEBHOOK_SECRET) {
+      shareHeaders['X-Self-Hosted'] = '1';
+    }
+
     const res = await stub.fetch(
-      new Request(`http://internal/sessions/${sessionId}/share`, { method: 'POST' }),
+      new Request(`http://internal/sessions/${sessionId}/share`, {
+        method: 'POST',
+        headers: shareHeaders,
+      }),
     );
     const body = (await res.json()) as Record<string, unknown>;
 

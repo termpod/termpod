@@ -12,6 +12,14 @@ import { ThemePicker } from './ThemePicker';
 
 type SettingsTab = 'appearance' | 'terminal' | 'behavior' | 'connection' | 'account';
 
+interface SubscriptionInfo {
+  isPro: boolean;
+  isOnTrial: boolean;
+  trialDaysLeft: number;
+  selfHosted: boolean;
+  cancelAtPeriodEnd?: boolean;
+}
+
 interface SettingsPanelProps {
   settings: Settings;
   defaults: Settings;
@@ -21,6 +29,7 @@ interface SettingsPanelProps {
   onOpenKeybindings?: () => void;
   email?: string | null;
   onLogout?: () => void;
+  subscription?: SubscriptionInfo | null;
 }
 
 const FONT_OPTIONS = [
@@ -163,6 +172,7 @@ export function SettingsPanel({
   onOpenKeybindings,
   email,
   onLogout,
+  subscription,
 }: SettingsPanelProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
   const [shellInput, setShellInput] = useState(settings.shellPath);
@@ -660,6 +670,67 @@ export function SettingsPanel({
                     </>
                   )}
                 </div>
+
+                {subscription && !subscription.selfHosted && (
+                  <>
+                    <div className="sp-group-label">Plan</div>
+                    <div className="sp-group">
+                      <SettingRow label="Current Plan">
+                        <span
+                          className="sp-account-value"
+                          style={{
+                            color: subscription.isPro
+                              ? '#9ece6a'
+                              : subscription.isOnTrial
+                                ? '#e0af68'
+                                : undefined,
+                          }}
+                        >
+                          {subscription.isPro
+                            ? 'Pro'
+                            : subscription.isOnTrial
+                              ? `Trial (${subscription.trialDaysLeft}d left)`
+                              : 'Free'}
+                        </span>
+                      </SettingRow>
+                      {subscription.cancelAtPeriodEnd && subscription.isPro && (
+                        <>
+                          <div className="sp-separator" />
+                          <SettingRow label="Status">
+                            <span className="sp-account-value" style={{ color: '#e0af68' }}>
+                              Cancels at period end
+                            </span>
+                          </SettingRow>
+                        </>
+                      )}
+                      <div className="sp-separator" />
+                      <div className="sp-row sp-row-center">
+                        {subscription.isPro && !subscription.isOnTrial ? (
+                          <button
+                            className="sp-action-btn"
+                            onClick={() => window.open('https://polar.sh/termpod/portal', '_blank')}
+                          >
+                            Manage Subscription
+                          </button>
+                        ) : (
+                          <button
+                            className="sp-action-btn"
+                            onClick={() => {
+                              const params = email
+                                ? `?customer_email=${encodeURIComponent(email)}`
+                                : '';
+                              window.open(`https://termpod.dev/pricing${params}`, '_blank');
+                            }}
+                          >
+                            {subscription.isOnTrial
+                              ? 'Upgrade — Keep Pro After Trial'
+                              : 'Upgrade to Pro'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>
