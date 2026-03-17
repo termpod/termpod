@@ -6,7 +6,7 @@
     "dev": "turbo run dev --filter=@termpod/desktop --filter=@termpod/relay",
     "dev:desktop": "turbo run dev --filter=@termpod/desktop",
     "dev:relay": "turbo run dev --filter=@termpod/relay",
-    "dev:docs": "turbo run dev --filter=@termpod/docs",
+    "dev:web": "turbo run dev --filter=@termpod/web",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "test": "turbo run test",
