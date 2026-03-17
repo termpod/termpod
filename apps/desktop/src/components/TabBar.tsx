@@ -18,7 +18,18 @@ interface TabBarProps {
   devicesPanelOpen?: boolean;
 }
 
-export function TabBar({ sessions, activeId, onSelect, onClose, onCreate, onReorder, relayStatus, connectedDevices, onToggleDevices, devicesPanelOpen }: TabBarProps) {
+export function TabBar({
+  sessions,
+  activeId,
+  onSelect,
+  onClose,
+  onCreate,
+  onReorder,
+  relayStatus,
+  connectedDevices,
+  onToggleDevices,
+  devicesPanelOpen,
+}: TabBarProps) {
   const handleDrag = useCallback((e: React.MouseEvent) => {
     // Only drag if clicking directly on the tab-bar (not on child buttons/tabs)
     if (e.target === e.currentTarget) {
@@ -28,7 +39,12 @@ export function TabBar({ sessions, activeId, onSelect, onClose, onCreate, onReor
   }, []);
 
   const tabsRef = useRef<HTMLDivElement>(null);
-  const dragState = useRef<{ index: number; startX: number; offsetX: number; active: boolean } | null>(null);
+  const dragState = useRef<{
+    index: number;
+    startX: number;
+    offsetX: number;
+    active: boolean;
+  } | null>(null);
   const ghostRef = useRef<HTMLDivElement | null>(null);
   const [dragging, setDragging] = useState<number | null>(null);
   const [dropTarget, setDropTarget] = useState<number | null>(null);
@@ -69,71 +85,79 @@ export function TabBar({ sessions, activeId, onSelect, onClose, onCreate, onReor
     }
   }, []);
 
-  const handleTabMouseDown = useCallback((index: number, e: React.MouseEvent) => {
-    if (e.button !== 0) return;
-    if ((e.target as HTMLElement).closest('.tab-close')) return;
+  const handleTabMouseDown = useCallback(
+    (index: number, e: React.MouseEvent) => {
+      if (e.button !== 0) return;
+      if ((e.target as HTMLElement).closest('.tab-close')) return;
 
-    const tabEl = (e.currentTarget as HTMLElement);
-    const rect = tabEl.getBoundingClientRect();
-    dragState.current = { index, startX: e.clientX, offsetX: e.clientX - rect.left, active: false };
+      const tabEl = e.currentTarget as HTMLElement;
+      const rect = tabEl.getBoundingClientRect();
+      dragState.current = {
+        index,
+        startX: e.clientX,
+        offsetX: e.clientX - rect.left,
+        active: false,
+      };
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const ds = dragState.current;
-      if (!ds) return;
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const ds = dragState.current;
+        if (!ds) return;
 
-      if (!ds.active && Math.abs(moveEvent.clientX - ds.startX) < 5) return;
+        if (!ds.active && Math.abs(moveEvent.clientX - ds.startX) < 5) return;
 
-      if (!ds.active) {
-        ds.active = true;
-        document.body.style.cursor = 'grabbing';
+        if (!ds.active) {
+          ds.active = true;
+          document.body.style.cursor = 'grabbing';
 
-        // Create floating ghost clone
-        const ghost = tabEl.cloneNode(true) as HTMLDivElement;
-        ghost.className = 'tab-ghost';
-        ghost.style.width = `${rect.width}px`;
-        ghost.style.height = `${rect.height}px`;
-        document.body.appendChild(ghost);
-        ghostRef.current = ghost;
-      }
-
-      // Position ghost at cursor
-      if (ghostRef.current) {
-        ghostRef.current.style.left = `${moveEvent.clientX - ds.offsetX}px`;
-        ghostRef.current.style.top = `${rect.top}px`;
-      }
-
-      setDragging(ds.index);
-      const targetIndex = getTabIndexAtX(moveEvent.clientX);
-      if (targetIndex !== null) {
-        setDropTarget(targetIndex);
-        setDropSide(targetIndex > ds.index ? 'right' : 'left');
-      }
-    };
-
-    const handleMouseUp = (upEvent: MouseEvent) => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = '';
-      removeGhost();
-
-      const ds = dragState.current;
-      if (ds?.active) {
-        const targetIndex = getTabIndexAtX(upEvent.clientX);
-        if (targetIndex !== null && targetIndex !== ds.index) {
-          onReorderRef.current(ds.index, targetIndex);
+          // Create floating ghost clone
+          const ghost = tabEl.cloneNode(true) as HTMLDivElement;
+          ghost.className = 'tab-ghost';
+          ghost.style.width = `${rect.width}px`;
+          ghost.style.height = `${rect.height}px`;
+          document.body.appendChild(ghost);
+          ghostRef.current = ghost;
         }
-        // Focus the dragged tab at its new position
-        onSelectRef.current(sessionsRef.current[ds.index].id);
-      }
 
-      dragState.current = null;
-      setDragging(null);
-      setDropTarget(null);
-    };
+        // Position ghost at cursor
+        if (ghostRef.current) {
+          ghostRef.current.style.left = `${moveEvent.clientX - ds.offsetX}px`;
+          ghostRef.current.style.top = `${rect.top}px`;
+        }
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-  }, [getTabIndexAtX, removeGhost]);
+        setDragging(ds.index);
+        const targetIndex = getTabIndexAtX(moveEvent.clientX);
+        if (targetIndex !== null) {
+          setDropTarget(targetIndex);
+          setDropSide(targetIndex > ds.index ? 'right' : 'left');
+        }
+      };
+
+      const handleMouseUp = (upEvent: MouseEvent) => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+        removeGhost();
+
+        const ds = dragState.current;
+        if (ds?.active) {
+          const targetIndex = getTabIndexAtX(upEvent.clientX);
+          if (targetIndex !== null && targetIndex !== ds.index) {
+            onReorderRef.current(ds.index, targetIndex);
+          }
+          // Focus the dragged tab at its new position
+          onSelectRef.current(sessionsRef.current[ds.index].id);
+        }
+
+        dragState.current = null;
+        setDragging(null);
+        setDropTarget(null);
+      };
+
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    },
+    [getTabIndexAtX, removeGhost],
+  );
 
   return (
     <div className="tab-bar" onMouseDown={handleDrag} data-tauri-drag-region>
@@ -152,10 +176,21 @@ export function TabBar({ sessions, activeId, onSelect, onClose, onCreate, onReor
           />
         ))}
       </div>
-      <button className="tab-new" onClick={onCreate} type="button" aria-label="New session (Cmd+T)" title="New session (Cmd+T)">
+      <button
+        className="tab-new"
+        onClick={onCreate}
+        type="button"
+        aria-label="New session (Cmd+T)"
+        title="New session (Cmd+T)"
+      >
         +
       </button>
-      <RelayDot status={relayStatus} connectedDevices={connectedDevices} onClick={onToggleDevices} active={devicesPanelOpen} />
+      <RelayDot
+        status={relayStatus}
+        connectedDevices={connectedDevices}
+        onClick={onToggleDevices}
+        active={devicesPanelOpen}
+      />
     </div>
   );
 }
@@ -171,7 +206,16 @@ interface TabProps {
   onMouseDown: (e: React.MouseEvent) => void;
 }
 
-function Tab({ session, isActive, isDragging, isDropTarget, dropSide, onSelect, onClose, onMouseDown }: TabProps) {
+function Tab({
+  session,
+  isActive,
+  isDragging,
+  isDropTarget,
+  dropSide,
+  onSelect,
+  onClose,
+  onMouseDown,
+}: TabProps) {
   const handleClose = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -180,7 +224,11 @@ function Tab({ session, isActive, isDragging, isDropTarget, dropSide, onSelect, 
     [onClose, session.id],
   );
 
-  const dropClass = isDropTarget ? (dropSide === 'right' ? 'tab-drop-target-right' : 'tab-drop-target') : '';
+  const dropClass = isDropTarget
+    ? dropSide === 'right'
+      ? 'tab-drop-target-right'
+      : 'tab-drop-target'
+    : '';
 
   return (
     <button
@@ -235,7 +283,17 @@ const STATUS_LABELS: Record<RelayStatusType, string> = {
   error: 'Connection error',
 };
 
-function RelayDot({ status, connectedDevices, onClick, active }: { status: RelayStatusType; connectedDevices: MergedDevice[]; onClick?: () => void; active?: boolean }) {
+function RelayDot({
+  status,
+  connectedDevices,
+  onClick,
+  active,
+}: {
+  status: RelayStatusType;
+  connectedDevices: MergedDevice[];
+  onClick?: () => void;
+  active?: boolean;
+}) {
   const count = connectedDevices.length;
 
   return (
@@ -253,9 +311,7 @@ function RelayDot({ status, connectedDevices, onClick, active }: { status: Relay
         aria-hidden="true"
       />
       <span className="relay-label">{STATUS_LABELS[status]}</span>
-      {count > 0 && (
-        <span className="relay-viewers">{count}</span>
-      )}
+      {count > 0 && <span className="relay-viewers">{count}</span>}
     </button>
   );
 }

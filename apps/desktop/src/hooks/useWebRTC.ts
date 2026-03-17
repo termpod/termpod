@@ -33,7 +33,7 @@ async function fetchIceServers(): Promise<RTCConfiguration> {
     const res = await authFetch('/turn-credentials');
 
     if (res.ok) {
-      const { iceServers } = await res.json() as { iceServers: RTCIceServer[] };
+      const { iceServers } = (await res.json()) as { iceServers: RTCIceServer[] };
       console.log('[WebRTC] Got TURN credentials:', iceServers.length, 'servers');
       return { iceServers };
     }
@@ -74,7 +74,12 @@ export function useWebRTC(options: UseWebRTCOptions) {
         pcRef.current.close();
       }
 
-      console.log('[WebRTC] createPeerConnection for', remoteClientId, 'iceServers:', iceConfigRef.current.iceServers?.length);
+      console.log(
+        '[WebRTC] createPeerConnection for',
+        remoteClientId,
+        'iceServers:',
+        iceConfigRef.current.iceServers?.length,
+      );
       const pc = new RTCPeerConnection(iceConfigRef.current);
       pcRef.current = pc;
 
@@ -134,9 +139,7 @@ export function useWebRTC(options: UseWebRTCOptions) {
             // Legacy non-multiplexed frames
             case 0x00:
               if (data.length > 1) {
-                optionsRef.current.onViewerInput?.(
-                  new TextDecoder().decode(data.subarray(1)),
-                );
+                optionsRef.current.onViewerInput?.(new TextDecoder().decode(data.subarray(1)));
               }
               break;
 
@@ -164,12 +167,14 @@ export function useWebRTC(options: UseWebRTCOptions) {
             case 0x12: {
               const mux = parseMuxFrame(data);
               if (mux) {
-                decompressPayload(mux.payload).then((decompressed) => {
-                  optionsRef.current.onMuxViewerInput?.(
-                    mux.sessionId,
-                    new TextDecoder().decode(decompressed),
-                  );
-                }).catch(() => {});
+                decompressPayload(mux.payload)
+                  .then((decompressed) => {
+                    optionsRef.current.onMuxViewerInput?.(
+                      mux.sessionId,
+                      new TextDecoder().decode(decompressed),
+                    );
+                  })
+                  .catch(() => {});
               }
               break;
             }
@@ -209,13 +214,26 @@ export function useWebRTC(options: UseWebRTCOptions) {
   const initiateOffer = useCallback(
     async (remoteClientId: string) => {
       // Don't tear down an in-progress or established connection to the SAME client
-      if (pcRef.current && pcRef.current.connectionState !== 'closed' && pcRef.current.connectionState !== 'failed' && pcRef.current.connectionState !== 'disconnected') {
+      if (
+        pcRef.current &&
+        pcRef.current.connectionState !== 'closed' &&
+        pcRef.current.connectionState !== 'failed' &&
+        pcRef.current.connectionState !== 'disconnected'
+      ) {
         if (remoteClientRef.current === remoteClientId) {
-          console.log('[WebRTC] Skipping offer — connection already', pcRef.current.connectionState);
+          console.log(
+            '[WebRTC] Skipping offer — connection already',
+            pcRef.current.connectionState,
+          );
           return;
         }
         // Different client — close the stale connection
-        console.log('[WebRTC] New client', remoteClientId, '— closing stale PC for', remoteClientRef.current);
+        console.log(
+          '[WebRTC] New client',
+          remoteClientId,
+          '— closing stale PC for',
+          remoteClientRef.current,
+        );
         pcRef.current.close();
         pcRef.current = null;
         channelRef.current = null;
@@ -338,10 +356,10 @@ export function useWebRTC(options: UseWebRTCOptions) {
       frame[1] = sidBytes.length;
       frame.set(sidBytes, 2);
       const payloadStart = 2 + sidBytes.length;
-      frame[payloadStart] = (cols >> 8) & 0xFF;
-      frame[payloadStart + 1] = cols & 0xFF;
-      frame[payloadStart + 2] = (rows >> 8) & 0xFF;
-      frame[payloadStart + 3] = rows & 0xFF;
+      frame[payloadStart] = (cols >> 8) & 0xff;
+      frame[payloadStart + 1] = cols & 0xff;
+      frame[payloadStart + 2] = (rows >> 8) & 0xff;
+      frame[payloadStart + 3] = rows & 0xff;
       channel.send(frame.buffer);
     }
   }, []);

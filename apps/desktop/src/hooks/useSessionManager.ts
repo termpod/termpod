@@ -40,10 +40,12 @@ function generateSessionId(): string {
 
 let cachedHomeDir: string | null = null;
 
-const homeDirPromise = invoke<string>('get_home_dir').then((dir) => {
-  cachedHomeDir = dir;
-  return dir;
-}).catch(() => null);
+const homeDirPromise = invoke<string>('get_home_dir')
+  .then((dir) => {
+    cachedHomeDir = dir;
+    return dir;
+  })
+  .catch(() => null);
 
 export function nameFromCwd(cwd: string): string {
   if (cachedHomeDir && (cwd === cachedHomeDir || cwd === cachedHomeDir + '/')) {
@@ -68,16 +70,13 @@ export function useSessionManager() {
 
   const getSnapshot = useCallback(() => storeRef.current, []);
 
-  const subscribe = useCallback(
-    (listener: () => void) => {
-      listenersRef.current.add(listener);
+  const subscribe = useCallback((listener: () => void) => {
+    listenersRef.current.add(listener);
 
-      return () => {
-        listenersRef.current.delete(listener);
-      };
-    },
-    [],
-  );
+    return () => {
+      listenersRef.current.delete(listener);
+    };
+  }, []);
 
   const store = useSyncExternalStore(subscribe, getSnapshot);
 
@@ -158,7 +157,14 @@ export function useSessionManager() {
             const live = sessions.find((ls) => ls.id === s.id);
 
             return live
-              ? { ...s, cwd: live.cwd, name: live.name, processName: live.processName, icon: live.icon, shellPid: live.shellPid }
+              ? {
+                  ...s,
+                  cwd: live.cwd,
+                  name: live.name,
+                  processName: live.processName,
+                  icon: live.icon,
+                  shellPid: live.shellPid,
+                }
               : s;
           }),
         }));
@@ -171,7 +177,7 @@ export function useSessionManager() {
   const createSession = useCallback(
     async (options?: { cwd?: string; shell?: string }) => {
       const id = generateSessionId();
-      const sessionCwd = options?.cwd || cachedHomeDir || await homeDirPromise || '/Users';
+      const sessionCwd = options?.cwd || cachedHomeDir || (await homeDirPromise) || '/Users';
       const shell = options?.shell || DEFAULT_SHELL;
 
       const pty = spawn(shell, ['-l'], {
@@ -226,9 +232,7 @@ export function useSessionManager() {
 
         updateStore((prev) => ({
           ...prev,
-          sessions: prev.sessions.map((s) =>
-            s.id === id ? { ...s, exited: true, exitCode } : s,
-          ),
+          sessions: prev.sessions.map((s) => (s.id === id ? { ...s, exited: true, exitCode } : s)),
         }));
 
         onSessionExitRef.current?.(id);
@@ -267,9 +271,7 @@ export function useSessionManager() {
         }
 
         return {
-          sessions: prev.sessions.map((s) =>
-            s.id === id ? { ...s, closing: true } : s,
-          ),
+          sessions: prev.sessions.map((s) => (s.id === id ? { ...s, closing: true } : s)),
           activeId: newActiveId,
         };
       });

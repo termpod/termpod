@@ -181,19 +181,21 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
             e2eKeyPairRef.current.privateKey,
             raw.publicKey as JsonWebKey,
             session.sessionId,
-          ).then((e2eSession) => {
-            e2eRef.current = e2eSession;
-            console.log('[Relay] E2E encryption active for session', session.sessionId);
+          )
+            .then((e2eSession) => {
+              e2eRef.current = e2eSession;
+              console.log('[Relay] E2E encryption active for session', session.sessionId);
 
-            const pending = pendingScrollbackRequestsRef.current;
-            pendingScrollbackRequestsRef.current = [];
+              const pending = pendingScrollbackRequestsRef.current;
+              pendingScrollbackRequestsRef.current = [];
 
-            for (const viewerClientId of pending) {
-              sendEncryptedScrollbackToViewer(ws, viewerClientId);
-            }
-          }).catch((err) => {
-            console.error('[Relay] E2E key derivation failed:', err);
-          });
+              for (const viewerClientId of pending) {
+                sendEncryptedScrollbackToViewer(ws, viewerClientId);
+              }
+            })
+            .catch((err) => {
+              console.error('[Relay] E2E key derivation failed:', err);
+            });
         }
 
         return;
@@ -204,13 +206,15 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
       switch (msg.type) {
         case 'auth_ok':
           // Auth confirmed — send hello and start ping
-          ws.send(JSON.stringify({
-            type: 'hello',
-            version: PROTOCOL_VERSION,
-            role: 'desktop',
-            device: 'macos',
-            clientId: clientIdRef.current,
-          }));
+          ws.send(
+            JSON.stringify({
+              type: 'hello',
+              version: PROTOCOL_VERSION,
+              role: 'desktop',
+              device: 'macos',
+              clientId: clientIdRef.current,
+            }),
+          );
 
           pingIntervalRef.current = setInterval(() => {
             if (ws.readyState === WebSocket.OPEN) {
@@ -224,11 +228,13 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
             e2eKeyPairRef.current = kp;
 
             if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({
-                type: 'key_exchange',
-                publicKey: kp.publicKeyJwk,
-                sessionId: session.sessionId,
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: 'key_exchange',
+                  publicKey: kp.publicKeyJwk,
+                  sessionId: session.sessionId,
+                }),
+              );
             }
           });
           break;
@@ -242,17 +248,24 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
             setViewers((v) => v + 1);
             setConnectedDevices((prev) => [
               ...prev.filter((d) => d.clientId !== msg.clientId),
-              { clientId: msg.clientId, device: msg.device, transport: 'relay', connectedAt: new Date().toISOString() },
+              {
+                clientId: msg.clientId,
+                device: msg.device,
+                transport: 'relay',
+                connectedAt: new Date().toISOString(),
+              },
             ]);
             optionsRef.current.onViewerJoined?.(msg.clientId);
 
             // Re-send key exchange so new viewer can establish E2E
             if (e2eKeyPairRef.current && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({
-                type: 'key_exchange',
-                publicKey: e2eKeyPairRef.current.publicKeyJwk,
-                sessionId: session.sessionId,
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: 'key_exchange',
+                  publicKey: e2eKeyPairRef.current.publicKeyJwk,
+                  sessionId: session.sessionId,
+                }),
+              );
             }
           }
           break;
@@ -260,7 +273,9 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
         case 'client_left':
           setViewers((v) => Math.max(0, v - 1));
           if ('clientId' in msg) {
-            setConnectedDevices((prev) => prev.filter((d) => d.clientId !== (msg as { clientId: string }).clientId));
+            setConnectedDevices((prev) =>
+              prev.filter((d) => d.clientId !== (msg as { clientId: string }).clientId),
+            );
           }
           optionsRef.current.onViewerLeft?.();
           break;
@@ -270,7 +285,12 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
           setConnectedDevices(
             msg.clients
               .filter((c) => c.role === 'viewer')
-              .map((c) => ({ clientId: c.clientId, device: c.device, transport: 'relay' as const, connectedAt: c.connectedAt })),
+              .map((c) => ({
+                clientId: c.clientId,
+                device: c.device,
+                transport: 'relay' as const,
+                connectedAt: c.connectedAt,
+              })),
           );
           break;
 
@@ -371,11 +391,13 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
         const payload = base64urlEncode(encrypted);
 
         if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            type: 'encrypted_scrollback_chunk',
-            payload,
-            toClientId,
-          }));
+          ws.send(
+            JSON.stringify({
+              type: 'encrypted_scrollback_chunk',
+              payload,
+              toClientId,
+            }),
+          );
         }
       } catch {
         break;
@@ -385,10 +407,12 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     }
 
     if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: 'scrollback_complete',
-        toClientId,
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'scrollback_complete',
+          toClientId,
+        }),
+      );
     }
   };
 
@@ -407,18 +431,21 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     connectWebSocketRef.current(session);
   }, []);
 
-  const connect = useCallback(async (ptySize: { cols: number; rows: number }) => {
-    if (wsRef.current || connectingRef.current) {
-      return;
-    }
+  const connect = useCallback(
+    async (ptySize: { cols: number; rows: number }) => {
+      if (wsRef.current || connectingRef.current) {
+        return;
+      }
 
-    connectingRef.current = true;
-    ptySizeRef.current = ptySize;
-    reconnectDelayRef.current = RECONNECT.initialDelay;
-    updateStatus('connecting');
+      connectingRef.current = true;
+      ptySizeRef.current = ptySize;
+      reconnectDelayRef.current = RECONNECT.initialDelay;
+      updateStatus('connecting');
 
-    await createSession();
-  }, [updateStatus, createSession]);
+      await createSession();
+    },
+    [updateStatus, createSession],
+  );
 
   const disconnect = useCallback(() => {
     intentionalCloseRef.current = true;
@@ -464,27 +491,31 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
       const plainFrame = encodeTerminalData(bytes);
 
       if (e2eRef.current) {
-        encryptFrame(e2eRef.current, plainFrame).then((encrypted) => {
-          if (ws.readyState === WebSocket.OPEN) {
-            const frame = new Uint8Array(1 + encrypted.length);
-            frame[0] = Channel.ENCRYPTED;
-            frame.set(encrypted, 1);
-            ws.send(frame);
-          }
-        }).catch((err) => {
-          console.error('[Relay] E2E encryption failed — dropping frame:', err);
-        });
+        encryptFrame(e2eRef.current, plainFrame)
+          .then((encrypted) => {
+            if (ws.readyState === WebSocket.OPEN) {
+              const frame = new Uint8Array(1 + encrypted.length);
+              frame[0] = Channel.ENCRYPTED;
+              frame.set(encrypted, 1);
+              ws.send(frame);
+            }
+          })
+          .catch((err) => {
+            console.error('[Relay] E2E encryption failed — dropping frame:', err);
+          });
       }
       // No plaintext fallback — terminal data is only sent after E2E is established.
       // Viewers receive encrypted scrollback from desktop after key exchange completes.
 
       // Also send share-encrypted frame if sharing is active
       if (shareE2eRef.current) {
-        encryptShareFrame(shareE2eRef.current, bytes).then((encrypted) => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(encodeShareEncryptedFrame(encrypted.subarray(0, 12), encrypted.subarray(12)));
-          }
-        }).catch(() => {});
+        encryptShareFrame(shareE2eRef.current, bytes)
+          .then((encrypted) => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(encodeShareEncryptedFrame(encrypted.subarray(0, 12), encrypted.subarray(12)));
+            }
+          })
+          .catch(() => {});
       }
     }
   }, []);
@@ -500,16 +531,18 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
 
       // Also send encrypted resize for E2E viewers
       if (e2eRef.current) {
-        encryptFrame(e2eRef.current, plainFrame).then((encrypted) => {
-          if (ws.readyState === WebSocket.OPEN) {
-            const frame = new Uint8Array(1 + encrypted.length);
-            frame[0] = Channel.ENCRYPTED;
-            frame.set(encrypted, 1);
-            ws.send(frame);
-          }
-        }).catch((err) => {
-          console.error('[Relay] E2E encryption failed — dropping frame:', err);
-        });
+        encryptFrame(e2eRef.current, plainFrame)
+          .then((encrypted) => {
+            if (ws.readyState === WebSocket.OPEN) {
+              const frame = new Uint8Array(1 + encrypted.length);
+              frame[0] = Channel.ENCRYPTED;
+              frame.set(encrypted, 1);
+              ws.send(frame);
+            }
+          })
+          .catch((err) => {
+            console.error('[Relay] E2E encryption failed — dropping frame:', err);
+          });
       }
     }
   }, []);
@@ -527,19 +560,28 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
   }, []);
 
   const sendSessionCreated = useCallback(
-    (requestId: string, sessionId: string, name: string, cwd: string, ptyCols: number, ptyRows: number) => {
+    (
+      requestId: string,
+      sessionId: string,
+      name: string,
+      cwd: string,
+      ptyCols: number,
+      ptyRows: number,
+    ) => {
       const ws = wsRef.current;
 
       if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          type: 'session_created',
-          requestId,
-          sessionId,
-          name,
-          cwd,
-          ptyCols,
-          ptyRows,
-        }));
+        ws.send(
+          JSON.stringify({
+            type: 'session_created',
+            requestId,
+            sessionId,
+            name,
+            cwd,
+            ptyCols,
+            ptyRows,
+          }),
+        );
       }
     },
     [],

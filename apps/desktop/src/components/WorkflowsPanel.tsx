@@ -10,7 +10,14 @@ interface WorkflowsPanelProps {
   onClose: () => void;
 }
 
-export function WorkflowsPanel({ workflows, onAdd, onRemove, onEdit, onRun, onClose }: WorkflowsPanelProps) {
+export function WorkflowsPanel({
+  workflows,
+  onAdd,
+  onRemove,
+  onEdit,
+  onRun,
+  onClose,
+}: WorkflowsPanelProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState('');
@@ -20,26 +27,31 @@ export function WorkflowsPanel({ workflows, onAdd, onRemove, onEdit, onRun, onCl
     searchRef.current?.focus();
   }, []);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      if (editingId) {
-        setEditingId(null);
-      } else if (showAdd) {
-        setShowAdd(false);
-      } else {
-        onClose();
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (editingId) {
+          setEditingId(null);
+        } else if (showAdd) {
+          setShowAdd(false);
+        } else {
+          onClose();
+        }
       }
-    }
-  }, [editingId, showAdd, onClose]);
+    },
+    [editingId, showAdd, onClose],
+  );
 
   const categories = [...new Set(workflows.map((w) => w.category).filter(Boolean))] as string[];
 
   const filtered = search
     ? workflows.filter((w) => {
         const q = search.toLowerCase();
-        return w.name.toLowerCase().includes(q) ||
+        return (
+          w.name.toLowerCase().includes(q) ||
           w.command.toLowerCase().includes(q) ||
-          (w.category?.toLowerCase().includes(q) ?? false);
+          (w.category?.toLowerCase().includes(q) ?? false)
+        );
       })
     : workflows;
 
@@ -59,7 +71,14 @@ export function WorkflowsPanel({ workflows, onAdd, onRemove, onEdit, onRun, onCl
               + New
             </button>
             <button className="sp-close-btn" onClick={onClose} type="button">
-              <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>
+              <svg width="10" height="10" viewBox="0 0 10 10">
+                <path
+                  d="M1 1l8 8M9 1l-8 8"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                />
+              </svg>
             </button>
           </div>
         </div>
@@ -92,8 +111,7 @@ export function WorkflowsPanel({ workflows, onAdd, onRemove, onEdit, onRun, onCl
             <div className="wf-empty">
               {workflows.length === 0
                 ? 'No workflows yet. Click "+ New" to create one.'
-                : 'No matching workflows.'
-              }
+                : 'No matching workflows.'}
             </div>
           )}
 
@@ -139,7 +157,16 @@ export function WorkflowsPanel({ workflows, onAdd, onRemove, onEdit, onRun, onCl
   );
 }
 
-function WorkflowItem({ workflow, editing, categories, onStartEdit, onCancelEdit, onEdit, onRemove, onRun }: {
+function WorkflowItem({
+  workflow,
+  editing,
+  categories,
+  onStartEdit,
+  onCancelEdit,
+  onEdit,
+  onRemove,
+  onRun,
+}: {
   workflow: Workflow;
   editing: boolean;
   categories: string[];
@@ -170,21 +197,56 @@ function WorkflowItem({ workflow, editing, categories, onStartEdit, onCancelEdit
         <code className="wf-item-command">{workflow.command}</code>
       </div>
       <div className="wf-item-actions">
-        <button className="wf-icon-btn" onClick={() => onRun(workflow.command)} title="Run" type="button">
-          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 1.5l7 4.5-7 4.5V1.5z" fill="currentColor" /></svg>
+        <button
+          className="wf-icon-btn"
+          onClick={() => onRun(workflow.command)}
+          title="Run"
+          type="button"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12">
+            <path d="M3 1.5l7 4.5-7 4.5V1.5z" fill="currentColor" />
+          </svg>
         </button>
         <button className="wf-icon-btn" onClick={onStartEdit} title="Edit" type="button">
-          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M8.5 1.5l2 2L4 10H2V8l6.5-6.5z" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <svg width="12" height="12" viewBox="0 0 12 12">
+            <path
+              d="M8.5 1.5l2 2L4 10H2V8l6.5-6.5z"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
-        <button className="wf-icon-btn wf-icon-btn-danger" onClick={() => onRemove(workflow.id)} title="Delete" type="button">
-          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 3h8M4.5 3V2h3v1M3 3v7a1 1 0 001 1h4a1 1 0 001-1V3" stroke="currentColor" strokeWidth="1.1" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <button
+          className="wf-icon-btn wf-icon-btn-danger"
+          onClick={() => onRemove(workflow.id)}
+          title="Delete"
+          type="button"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12">
+            <path
+              d="M2 3h8M4.5 3V2h3v1M3 3v7a1 1 0 001 1h4a1 1 0 001-1V3"
+              stroke="currentColor"
+              strokeWidth="1.1"
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
       </div>
     </div>
   );
 }
 
-function WorkflowForm({ initial, categories, onSave, onCancel }: {
+function WorkflowForm({
+  initial,
+  categories,
+  onSave,
+  onCancel,
+}: {
   initial?: Workflow;
   categories: string[];
   onSave: (name: string, command: string, category?: string) => void;
@@ -240,12 +302,20 @@ function WorkflowForm({ initial, categories, onSave, onCancel }: {
         />
         {categories.length > 0 && (
           <datalist id="wf-categories">
-            {categories.map((c) => <option key={c} value={c} />)}
+            {categories.map((c) => (
+              <option key={c} value={c} />
+            ))}
           </datalist>
         )}
         <div className="wf-form-buttons">
-          <button className="wf-btn wf-btn-secondary" type="button" onClick={onCancel}>Cancel</button>
-          <button className="wf-btn wf-btn-primary" type="submit" disabled={!name.trim() || !command.trim()}>
+          <button className="wf-btn wf-btn-secondary" type="button" onClick={onCancel}>
+            Cancel
+          </button>
+          <button
+            className="wf-btn wf-btn-primary"
+            type="submit"
+            disabled={!name.trim() || !command.trim()}
+          >
             {initial ? 'Save' : 'Add'}
           </button>
         </div>

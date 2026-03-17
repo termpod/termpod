@@ -74,13 +74,13 @@ Client                          Relay (Worker → User DO)
 
 Used on Session WS (`/sessions/:id/ws`). All frames start with a 1-byte channel ID:
 
-| Channel | Direction | Description |
-|---------|-----------|-------------|
-| `0x00` | _(rejected)_ | Plaintext terminal data — no longer accepted on relay; all data must be E2E encrypted |
-| `0x01` | desktop → relay | Terminal resize: `[0x01][cols:u16be][rows:u16be]` (non-sensitive metadata) |
-| `0x02` | desktop → viewer | Encrypted scrollback chunk (sent via `encrypted_scrollback_chunk` JSON, not binary) |
-| `0xE0` | bidirectional | E2E encrypted data: `[0xE0][nonce:12][ciphertext+tag]` |
-| `0xE1` | desktop → share viewers | Share-encrypted data: `[0xE1][nonce:12][ciphertext+tag]` |
+| Channel | Direction               | Description                                                                           |
+| ------- | ----------------------- | ------------------------------------------------------------------------------------- |
+| `0x00`  | _(rejected)_            | Plaintext terminal data — no longer accepted on relay; all data must be E2E encrypted |
+| `0x01`  | desktop → relay         | Terminal resize: `[0x01][cols:u16be][rows:u16be]` (non-sensitive metadata)            |
+| `0x02`  | desktop → viewer        | Encrypted scrollback chunk (sent via `encrypted_scrollback_chunk` JSON, not binary)   |
+| `0xE0`  | bidirectional           | E2E encrypted data: `[0xE0][nonce:12][ciphertext+tag]`                                |
+| `0xE1`  | desktop → share viewers | Share-encrypted data: `[0xE1][nonce:12][ciphertext+tag]`                              |
 
 #### Terminal Data (0x00) — Deprecated on Relay
 
@@ -135,12 +135,12 @@ Used on Device WS (`/devices/:deviceId/ws`) and Local WS (Bonjour). Prefixes eac
 [channel:u8][sid_len:u8][sid:utf8][payload:bytes]
 ```
 
-| Field | Size | Description |
-|-------|------|-------------|
-| `channel` | 1 byte | Channel ID (0x00, 0x01, 0x02, 0xE0) |
-| `sid_len` | 1 byte | Length of session ID string in bytes |
-| `sid` | `sid_len` bytes | Session ID (UTF-8 encoded) |
-| `payload` | remaining bytes | Channel-specific payload |
+| Field     | Size            | Description                          |
+| --------- | --------------- | ------------------------------------ |
+| `channel` | 1 byte          | Channel ID (0x00, 0x01, 0x02, 0xE0)  |
+| `sid_len` | 1 byte          | Length of session ID string in bytes |
+| `sid`     | `sid_len` bytes | Session ID (UTF-8 encoded)           |
+| `payload` | remaining bytes | Channel-specific payload             |
 
 #### Multiplexed Terminal Data (0x00)
 

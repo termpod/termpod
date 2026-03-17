@@ -28,7 +28,7 @@ export async function hashPassword(password: string): Promise<{ hash: string; sa
   crypto.getRandomValues(salt);
 
   const key = await deriveKey(password, salt);
-  const hashBuffer = await crypto.subtle.exportKey('raw', key) as ArrayBuffer;
+  const hashBuffer = (await crypto.subtle.exportKey('raw', key)) as ArrayBuffer;
 
   return {
     hash: bufToHex(new Uint8Array(hashBuffer)),
@@ -43,7 +43,7 @@ export async function verifyPassword(
 ): Promise<boolean> {
   const salt = hexToBuf(storedSalt);
   const key = await deriveKey(password, salt);
-  const hashBuffer = await crypto.subtle.exportKey('raw', key) as ArrayBuffer;
+  const hashBuffer = (await crypto.subtle.exportKey('raw', key)) as ArrayBuffer;
   const computed = bufToHex(new Uint8Array(hashBuffer));
 
   const encoder = new TextEncoder();

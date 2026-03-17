@@ -21,17 +21,9 @@ async function createE2ESessionPair(sessionId: string) {
   const desktop = await generateKeyPair();
   const viewer = await generateKeyPair();
 
-  const desktopSession = await deriveSessionKey(
-    desktop.privateKey,
-    viewer.publicKeyJwk,
-    sessionId,
-  );
+  const desktopSession = await deriveSessionKey(desktop.privateKey, viewer.publicKeyJwk, sessionId);
 
-  const viewerSession = await deriveSessionKey(
-    viewer.privateKey,
-    desktop.publicKeyJwk,
-    sessionId,
-  );
+  const viewerSession = await deriveSessionKey(viewer.privateKey, desktop.publicKeyJwk, sessionId);
 
   return { desktop, viewer, desktopSession, viewerSession };
 }
@@ -346,11 +338,7 @@ describe('key_exchange_ack handling', () => {
     };
 
     // Desktop derives session key (what the onmessage handler does)
-    const session = await deriveSessionKey(
-      desktopKP.privateKey,
-      ackMsg.publicKey,
-      sessionId,
-    );
+    const session = await deriveSessionKey(desktopKP.privateKey, ackMsg.publicKey, sessionId);
 
     expect(session.key).toBeDefined();
     expect(session.sendCounter).toBe(0);
@@ -372,9 +360,7 @@ describe('key_exchange_ack handling', () => {
       y: 'also-invalid',
     };
 
-    await expect(
-      deriveSessionKey(desktopKP.privateKey, badPublicKey, sessionId),
-    ).rejects.toThrow();
+    await expect(deriveSessionKey(desktopKP.privateKey, badPublicKey, sessionId)).rejects.toThrow();
   });
 
   it('ack without publicKey field is handled gracefully', () => {

@@ -54,10 +54,7 @@ export async function signJWT(
   return `${data}.${base64url(sig)}`;
 }
 
-export async function verifyJWT(
-  token: string,
-  secret: string,
-): Promise<JWTPayload | null> {
+export async function verifyJWT(token: string, secret: string): Promise<JWTPayload | null> {
   const parts = token.split('.');
 
   if (parts.length !== 3) {

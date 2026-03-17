@@ -50,7 +50,12 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
-export function startRecording(sessionId: string, cols: number, rows: number, title?: string): void {
+export function startRecording(
+  sessionId: string,
+  cols: number,
+  rows: number,
+  title?: string,
+): void {
   if (store.active.has(sessionId)) {
     return;
   }

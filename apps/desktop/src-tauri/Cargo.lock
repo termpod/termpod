@@ -4286,6 +4286,7 @@ dependencies = [
  "futures-util",
  "libc",
  "local-ip-address",
+ "log",
  "portable-pty",
  "serde",
  "serde_json",

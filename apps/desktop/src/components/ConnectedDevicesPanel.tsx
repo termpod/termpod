@@ -80,7 +80,15 @@ function DeviceIcon({ device }: { device: string }) {
       return (
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
           <rect x="4" y="1" width="8" height="14" rx="2" stroke="currentColor" strokeWidth="1.2" />
-          <line x1="7" y1="12.5" x2="9" y2="12.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+          <line
+            x1="7"
+            y1="12.5"
+            x2="9"
+            y2="12.5"
+            stroke="currentColor"
+            strokeWidth="1"
+            strokeLinecap="round"
+          />
         </svg>
       );
 
@@ -95,7 +103,15 @@ function DeviceIcon({ device }: { device: string }) {
     case 'macos':
       return (
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <rect x="1.5" y="2" width="13" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
+          <rect
+            x="1.5"
+            y="2"
+            width="13"
+            height="9"
+            rx="1.5"
+            stroke="currentColor"
+            strokeWidth="1.2"
+          />
           <path d="M5 13h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
           <path d="M8 11v2" stroke="currentColor" strokeWidth="1.2" />
         </svg>
@@ -126,9 +142,7 @@ function DeviceRow({ device }: { device: MergedDevice }) {
         <DeviceIcon device={device.device} />
       </div>
       <div className="cdp-device-info">
-        <div className="cdp-device-name">
-          {DEVICE_LABELS[device.device] ?? device.device}
-        </div>
+        <div className="cdp-device-name">{DEVICE_LABELS[device.device] ?? device.device}</div>
         <div className="cdp-device-transports">
           {device.transports.map((t) => (
             <span
@@ -143,9 +157,7 @@ function DeviceRow({ device }: { device: MergedDevice }) {
             </span>
           ))}
         </div>
-        <div className="cdp-device-meta">
-          {formatDuration(device.connectedAt)}
-        </div>
+        <div className="cdp-device-meta">{formatDuration(device.connectedAt)}</div>
       </div>
     </div>
   );
@@ -176,7 +188,15 @@ export function ConnectedDevicesPanel({ sessionDevices, onClose }: ConnectedDevi
       <div className="cdp-header">
         <span className="cdp-title">Connected Devices</span>
         <button className="cdp-close-btn" onClick={onClose} aria-label="Close">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 12 12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          >
             <path d="M2 2l8 8M10 2l-8 8" />
           </svg>
         </button>
@@ -196,9 +216,7 @@ export function ConnectedDevicesPanel({ sessionDevices, onClose }: ConnectedDevi
                 className="cdp-status-dot"
                 style={{ backgroundColor: STATUS_COLORS[session.relayStatus] }}
               />
-              <span className="cdp-status-label">
-                {STATUS_LABELS[session.relayStatus]}
-              </span>
+              <span className="cdp-status-label">{STATUS_LABELS[session.relayStatus]}</span>
             </div>
 
             {session.devices.length > 0 ? (
@@ -221,17 +239,40 @@ export function ConnectedDevicesPanel({ sessionDevices, onClose }: ConnectedDevi
           <div className="cdp-empty">
             <div className="cdp-empty-icon">
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                <rect x="4" y="6" width="24" height="16" rx="3" stroke="var(--text-muted)" strokeWidth="1.5" />
-                <path d="M10 26h12" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+                <rect
+                  x="4"
+                  y="6"
+                  width="24"
+                  height="16"
+                  rx="3"
+                  stroke="var(--text-muted)"
+                  strokeWidth="1.5"
+                />
+                <path
+                  d="M10 26h12"
+                  stroke="var(--text-muted)"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
                 <path d="M16 22v4" stroke="var(--text-muted)" strokeWidth="1.5" />
-                <circle cx="24" cy="10" r="4" fill="var(--bg-primary)" stroke="var(--text-muted)" strokeWidth="1.5" />
-                <path d="M23 10h2" stroke="var(--text-muted)" strokeWidth="1.2" strokeLinecap="round" />
+                <circle
+                  cx="24"
+                  cy="10"
+                  r="4"
+                  fill="var(--bg-primary)"
+                  stroke="var(--text-muted)"
+                  strokeWidth="1.5"
+                />
+                <path
+                  d="M23 10h2"
+                  stroke="var(--text-muted)"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                />
               </svg>
             </div>
             <span className="cdp-empty-text">No devices connected</span>
-            <span className="cdp-empty-hint">
-              Open TermPod on your iPhone or iPad to connect
-            </span>
+            <span className="cdp-empty-hint">Open TermPod on your iPhone or iPad to connect</span>
           </div>
         )}
 

@@ -84,7 +84,9 @@ export function AutocompletePopup({
     const aboveTop = cursorTop - popupHeight - 6;
     const belowTop = cursorTop + cellHeight + 6;
     const top =
-      aboveTop >= 8 ? aboveTop : Math.min(belowTop, Math.max(8, window.innerHeight - popupHeight - 8));
+      aboveTop >= 8
+        ? aboveTop
+        : Math.min(belowTop, Math.max(8, window.innerHeight - popupHeight - 8));
 
     return { left, top, width: popupWidth };
   }, [terminal, suggestions]);
@@ -287,7 +289,13 @@ function withAlpha(color: string, alpha: number): string {
   }
 
   const raw = m[1];
-  const expanded = raw.length === 3 ? raw.split('').map((c) => c + c).join('') : raw;
+  const expanded =
+    raw.length === 3
+      ? raw
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : raw;
   const r = parseInt(expanded.slice(0, 2), 16);
   const g = parseInt(expanded.slice(2, 4), 16);
   const b = parseInt(expanded.slice(4, 6), 16);

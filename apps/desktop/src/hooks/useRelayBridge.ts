@@ -5,7 +5,11 @@ import { useWebRTC } from './useWebRTC';
 import type { TerminalSession } from './useSessionManager';
 
 interface UseRelayBridgeOptions {
-  onCreateSessionRequest?: (requestId: string, source: 'relay' | 'local' | 'webrtc', localClientId?: string) => void;
+  onCreateSessionRequest?: (
+    requestId: string,
+    source: 'relay' | 'local' | 'webrtc',
+    localClientId?: string,
+  ) => void;
   onSessionClosed?: () => void;
   onDeleteSession?: (relaySessionId: string) => void;
   getSessionsList?: () => Record<string, unknown>[];
@@ -26,7 +30,10 @@ interface UseRelayBridgeOptions {
   } | null;
 }
 
-export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: UseRelayBridgeOptions) {
+export function useRelayBridge(
+  session: TerminalSession | null,
+  bridgeOptions?: UseRelayBridgeOptions,
+) {
   const sessionRef = useRef(session);
   sessionRef.current = session;
   const bridgeOptionsRef = useRef(bridgeOptions);
@@ -203,10 +210,7 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
       }
 
       if (type === 'create_session_request' && msg.requestId) {
-        bridgeOptionsRef.current?.onCreateSessionRequest?.(
-          msg.requestId as string,
-          'webrtc',
-        );
+        bridgeOptionsRef.current?.onCreateSessionRequest?.(msg.requestId as string, 'webrtc');
       }
 
       if (type === 'delete_session' && msg.sessionId) {
@@ -295,12 +299,21 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
     if (webrtc.isConnected) {
       // Infer WebRTC peer's device type from relay's client list (the peer
       // always connects via relay first before upgrading to WebRTC).
-      const peerDevice = relay.connectedDevices.find((d) => d.device !== 'macos')?.device ?? 'unknown';
-      raw.push({ clientId: 'webrtc-peer', device: peerDevice, transport: 'webrtc' as const, connectedAt: webrtcConnectedAt.current });
+      const peerDevice =
+        relay.connectedDevices.find((d) => d.device !== 'macos')?.device ?? 'unknown';
+      raw.push({
+        clientId: 'webrtc-peer',
+        device: peerDevice,
+        transport: 'webrtc' as const,
+        connectedAt: webrtcConnectedAt.current,
+      });
     }
 
     // Merge by device type — collect transports per unique device
-    const byDevice = new Map<string, { device: string; transports: string[]; connectedAt: string }>();
+    const byDevice = new Map<
+      string,
+      { device: string; transports: string[]; connectedAt: string }
+    >();
 
     for (const d of raw) {
       const existing = byDevice.get(d.device);
@@ -314,7 +327,11 @@ export function useRelayBridge(session: TerminalSession | null, bridgeOptions?: 
           existing.connectedAt = d.connectedAt;
         }
       } else {
-        byDevice.set(d.device, { device: d.device, transports: [d.transport], connectedAt: d.connectedAt });
+        byDevice.set(d.device, {
+          device: d.device,
+          transports: [d.transport],
+          connectedAt: d.connectedAt,
+        });
       }
     }
 

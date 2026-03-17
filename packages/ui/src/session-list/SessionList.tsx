@@ -12,7 +12,9 @@ export function SessionList({ sessions, activeSessionId, onSelect, onCreate }: S
     <div className="session-list">
       <div className="session-list-header">
         <h3>Sessions</h3>
-        <button onClick={onCreate} type="button">+</button>
+        <button onClick={onCreate} type="button">
+          +
+        </button>
       </div>
       <ul>
         {sessions.map((session) => (

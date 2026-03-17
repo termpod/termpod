@@ -75,9 +75,15 @@ export function spawn(file: string, args: string[], options?: SpawnOptions): IPt
   }
 
   return {
-    get pid() { return pid; },
-    get cols() { return cols; },
-    get rows() { return rows; },
+    get pid() {
+      return pid;
+    },
+    get cols() {
+      return cols;
+    },
+    get rows() {
+      return rows;
+    },
 
     onData(cb) {
       dataListeners.push(cb);

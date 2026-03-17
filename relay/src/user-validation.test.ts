@@ -45,55 +45,84 @@ describe('Device registration validation', () => {
   }
 
   it('accepts valid device registration', () => {
-    expect(validateDevice({
-      id: crypto.randomUUID(),
-      name: 'My MacBook',
-      deviceType: 'desktop',
-      platform: 'macos',
-    })).toBeNull();
+    expect(
+      validateDevice({
+        id: crypto.randomUUID(),
+        name: 'My MacBook',
+        deviceType: 'desktop',
+        platform: 'macos',
+      }),
+    ).toBeNull();
   });
 
   it('accepts all valid platforms', () => {
     for (const platform of VALID_PLATFORMS) {
-      expect(validateDevice({
-        id: 'dev-1', name: 'test', deviceType: 'desktop', platform,
-      })).toBeNull();
+      expect(
+        validateDevice({
+          id: 'dev-1',
+          name: 'test',
+          deviceType: 'desktop',
+          platform,
+        }),
+      ).toBeNull();
     }
   });
 
   it('rejects empty device ID', () => {
-    expect(validateDevice({ id: '', name: 'test', deviceType: 'desktop', platform: 'macos' }))
-      .toBe('Invalid device ID');
+    expect(validateDevice({ id: '', name: 'test', deviceType: 'desktop', platform: 'macos' })).toBe(
+      'Invalid device ID',
+    );
   });
 
   it('rejects device ID longer than 64 chars', () => {
-    expect(validateDevice({ id: 'x'.repeat(65), name: 'test', deviceType: 'desktop', platform: 'macos' }))
-      .toBe('Invalid device ID');
+    expect(
+      validateDevice({
+        id: 'x'.repeat(65),
+        name: 'test',
+        deviceType: 'desktop',
+        platform: 'macos',
+      }),
+    ).toBe('Invalid device ID');
   });
 
   it('accepts device ID of exactly 64 chars', () => {
-    expect(validateDevice({ id: 'x'.repeat(64), name: 'test', deviceType: 'desktop', platform: 'macos' }))
-      .toBeNull();
+    expect(
+      validateDevice({
+        id: 'x'.repeat(64),
+        name: 'test',
+        deviceType: 'desktop',
+        platform: 'macos',
+      }),
+    ).toBeNull();
   });
 
   it('rejects empty device name', () => {
-    expect(validateDevice({ id: 'dev-1', name: '', deviceType: 'desktop', platform: 'macos' }))
-      .toBe('Invalid device name');
+    expect(
+      validateDevice({ id: 'dev-1', name: '', deviceType: 'desktop', platform: 'macos' }),
+    ).toBe('Invalid device name');
   });
 
   it('rejects device name longer than 255 chars', () => {
-    expect(validateDevice({ id: 'dev-1', name: 'x'.repeat(256), deviceType: 'desktop', platform: 'macos' }))
-      .toBe('Invalid device name');
+    expect(
+      validateDevice({
+        id: 'dev-1',
+        name: 'x'.repeat(256),
+        deviceType: 'desktop',
+        platform: 'macos',
+      }),
+    ).toBe('Invalid device name');
   });
 
   it('rejects unknown platform', () => {
-    expect(validateDevice({ id: 'dev-1', name: 'test', deviceType: 'desktop', platform: 'windows' }))
-      .toBe('Invalid platform');
+    expect(
+      validateDevice({ id: 'dev-1', name: 'test', deviceType: 'desktop', platform: 'windows' }),
+    ).toBe('Invalid platform');
   });
 
   it('rejects unknown device type', () => {
-    expect(validateDevice({ id: 'dev-1', name: 'test', deviceType: 'tablet', platform: 'macos' }))
-      .toBe('Invalid device type');
+    expect(
+      validateDevice({ id: 'dev-1', name: 'test', deviceType: 'tablet', platform: 'macos' }),
+    ).toBe('Invalid device type');
   });
 
   it('rejects missing fields', () => {
@@ -179,8 +208,12 @@ describe('Session update validation', () => {
       return 'CWD too long';
     }
 
-    if (body.processName !== undefined && body.processName !== null &&
-        typeof body.processName === 'string' && body.processName.length > 255) {
+    if (
+      body.processName !== undefined &&
+      body.processName !== null &&
+      typeof body.processName === 'string' &&
+      body.processName.length > 255
+    ) {
       return 'Process name too long';
     }
 
@@ -260,9 +293,27 @@ describe('Device deduplication', () => {
 
   it('keeps one device per platform', () => {
     const devices: Device[] = [
-      { id: 'old-mac', platform: 'macos', isOnline: false, lastSeenAt: '2024-01-01T00:00:00Z', createdAt: '2024-01-01T00:00:00Z' },
-      { id: 'new-mac', platform: 'macos', isOnline: true, lastSeenAt: '2024-06-01T00:00:00Z', createdAt: '2024-06-01T00:00:00Z' },
-      { id: 'iphone', platform: 'iphone', isOnline: true, lastSeenAt: '2024-06-01T00:00:00Z', createdAt: '2024-06-01T00:00:00Z' },
+      {
+        id: 'old-mac',
+        platform: 'macos',
+        isOnline: false,
+        lastSeenAt: '2024-01-01T00:00:00Z',
+        createdAt: '2024-01-01T00:00:00Z',
+      },
+      {
+        id: 'new-mac',
+        platform: 'macos',
+        isOnline: true,
+        lastSeenAt: '2024-06-01T00:00:00Z',
+        createdAt: '2024-06-01T00:00:00Z',
+      },
+      {
+        id: 'iphone',
+        platform: 'iphone',
+        isOnline: true,
+        lastSeenAt: '2024-06-01T00:00:00Z',
+        createdAt: '2024-06-01T00:00:00Z',
+      },
     ];
 
     const result = deduplicateDevices(devices);
@@ -274,8 +325,20 @@ describe('Device deduplication', () => {
 
   it('prefers device with more recent lastSeenAt', () => {
     const devices: Device[] = [
-      { id: 'a', platform: 'macos', isOnline: false, lastSeenAt: '2024-06-01T12:00:00Z', createdAt: '2024-01-01T00:00:00Z' },
-      { id: 'b', platform: 'macos', isOnline: true, lastSeenAt: '2024-06-01T06:00:00Z', createdAt: '2024-06-01T00:00:00Z' },
+      {
+        id: 'a',
+        platform: 'macos',
+        isOnline: false,
+        lastSeenAt: '2024-06-01T12:00:00Z',
+        createdAt: '2024-01-01T00:00:00Z',
+      },
+      {
+        id: 'b',
+        platform: 'macos',
+        isOnline: true,
+        lastSeenAt: '2024-06-01T06:00:00Z',
+        createdAt: '2024-06-01T00:00:00Z',
+      },
     ];
 
     const result = deduplicateDevices(devices);
@@ -284,9 +347,27 @@ describe('Device deduplication', () => {
 
   it('does not deduplicate across different platforms', () => {
     const devices: Device[] = [
-      { id: 'mac-1', platform: 'macos', isOnline: true, lastSeenAt: '2024-06-01T00:00:00Z', createdAt: '2024-06-01T00:00:00Z' },
-      { id: 'iphone-1', platform: 'iphone', isOnline: true, lastSeenAt: '2024-06-01T00:00:00Z', createdAt: '2024-06-01T00:00:00Z' },
-      { id: 'ipad-1', platform: 'ipad', isOnline: false, lastSeenAt: '2024-06-01T00:00:00Z', createdAt: '2024-06-01T00:00:00Z' },
+      {
+        id: 'mac-1',
+        platform: 'macos',
+        isOnline: true,
+        lastSeenAt: '2024-06-01T00:00:00Z',
+        createdAt: '2024-06-01T00:00:00Z',
+      },
+      {
+        id: 'iphone-1',
+        platform: 'iphone',
+        isOnline: true,
+        lastSeenAt: '2024-06-01T00:00:00Z',
+        createdAt: '2024-06-01T00:00:00Z',
+      },
+      {
+        id: 'ipad-1',
+        platform: 'ipad',
+        isOnline: false,
+        lastSeenAt: '2024-06-01T00:00:00Z',
+        createdAt: '2024-06-01T00:00:00Z',
+      },
     ];
 
     const result = deduplicateDevices(devices);
@@ -296,9 +377,27 @@ describe('Device deduplication', () => {
   it('marks devices offline after 90 seconds without heartbeat', () => {
     const now = Date.now();
     const devices: Device[] = [
-      { id: 'fresh', platform: 'macos', isOnline: true, lastSeenAt: new Date(now - 30_000).toISOString(), createdAt: '2024-01-01T00:00:00Z' },
-      { id: 'stale', platform: 'iphone', isOnline: true, lastSeenAt: new Date(now - 100_000).toISOString(), createdAt: '2024-01-01T00:00:00Z' },
-      { id: 'already-offline', platform: 'ipad', isOnline: false, lastSeenAt: new Date(now - 200_000).toISOString(), createdAt: '2024-01-01T00:00:00Z' },
+      {
+        id: 'fresh',
+        platform: 'macos',
+        isOnline: true,
+        lastSeenAt: new Date(now - 30_000).toISOString(),
+        createdAt: '2024-01-01T00:00:00Z',
+      },
+      {
+        id: 'stale',
+        platform: 'iphone',
+        isOnline: true,
+        lastSeenAt: new Date(now - 100_000).toISOString(),
+        createdAt: '2024-01-01T00:00:00Z',
+      },
+      {
+        id: 'already-offline',
+        platform: 'ipad',
+        isOnline: false,
+        lastSeenAt: new Date(now - 200_000).toISOString(),
+        createdAt: '2024-01-01T00:00:00Z',
+      },
     ];
 
     const result = markStaleOffline(devices, 90_000);
@@ -365,7 +464,7 @@ describe('Login rate limiting', () => {
     const attempts = [
       { attemptedAt: now - WINDOW_MS - 1000 }, // old, should be removed
       { attemptedAt: now - WINDOW_MS + 1000 }, // recent, should stay
-      { attemptedAt: now - 1000 },              // recent, should stay
+      { attemptedAt: now - 1000 }, // recent, should stay
     ];
 
     const cleaned = cleanupOldAttempts(attempts, now);
@@ -388,7 +487,7 @@ describe('Login rate limiting', () => {
 
     expect(shouldRateLimit(attempts, now)).toBe(false); // 4 < 5
     attempts.push({ attemptedAt: now });
-    expect(shouldRateLimit(attempts, now)).toBe(true);  // 5 >= 5
+    expect(shouldRateLimit(attempts, now)).toBe(true); // 5 >= 5
   });
 });
 
@@ -410,10 +509,13 @@ describe('sessions_updated validation', () => {
     }
 
     return sessions.filter((s) => {
-      return s && typeof s === 'object' &&
+      return (
+        s &&
+        typeof s === 'object' &&
         typeof s.id === 'string' &&
         s.id.length > 0 &&
-        s.id.length <= 64;
+        s.id.length <= 64
+      );
     });
   }
 

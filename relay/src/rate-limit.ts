@@ -48,7 +48,8 @@ const userRoutePolicies: Array<{
     rule: { key: 'sessions.register', max: 60, windowMs: MINUTE },
   },
   {
-    match: (path, method) => /^\/sessions\/[^/]+$/.test(path) && (method === 'DELETE' || method === 'PATCH'),
+    match: (path, method) =>
+      /^\/sessions\/[^/]+$/.test(path) && (method === 'DELETE' || method === 'PATCH'),
     rule: { key: 'sessions.mutate', max: 60, windowMs: MINUTE },
   },
   {
@@ -60,11 +61,13 @@ const userRoutePolicies: Array<{
     rule: { key: 'sessions.pending.list', max: 120, windowMs: MINUTE },
   },
   {
-    match: (path, method) => /^\/devices\/[^/]+\/pending-requests$/.test(path) && method === 'DELETE',
+    match: (path, method) =>
+      /^\/devices\/[^/]+\/pending-requests$/.test(path) && method === 'DELETE',
     rule: { key: 'sessions.pending.clear', max: 30, windowMs: MINUTE },
   },
   {
-    match: (path, method) => /^\/sessions\/[^/]+\/share$/.test(path) && (method === 'POST' || method === 'DELETE'),
+    match: (path, method) =>
+      /^\/sessions\/[^/]+\/share$/.test(path) && (method === 'POST' || method === 'DELETE'),
     rule: { key: 'sessions.share', max: 20, windowMs: MINUTE },
   },
   {
@@ -86,7 +89,10 @@ const internalPolicies: Record<string, RequestRateLimitRule> = {
   'turn.credentials': { key: 'turn.credentials', max: 6, windowMs: MINUTE },
 };
 
-export function getUserRouteRateLimitRule(path: string, method: string): RequestRateLimitRule | null {
+export function getUserRouteRateLimitRule(
+  path: string,
+  method: string,
+): RequestRateLimitRule | null {
   const normalizedMethod = method.toUpperCase();
 
   for (const policy of userRoutePolicies) {
@@ -102,7 +108,10 @@ export function getInternalRateLimitRule(name: string): RequestRateLimitRule | n
   return internalPolicies[name] ?? null;
 }
 
-export function getTerminalSessionRouteRateLimitRule(path: string, method: string): RequestRateLimitRule | null {
+export function getTerminalSessionRouteRateLimitRule(
+  path: string,
+  method: string,
+): RequestRateLimitRule | null {
   if (path === '/ws' && method.toUpperCase() === 'GET') {
     return { key: 'session.ws', max: 30, windowMs: MINUTE };
   }

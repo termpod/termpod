@@ -258,11 +258,13 @@ describe('Session DO: control message routing', () => {
 
     switch (type) {
       case 'ping':
-        sender.send(JSON.stringify({
-          type: 'pong',
-          timestamp: msg.timestamp,
-          serverTime: Date.now(),
-        }));
+        sender.send(
+          JSON.stringify({
+            type: 'pong',
+            timestamp: msg.timestamp,
+            serverTime: Date.now(),
+          }),
+        );
 
         return { forwarded: false, recipientIds: [] };
 
@@ -367,12 +369,16 @@ describe('Session DO: control message routing', () => {
   });
 
   it('webrtc_offer → forward to target clientId', () => {
-    const result = routeControlMessage(desktop, {
-      type: 'webrtc_offer',
-      sdp: 'v=0...',
-      fromClientId: 'desktop-1',
-      toClientId: 'viewer-1',
-    }, allSockets);
+    const result = routeControlMessage(
+      desktop,
+      {
+        type: 'webrtc_offer',
+        sdp: 'v=0...',
+        fromClientId: 'desktop-1',
+        toClientId: 'viewer-1',
+      },
+      allSockets,
+    );
 
     expect(result.forwarded).toBe(true);
     expect(result.recipientIds).toEqual(['viewer-1']);
@@ -381,21 +387,29 @@ describe('Session DO: control message routing', () => {
   });
 
   it('webrtc_offer to non-existent client → not forwarded', () => {
-    const result = routeControlMessage(desktop, {
-      type: 'webrtc_offer',
-      sdp: 'v=0...',
-      fromClientId: 'desktop-1',
-      toClientId: 'nonexistent',
-    }, allSockets);
+    const result = routeControlMessage(
+      desktop,
+      {
+        type: 'webrtc_offer',
+        sdp: 'v=0...',
+        fromClientId: 'desktop-1',
+        toClientId: 'nonexistent',
+      },
+      allSockets,
+    );
 
     expect(result.forwarded).toBe(false);
   });
 
   it('create_session_request from viewer → forward to desktop', () => {
-    const result = routeControlMessage(viewer, {
-      type: 'create_session_request',
-      requestId: 'req-1',
-    }, allSockets);
+    const result = routeControlMessage(
+      viewer,
+      {
+        type: 'create_session_request',
+        requestId: 'req-1',
+      },
+      allSockets,
+    );
 
     expect(result.forwarded).toBe(true);
     expect(result.recipientIds).toEqual(['desktop-1']);
@@ -403,10 +417,14 @@ describe('Session DO: control message routing', () => {
   });
 
   it('create_session_request from desktop → not forwarded (only viewers can request)', () => {
-    const result = routeControlMessage(desktop, {
-      type: 'create_session_request',
-      requestId: 'req-1',
-    }, allSockets);
+    const result = routeControlMessage(
+      desktop,
+      {
+        type: 'create_session_request',
+        requestId: 'req-1',
+      },
+      allSockets,
+    );
 
     expect(result.forwarded).toBe(false);
     expect(viewer.sentMessages.length).toBe(0);
@@ -416,22 +434,30 @@ describe('Session DO: control message routing', () => {
     const viewer2 = new MockWebSocket({ clientId: 'viewer-2', role: 'viewer', device: 'ipad' });
     const sockets = [desktop, viewer, viewer2];
 
-    const result = routeControlMessage(desktop, {
-      type: 'session_created',
-      requestId: 'req-1',
-      sessionId: 'sess-1',
-    }, sockets);
+    const result = routeControlMessage(
+      desktop,
+      {
+        type: 'session_created',
+        requestId: 'req-1',
+        sessionId: 'sess-1',
+      },
+      sockets,
+    );
 
     expect(result.forwarded).toBe(true);
     expect(result.recipientIds).toEqual(['viewer-1', 'viewer-2']);
   });
 
   it('session_created from viewer → not forwarded', () => {
-    const result = routeControlMessage(viewer, {
-      type: 'session_created',
-      requestId: 'req-1',
-      sessionId: 'sess-1',
-    }, allSockets);
+    const result = routeControlMessage(
+      viewer,
+      {
+        type: 'session_created',
+        requestId: 'req-1',
+        sessionId: 'sess-1',
+      },
+      allSockets,
+    );
 
     expect(result.forwarded).toBe(false);
   });
@@ -440,11 +466,15 @@ describe('Session DO: control message routing', () => {
     const viewer2 = new MockWebSocket({ clientId: 'viewer-2', role: 'viewer', device: 'ipad' });
     const sockets = [desktop, viewer, viewer2];
 
-    const result = routeControlMessage(desktop, {
-      type: 'key_exchange',
-      publicKey: { kty: 'EC', crv: 'P-256', x: 'abc', y: 'def' },
-      sessionId: 'sess-1',
-    }, sockets);
+    const result = routeControlMessage(
+      desktop,
+      {
+        type: 'key_exchange',
+        publicKey: { kty: 'EC', crv: 'P-256', x: 'abc', y: 'def' },
+        sessionId: 'sess-1',
+      },
+      sockets,
+    );
 
     expect(result.forwarded).toBe(true);
     expect(result.recipientIds).toEqual(['viewer-1', 'viewer-2']);
@@ -452,21 +482,29 @@ describe('Session DO: control message routing', () => {
   });
 
   it('key_exchange from viewer → not forwarded', () => {
-    const result = routeControlMessage(viewer, {
-      type: 'key_exchange',
-      publicKey: { kty: 'EC', crv: 'P-256', x: 'abc', y: 'def' },
-      sessionId: 'sess-1',
-    }, allSockets);
+    const result = routeControlMessage(
+      viewer,
+      {
+        type: 'key_exchange',
+        publicKey: { kty: 'EC', crv: 'P-256', x: 'abc', y: 'def' },
+        sessionId: 'sess-1',
+      },
+      allSockets,
+    );
 
     expect(result.forwarded).toBe(false);
     expect(desktop.sentMessages.length).toBe(0);
   });
 
   it('key_exchange_ack from viewer → forward to desktop', () => {
-    const result = routeControlMessage(viewer, {
-      type: 'key_exchange_ack',
-      publicKey: { kty: 'EC', crv: 'P-256', x: 'ghi', y: 'jkl' },
-    }, allSockets);
+    const result = routeControlMessage(
+      viewer,
+      {
+        type: 'key_exchange_ack',
+        publicKey: { kty: 'EC', crv: 'P-256', x: 'ghi', y: 'jkl' },
+      },
+      allSockets,
+    );
 
     expect(result.forwarded).toBe(true);
     expect(result.recipientIds).toEqual(['desktop-1']);
@@ -474,10 +512,14 @@ describe('Session DO: control message routing', () => {
   });
 
   it('key_exchange_ack from desktop → not forwarded', () => {
-    const result = routeControlMessage(desktop, {
-      type: 'key_exchange_ack',
-      publicKey: { kty: 'EC', crv: 'P-256', x: 'ghi', y: 'jkl' },
-    }, allSockets);
+    const result = routeControlMessage(
+      desktop,
+      {
+        type: 'key_exchange_ack',
+        publicKey: { kty: 'EC', crv: 'P-256', x: 'ghi', y: 'jkl' },
+      },
+      allSockets,
+    );
 
     expect(result.forwarded).toBe(false);
     expect(viewer.sentMessages.length).toBe(0);
@@ -534,7 +576,9 @@ describe('User DO: device-level control message routing', () => {
 
     switch (type) {
       case 'ping':
-        sender.send(JSON.stringify({ type: 'pong', timestamp: msg.timestamp, serverTime: Date.now() }));
+        sender.send(
+          JSON.stringify({ type: 'pong', timestamp: msg.timestamp, serverTime: Date.now() }),
+        );
         break;
 
       case 'create_session_request':
@@ -601,131 +645,205 @@ describe('User DO: device-level control message routing', () => {
 
   beforeEach(() => {
     desktop = new MockWebSocket({
-      clientId: 'desktop-1', role: 'desktop', device: 'macos', targetDeviceId: 'dev-1',
+      clientId: 'desktop-1',
+      role: 'desktop',
+      device: 'macos',
+      targetDeviceId: 'dev-1',
     });
     viewer1 = new MockWebSocket({
-      clientId: 'viewer-1', role: 'viewer', device: 'iphone', targetDeviceId: 'dev-1',
+      clientId: 'viewer-1',
+      role: 'viewer',
+      device: 'iphone',
+      targetDeviceId: 'dev-1',
     });
     viewer2 = new MockWebSocket({
-      clientId: 'viewer-2', role: 'viewer', device: 'ipad', targetDeviceId: 'dev-1',
+      clientId: 'viewer-2',
+      role: 'viewer',
+      device: 'ipad',
+      targetDeviceId: 'dev-1',
     });
     allSockets = [desktop, viewer1, viewer2];
   });
 
   it('viewer create_session_request → desktop only', () => {
-    const result = routeDeviceMessage(viewer1, {
-      type: 'create_session_request', requestId: 'r1',
-    }, allSockets);
+    const result = routeDeviceMessage(
+      viewer1,
+      {
+        type: 'create_session_request',
+        requestId: 'r1',
+      },
+      allSockets,
+    );
 
     expect(result.recipientIds).toEqual(['desktop-1']);
     expect(viewer2.sentMessages.length).toBe(0); // other viewer doesn't get it
   });
 
   it('desktop session_created → all viewers', () => {
-    const result = routeDeviceMessage(desktop, {
-      type: 'session_created', requestId: 'r1', sessionId: 's1',
-    }, allSockets);
+    const result = routeDeviceMessage(
+      desktop,
+      {
+        type: 'session_created',
+        requestId: 'r1',
+        sessionId: 's1',
+      },
+      allSockets,
+    );
 
     expect(result.recipientIds).toEqual(['viewer-1', 'viewer-2']);
   });
 
   it('desktop session_created with toClientId → specific viewer', () => {
-    const result = routeDeviceMessage(desktop, {
-      type: 'session_created', requestId: 'r1', sessionId: 's1', toClientId: 'viewer-2',
-    }, allSockets);
+    const result = routeDeviceMessage(
+      desktop,
+      {
+        type: 'session_created',
+        requestId: 'r1',
+        sessionId: 's1',
+        toClientId: 'viewer-2',
+      },
+      allSockets,
+    );
 
     expect(result.recipientIds).toEqual(['viewer-2']);
     expect(viewer1.sentMessages.length).toBe(0);
   });
 
   it('viewer delete_session → desktop only', () => {
-    const result = routeDeviceMessage(viewer1, {
-      type: 'delete_session', sessionId: 's1',
-    }, allSockets);
+    const result = routeDeviceMessage(
+      viewer1,
+      {
+        type: 'delete_session',
+        sessionId: 's1',
+      },
+      allSockets,
+    );
 
     expect(result.recipientIds).toEqual(['desktop-1']);
   });
 
   it('desktop session_closed → all viewers', () => {
-    const result = routeDeviceMessage(desktop, {
-      type: 'session_closed', sessionId: 's1',
-    }, allSockets);
+    const result = routeDeviceMessage(
+      desktop,
+      {
+        type: 'session_closed',
+        sessionId: 's1',
+      },
+      allSockets,
+    );
 
     expect(result.recipientIds).toEqual(['viewer-1', 'viewer-2']);
   });
 
   it('desktop sessions_updated → all viewers', () => {
-    const result = routeDeviceMessage(desktop, {
-      type: 'sessions_updated', sessions: [{ id: 's1', name: 'shell' }],
-    }, allSockets);
+    const result = routeDeviceMessage(
+      desktop,
+      {
+        type: 'sessions_updated',
+        sessions: [{ id: 's1', name: 'shell' }],
+      },
+      allSockets,
+    );
 
     expect(result.recipientIds).toEqual(['viewer-1', 'viewer-2']);
   });
 
   it('viewer sessions_updated → dropped (only desktop can)', () => {
-    const result = routeDeviceMessage(viewer1, {
-      type: 'sessions_updated', sessions: [],
-    }, allSockets);
+    const result = routeDeviceMessage(
+      viewer1,
+      {
+        type: 'sessions_updated',
+        sessions: [],
+      },
+      allSockets,
+    );
 
     expect(result.recipientIds).toEqual([]);
     expect(desktop.sentMessages.length).toBe(0);
   });
 
   it('webrtc signaling → forward to specific clientId', () => {
-    const result = routeDeviceMessage(viewer1, {
-      type: 'webrtc_offer', sdp: 'v=0...', fromClientId: 'viewer-1', toClientId: 'desktop-1',
-    }, allSockets);
+    const result = routeDeviceMessage(
+      viewer1,
+      {
+        type: 'webrtc_offer',
+        sdp: 'v=0...',
+        fromClientId: 'viewer-1',
+        toClientId: 'desktop-1',
+      },
+      allSockets,
+    );
 
     expect(result.recipientIds).toEqual(['desktop-1']);
     expect(viewer2.sentMessages.length).toBe(0);
   });
 
   it('desktop key_exchange → all viewers on same device', () => {
-    const result = routeDeviceMessage(desktop, {
-      type: 'key_exchange',
-      publicKey: { kty: 'EC', crv: 'P-256', x: 'abc', y: 'def' },
-      sessionId: 'sess-1',
-    }, allSockets);
+    const result = routeDeviceMessage(
+      desktop,
+      {
+        type: 'key_exchange',
+        publicKey: { kty: 'EC', crv: 'P-256', x: 'abc', y: 'def' },
+        sessionId: 'sess-1',
+      },
+      allSockets,
+    );
 
     expect(result.recipientIds).toEqual(['viewer-1', 'viewer-2']);
     expect(desktop.sentMessages.length).toBe(0);
   });
 
   it('viewer key_exchange → dropped (only desktop initiates)', () => {
-    const result = routeDeviceMessage(viewer1, {
-      type: 'key_exchange',
-      publicKey: { kty: 'EC', crv: 'P-256', x: 'abc', y: 'def' },
-      sessionId: 'sess-1',
-    }, allSockets);
+    const result = routeDeviceMessage(
+      viewer1,
+      {
+        type: 'key_exchange',
+        publicKey: { kty: 'EC', crv: 'P-256', x: 'abc', y: 'def' },
+        sessionId: 'sess-1',
+      },
+      allSockets,
+    );
 
     expect(result.recipientIds).toEqual([]);
     expect(desktop.sentMessages.length).toBe(0);
   });
 
   it('viewer key_exchange_ack → desktop only', () => {
-    const result = routeDeviceMessage(viewer1, {
-      type: 'key_exchange_ack',
-      publicKey: { kty: 'EC', crv: 'P-256', x: 'ghi', y: 'jkl' },
-    }, allSockets);
+    const result = routeDeviceMessage(
+      viewer1,
+      {
+        type: 'key_exchange_ack',
+        publicKey: { kty: 'EC', crv: 'P-256', x: 'ghi', y: 'jkl' },
+      },
+      allSockets,
+    );
 
     expect(result.recipientIds).toEqual(['desktop-1']);
     expect(viewer2.sentMessages.length).toBe(0);
   });
 
   it('desktop key_exchange_ack → dropped (only viewer responds)', () => {
-    const result = routeDeviceMessage(desktop, {
-      type: 'key_exchange_ack',
-      publicKey: { kty: 'EC', crv: 'P-256', x: 'ghi', y: 'jkl' },
-    }, allSockets);
+    const result = routeDeviceMessage(
+      desktop,
+      {
+        type: 'key_exchange_ack',
+        publicKey: { kty: 'EC', crv: 'P-256', x: 'ghi', y: 'jkl' },
+      },
+      allSockets,
+    );
 
     expect(result.recipientIds).toEqual([]);
   });
 
   it('desktop local_auth_secret → all viewers', () => {
-    const result = routeDeviceMessage(desktop, {
-      type: 'local_auth_secret',
-      secret: 'abc123def456',
-    }, allSockets);
+    const result = routeDeviceMessage(
+      desktop,
+      {
+        type: 'local_auth_secret',
+        secret: 'abc123def456',
+      },
+      allSockets,
+    );
 
     expect(result.recipientIds).toEqual(['viewer-1', 'viewer-2']);
     expect(desktop.sentMessages.length).toBe(0);
@@ -737,10 +855,14 @@ describe('User DO: device-level control message routing', () => {
   });
 
   it('viewer local_auth_secret → dropped (only desktop sends)', () => {
-    const result = routeDeviceMessage(viewer1, {
-      type: 'local_auth_secret',
-      secret: 'should-not-forward',
-    }, allSockets);
+    const result = routeDeviceMessage(
+      viewer1,
+      {
+        type: 'local_auth_secret',
+        secret: 'should-not-forward',
+      },
+      allSockets,
+    );
 
     expect(result.recipientIds).toEqual([]);
     expect(desktop.sentMessages.length).toBe(0);
@@ -749,13 +871,21 @@ describe('User DO: device-level control message routing', () => {
 
   it('messages only route within same device', () => {
     const otherDeviceViewer = new MockWebSocket({
-      clientId: 'viewer-other', role: 'viewer', device: 'iphone', targetDeviceId: 'dev-2',
+      clientId: 'viewer-other',
+      role: 'viewer',
+      device: 'iphone',
+      targetDeviceId: 'dev-2',
     });
     const sockets = [...allSockets, otherDeviceViewer];
 
-    const result = routeDeviceMessage(desktop, {
-      type: 'session_closed', sessionId: 's1',
-    }, sockets);
+    const result = routeDeviceMessage(
+      desktop,
+      {
+        type: 'session_closed',
+        sessionId: 's1',
+      },
+      sockets,
+    );
 
     // Only viewers for dev-1, not dev-2
     expect(result.recipientIds).toEqual(['viewer-1', 'viewer-2']);
@@ -779,7 +909,13 @@ describe('Session DO: connection lifecycle', () => {
     state = 'pendingHello'; // after JWT + owner verified → sends auth_ok
 
     // Step 2: Client receives auth_ok, then sends hello
-    const helloMsg = { type: 'hello', role: 'desktop', clientId: 'c1', device: 'macos', version: 1 };
+    const helloMsg = {
+      type: 'hello',
+      role: 'desktop',
+      clientId: 'c1',
+      device: 'macos',
+      version: 1,
+    };
     expect(helloMsg.type).toBe('hello');
     state = 'authenticated';
 
@@ -808,7 +944,7 @@ describe('Session DO: connection lifecycle', () => {
 
   it('role assignment: first desktop gets desktop role, others become viewers', () => {
     function assignRole(claimedRole: string, existingDesktop: boolean): 'desktop' | 'viewer' {
-      return (!existingDesktop && claimedRole === 'desktop') ? 'desktop' : 'viewer';
+      return !existingDesktop && claimedRole === 'desktop' ? 'desktop' : 'viewer';
     }
 
     expect(assignRole('desktop', false)).toBe('desktop');

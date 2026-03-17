@@ -125,127 +125,127 @@ export default {
 };
 
 async function handleRequest(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
+  const url = new URL(request.url);
 
-    // --- Public update proxy ---
+  // --- Public update proxy ---
 
-    if (url.pathname === '/updates/latest.json' && request.method === 'GET') {
-      return handleUpdateLatest(env, url.origin);
+  if (url.pathname === '/updates/latest.json' && request.method === 'GET') {
+    return handleUpdateLatest(env, url.origin);
+  }
+
+  const updateDownloadMatch = url.pathname.match(/^\/updates\/download\/(.+)$/);
+
+  if (updateDownloadMatch && request.method === 'GET') {
+    return handleUpdateDownload(env, updateDownloadMatch[1]);
+  }
+
+  // --- Public auth routes ---
+
+  if (url.pathname === '/auth/signup' && request.method === 'POST') {
+    return handleSignup(request, env);
+  }
+
+  if (url.pathname === '/auth/login' && request.method === 'POST') {
+    return handleLogin(request, env);
+  }
+
+  if (url.pathname === '/auth/refresh' && request.method === 'POST') {
+    return handleRefresh(request, env);
+  }
+
+  // --- Authenticated routes ---
+
+  // Device routes
+  if (url.pathname === '/devices' && (request.method === 'GET' || request.method === 'POST')) {
+    return handleDevices(request, env);
+  }
+
+  const deviceActionMatch = url.pathname.match(/^\/devices\/([^/]+)\/(heartbeat|offline)$/);
+
+  if (deviceActionMatch && request.method === 'POST') {
+    return handleDeviceAction(request, env, deviceActionMatch[1], deviceActionMatch[2]);
+  }
+
+  const deviceDeleteMatch = url.pathname.match(/^\/devices\/([^/]+)$/);
+
+  if (deviceDeleteMatch && request.method === 'DELETE') {
+    return handleDeviceDelete(request, env, deviceDeleteMatch[1]);
+  }
+
+  // Session routes
+  const deviceSessionsMatch = url.pathname.match(/^\/devices\/([^/]+)\/sessions$/);
+
+  if (deviceSessionsMatch) {
+    return handleDeviceSessions(request, env, deviceSessionsMatch[1]);
+  }
+
+  const sessionDeleteMatch = url.pathname.match(/^\/sessions\/([^/]+)$/);
+
+  if (sessionDeleteMatch && request.method === 'DELETE') {
+    return handleSessionDelete(request, env, sessionDeleteMatch[1]);
+  }
+
+  if (sessionDeleteMatch && request.method === 'PATCH') {
+    return handleSessionUpdate(request, env, sessionDeleteMatch[1]);
+  }
+
+  // Pending session request routes
+  const requestSessionMatch = url.pathname.match(/^\/devices\/([^/]+)\/request-session$/);
+
+  if (requestSessionMatch && request.method === 'POST') {
+    return handleRequestSession(request, env, requestSessionMatch[1]);
+  }
+
+  const pendingRequestsMatch = url.pathname.match(/^\/devices\/([^/]+)\/pending-requests$/);
+
+  if (pendingRequestsMatch) {
+    return handlePendingRequests(request, env, pendingRequestsMatch[1]);
+  }
+
+  // Share token routes
+  const shareMatch = url.pathname.match(/^\/sessions\/([^/]+)\/share$/);
+
+  if (shareMatch) {
+    return handleSessionShare(request, env, shareMatch[1]);
+  }
+
+  // Web viewer: /share/:sessionId/:token (public)
+  const viewerMatch = url.pathname.match(/^\/share\/([^/]+)\/([^/]+)$/);
+
+  if (viewerMatch && request.method === 'GET') {
+    // Validate token before serving the page
+    const valid = await validateShareToken(env, viewerMatch[2], viewerMatch[1]);
+
+    if (!valid) {
+      return new Response(buildExpiredHtml(), {
+        status: 410,
+        headers: { 'Content-Type': 'text/html; charset=utf-8', ...SECURITY_HEADERS },
+      });
     }
 
-    const updateDownloadMatch = url.pathname.match(/^\/updates\/download\/(.+)$/);
+    return serveWebViewer(url.origin, viewerMatch[1], viewerMatch[2]);
+  }
 
-    if (updateDownloadMatch && request.method === 'GET') {
-      return handleUpdateDownload(env, updateDownloadMatch[1]);
-    }
+  // TURN credentials for WebRTC
+  if (url.pathname === '/turn-credentials' && request.method === 'GET') {
+    return handleTurnCredentials(request, env);
+  }
 
-    // --- Public auth routes ---
+  // Device WebSocket (control plane + signaling)
+  const deviceWsMatch = url.pathname.match(/^\/devices\/([^/]+)\/ws$/);
 
-    if (url.pathname === '/auth/signup' && request.method === 'POST') {
-      return handleSignup(request, env);
-    }
+  if (deviceWsMatch) {
+    return handleDeviceWebSocket(request, env, deviceWsMatch[1]);
+  }
 
-    if (url.pathname === '/auth/login' && request.method === 'POST') {
-      return handleLogin(request, env);
-    }
+  // WebSocket upgrade for terminal sessions
+  const wsMatch = url.pathname.match(/^\/sessions\/([^/]+)\/ws$/);
 
-    if (url.pathname === '/auth/refresh' && request.method === 'POST') {
-      return handleRefresh(request, env);
-    }
+  if (wsMatch) {
+    return handleWebSocket(request, env, wsMatch[1]);
+  }
 
-    // --- Authenticated routes ---
-
-    // Device routes
-    if (url.pathname === '/devices' && (request.method === 'GET' || request.method === 'POST')) {
-      return handleDevices(request, env);
-    }
-
-    const deviceActionMatch = url.pathname.match(/^\/devices\/([^/]+)\/(heartbeat|offline)$/);
-
-    if (deviceActionMatch && request.method === 'POST') {
-      return handleDeviceAction(request, env, deviceActionMatch[1], deviceActionMatch[2]);
-    }
-
-    const deviceDeleteMatch = url.pathname.match(/^\/devices\/([^/]+)$/);
-
-    if (deviceDeleteMatch && request.method === 'DELETE') {
-      return handleDeviceDelete(request, env, deviceDeleteMatch[1]);
-    }
-
-    // Session routes
-    const deviceSessionsMatch = url.pathname.match(/^\/devices\/([^/]+)\/sessions$/);
-
-    if (deviceSessionsMatch) {
-      return handleDeviceSessions(request, env, deviceSessionsMatch[1]);
-    }
-
-    const sessionDeleteMatch = url.pathname.match(/^\/sessions\/([^/]+)$/);
-
-    if (sessionDeleteMatch && request.method === 'DELETE') {
-      return handleSessionDelete(request, env, sessionDeleteMatch[1]);
-    }
-
-    if (sessionDeleteMatch && request.method === 'PATCH') {
-      return handleSessionUpdate(request, env, sessionDeleteMatch[1]);
-    }
-
-    // Pending session request routes
-    const requestSessionMatch = url.pathname.match(/^\/devices\/([^/]+)\/request-session$/);
-
-    if (requestSessionMatch && request.method === 'POST') {
-      return handleRequestSession(request, env, requestSessionMatch[1]);
-    }
-
-    const pendingRequestsMatch = url.pathname.match(/^\/devices\/([^/]+)\/pending-requests$/);
-
-    if (pendingRequestsMatch) {
-      return handlePendingRequests(request, env, pendingRequestsMatch[1]);
-    }
-
-    // Share token routes
-    const shareMatch = url.pathname.match(/^\/sessions\/([^/]+)\/share$/);
-
-    if (shareMatch) {
-      return handleSessionShare(request, env, shareMatch[1]);
-    }
-
-    // Web viewer: /share/:sessionId/:token (public)
-    const viewerMatch = url.pathname.match(/^\/share\/([^/]+)\/([^/]+)$/);
-
-    if (viewerMatch && request.method === 'GET') {
-      // Validate token before serving the page
-      const valid = await validateShareToken(env, viewerMatch[2], viewerMatch[1]);
-
-      if (!valid) {
-        return new Response(buildExpiredHtml(), {
-          status: 410,
-          headers: { 'Content-Type': 'text/html; charset=utf-8', ...SECURITY_HEADERS },
-        });
-      }
-
-      return serveWebViewer(url.origin, viewerMatch[1], viewerMatch[2]);
-    }
-
-    // TURN credentials for WebRTC
-    if (url.pathname === '/turn-credentials' && request.method === 'GET') {
-      return handleTurnCredentials(request, env);
-    }
-
-    // Device WebSocket (control plane + signaling)
-    const deviceWsMatch = url.pathname.match(/^\/devices\/([^/]+)\/ws$/);
-
-    if (deviceWsMatch) {
-      return handleDeviceWebSocket(request, env, deviceWsMatch[1]);
-    }
-
-    // WebSocket upgrade for terminal sessions
-    const wsMatch = url.pathname.match(/^\/sessions\/([^/]+)\/ws$/);
-
-    if (wsMatch) {
-      return handleWebSocket(request, env, wsMatch[1]);
-    }
-
-    return corsJson({ error: 'Not found' }, { status: 404 });
+  return corsJson({ error: 'Not found' }, { status: 404 });
 }
 
 // --- Auth handlers ---
@@ -389,11 +389,7 @@ async function handleDeviceAction(
   return corsJsonFromUpstream(res);
 }
 
-async function handleDeviceDelete(
-  request: Request,
-  env: Env,
-  deviceId: string,
-): Promise<Response> {
+async function handleDeviceDelete(request: Request, env: Env, deviceId: string): Promise<Response> {
   const userIdOrError = await requireAuth(request, env);
 
   if (userIdOrError instanceof Response) {
@@ -424,9 +420,7 @@ async function handleDeviceSessions(
   const stub = getUserDO(env, userIdOrError);
 
   if (request.method === 'GET') {
-    const res = await stub.fetch(
-      new Request(`http://internal/devices/${deviceId}/sessions`),
-    );
+    const res = await stub.fetch(new Request(`http://internal/devices/${deviceId}/sessions`));
 
     return corsJsonFromUpstream(res);
   }
@@ -591,7 +585,9 @@ async function handleUpdateLatest(env: Env, origin: string): Promise<Response> {
   // Rewrite download URLs to proxy through this worker
 
   if (latestJson.platforms && typeof latestJson.platforms === 'object') {
-    for (const platform of Object.values(latestJson.platforms as Record<string, { url?: string }>)) {
+    for (const platform of Object.values(
+      latestJson.platforms as Record<string, { url?: string }>,
+    )) {
       if (platform.url) {
         const filename = platform.url.split('/').pop();
         platform.url = `${origin}/updates/download/${filename}`;
@@ -688,7 +684,7 @@ async function handleTurnCredentials(request: Request, env: Env): Promise<Respon
     {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${env.TURN_KEY_API_TOKEN}`,
+        Authorization: `Bearer ${env.TURN_KEY_API_TOKEN}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ ttl: 86400 }),
@@ -704,14 +700,18 @@ async function handleTurnCredentials(request: Request, env: Env): Promise<Respon
     );
   }
 
-  const data = await res.json() as { iceServers: unknown };
+  const data = (await res.json()) as { iceServers: unknown };
 
   return corsJson({ iceServers: data.iceServers });
 }
 
 // --- Device WebSocket handler ---
 
-async function handleDeviceWebSocket(request: Request, env: Env, deviceId: string): Promise<Response> {
+async function handleDeviceWebSocket(
+  request: Request,
+  env: Env,
+  deviceId: string,
+): Promise<Response> {
   const upgradeHeader = request.headers.get('Upgrade');
 
   if (upgradeHeader !== 'websocket') {
@@ -770,7 +770,11 @@ async function handleDeviceWebSocket(request: Request, env: Env, deviceId: strin
 
 // --- Share handlers ---
 
-async function handleSessionShare(request: Request, env: Env, sessionId: string): Promise<Response> {
+async function handleSessionShare(
+  request: Request,
+  env: Env,
+  sessionId: string,
+): Promise<Response> {
   const userIdOrError = await requireAuth(request, env);
 
   if (userIdOrError instanceof Response) {
@@ -780,8 +784,10 @@ async function handleSessionShare(request: Request, env: Env, sessionId: string)
   const stub = getUserDO(env, userIdOrError);
 
   if (request.method === 'POST') {
-    const res = await stub.fetch(new Request(`http://internal/sessions/${sessionId}/share`, { method: 'POST' }));
-    const body = await res.json() as Record<string, unknown>;
+    const res = await stub.fetch(
+      new Request(`http://internal/sessions/${sessionId}/share`, { method: 'POST' }),
+    );
+    const body = (await res.json()) as Record<string, unknown>;
 
     if (!res.ok) {
       return corsJsonWithRetryAfter(body, res);
@@ -794,7 +800,9 @@ async function handleSessionShare(request: Request, env: Env, sessionId: string)
   }
 
   if (request.method === 'DELETE') {
-    const res = await stub.fetch(new Request(`http://internal/sessions/${sessionId}/share`, { method: 'DELETE' }));
+    const res = await stub.fetch(
+      new Request(`http://internal/sessions/${sessionId}/share`, { method: 'DELETE' }),
+    );
     const body = await res.json();
 
     // Kick all readonly share viewers from the session
@@ -820,23 +828,25 @@ async function validateShareToken(env: Env, token: string, sessionId: string): P
     return false;
   }
 
-  const { owner } = await ownerRes.json() as { owner: string | null };
+  const { owner } = (await ownerRes.json()) as { owner: string | null };
 
   if (!owner) {
     return false;
   }
 
   const userStub = getUserDO(env, owner);
-  const validateRes = await userStub.fetch(new Request('http://internal/validate-share-token', {
-    method: 'POST',
-    body: JSON.stringify({ token }),
-  }));
+  const validateRes = await userStub.fetch(
+    new Request('http://internal/validate-share-token', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }),
+  );
 
   if (!validateRes.ok) {
     return false;
   }
 
-  const result = await validateRes.json() as { valid: boolean; sessionId?: string };
+  const result = (await validateRes.json()) as { valid: boolean; sessionId?: string };
 
   return result.valid && result.sessionId === sessionId;
 }

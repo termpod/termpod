@@ -114,7 +114,12 @@ export function useLocalServer(options: UseLocalServerOptions) {
         setLocalViewers((v) => v + 1);
         setLocalDevices((prev) => [
           ...prev.filter((d) => d.clientId !== event.payload.clientId),
-          { clientId: event.payload.clientId, device: event.payload.device, transport: 'local', connectedAt: new Date().toISOString() },
+          {
+            clientId: event.payload.clientId,
+            device: event.payload.device,
+            transport: 'local',
+            connectedAt: new Date().toISOString(),
+          },
         ]);
         optionsRef.current.onViewerJoined?.();
 
@@ -169,10 +174,7 @@ export function useLocalServer(options: UseLocalServerOptions) {
     }).then((fn) => unlisten.push(fn));
 
     listen<CreateSessionEvent>('local-ws-create-session', (event) => {
-      optionsRef.current.onCreateSessionRequest?.(
-        event.payload.requestId,
-        event.payload.clientId,
-      );
+      optionsRef.current.onCreateSessionRequest?.(event.payload.requestId, event.payload.clientId);
     }).then((fn) => unlisten.push(fn));
 
     listen<DeleteSessionEvent>('local-ws-delete-session', (event) => {
@@ -191,13 +193,15 @@ export function useLocalServer(options: UseLocalServerOptions) {
 
           if (kp) {
             const sid = msg.sessionId || optionsRef.current.sessionId || '';
-            deriveSessionKey(kp.privateKey, msg.publicKey, sid).then((e2eSession) => {
-              localE2ESessions.set(clientId, e2eSession);
-              pendingKeyPairs.delete(clientId);
-              console.log('[LocalServer] E2E encryption active for local viewer', clientId);
-            }).catch((err) => {
-              console.error('[LocalServer] E2E key derivation failed:', err);
-            });
+            deriveSessionKey(kp.privateKey, msg.publicKey, sid)
+              .then((e2eSession) => {
+                localE2ESessions.set(clientId, e2eSession);
+                pendingKeyPairs.delete(clientId);
+                console.log('[LocalServer] E2E encryption active for local viewer', clientId);
+              })
+              .catch((err) => {
+                console.error('[LocalServer] E2E key derivation failed:', err);
+              });
           }
         }
       } catch {
@@ -236,21 +240,21 @@ export function useLocalServer(options: UseLocalServerOptions) {
     };
   }, []);
 
-  const broadcastTerminalData = useCallback(
-    (sessionId: string, data: Uint8Array | number[]) => {
-      const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  const broadcastTerminalData = useCallback((sessionId: string, data: Uint8Array | number[]) => {
+    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
 
-      if (localE2ESessions.size > 0) {
-        // Encrypt the terminal data and broadcast as 0xE0 multiplexed frame
-        const plainFrame = new Uint8Array(1 + bytes.length);
-        plainFrame[0] = Channel.TERMINAL_DATA;
-        plainFrame.set(bytes, 1);
+    if (localE2ESessions.size > 0) {
+      // Encrypt the terminal data and broadcast as 0xE0 multiplexed frame
+      const plainFrame = new Uint8Array(1 + bytes.length);
+      plainFrame[0] = Channel.TERMINAL_DATA;
+      plainFrame.set(bytes, 1);
 
-        // Use first available E2E session (all local viewers share same key)
-        const e2eSession = localE2ESessions.values().next().value;
+      // Use first available E2E session (all local viewers share same key)
+      const e2eSession = localE2ESessions.values().next().value;
 
-        if (e2eSession) {
-          encryptFrame(e2eSession, plainFrame).then((encrypted) => {
+      if (e2eSession) {
+        encryptFrame(e2eSession, plainFrame)
+          .then((encrypted) => {
             // Build multiplexed frame: [0xE0][sid_len][sid][encrypted_data]
             const sidBytes = new TextEncoder().encode(sessionId);
             const frame = new Uint8Array(2 + sidBytes.length + encrypted.length);
@@ -258,33 +262,28 @@ export function useLocalServer(options: UseLocalServerOptions) {
             frame[1] = sidBytes.length;
             frame.set(sidBytes, 2);
             frame.set(encrypted, 2 + sidBytes.length);
-            invoke('local_server_broadcast_raw', { sessionId, data: Array.from(frame) }).catch(() => {});
-          }).catch((err) => {
+            invoke('local_server_broadcast_raw', { sessionId, data: Array.from(frame) }).catch(
+              () => {},
+            );
+          })
+          .catch((err) => {
             console.error('[LocalServer] E2E encryption failed — dropping frame:', err);
           });
-        }
-      } else {
-        // No E2E sessions established yet — drop terminal data rather than sending plaintext.
-        // Terminal output will only be sent after key exchange completes and E2E is active.
-        // Viewers receive encrypted scrollback after key exchange anyway.
       }
-    },
-    [],
-  );
+    } else {
+      // No E2E sessions established yet — drop terminal data rather than sending plaintext.
+      // Terminal output will only be sent after key exchange completes and E2E is active.
+      // Viewers receive encrypted scrollback after key exchange anyway.
+    }
+  }, []);
 
-  const sendControl = useCallback(
-    (sessionId: string, json: string) => {
-      invoke('local_server_send_control', { sessionId, json }).catch(() => {});
-    },
-    [],
-  );
+  const sendControl = useCallback((sessionId: string, json: string) => {
+    invoke('local_server_send_control', { sessionId, json }).catch(() => {});
+  }, []);
 
-  const sendToClient = useCallback(
-    (clientId: string, json: string) => {
-      invoke('local_server_send_to_client', { clientId, json }).catch(() => {});
-    },
-    [],
-  );
+  const sendToClient = useCallback((clientId: string, json: string) => {
+    invoke('local_server_send_to_client', { clientId, json }).catch(() => {});
+  }, []);
 
   return {
     serverInfo,

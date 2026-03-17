@@ -35,7 +35,12 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
   { id: 'zoom_reset', label: 'Reset Zoom', shortcut: 'Cmd+0', category: 'View' },
   { id: 'scroll_top', label: 'Scroll to Top', shortcut: 'Cmd+Up', category: 'View' },
   { id: 'scroll_bottom', label: 'Scroll to Bottom', shortcut: 'Cmd+Down', category: 'View' },
-  { id: 'toggle_fullscreen', label: 'Toggle Full Screen', shortcut: 'Ctrl+Cmd+F', category: 'View' },
+  {
+    id: 'toggle_fullscreen',
+    label: 'Toggle Full Screen',
+    shortcut: 'Ctrl+Cmd+F',
+    category: 'View',
+  },
 
   // App
   { id: 'command_palette', label: 'Command Palette', shortcut: 'Cmd+Shift+P', category: 'App' },
@@ -66,7 +71,9 @@ let current = loadCustom();
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
-  return () => { listeners.delete(listener); };
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 function getSnapshot() {
@@ -90,14 +97,23 @@ export function getBindingsByCategory(): Map<string, Keybinding[]> {
   const map = new Map<string, Keybinding[]>();
 
   for (const cat of CATEGORIES) {
-    map.set(cat, resolved.filter((kb) => kb.category === cat));
+    map.set(
+      cat,
+      resolved.filter((kb) => kb.category === cat),
+    );
   }
 
   return map;
 }
 
 /** Parse a shortcut string into a matchable form */
-function parseShortcut(shortcut: string): { meta: boolean; ctrl: boolean; shift: boolean; alt: boolean; key: string } {
+function parseShortcut(shortcut: string): {
+  meta: boolean;
+  ctrl: boolean;
+  shift: boolean;
+  alt: boolean;
+  key: string;
+} {
   const parts = shortcut.split('+');
   const key = parts[parts.length - 1].toLowerCase();
   const mods = parts.slice(0, -1).map((m) => m.toLowerCase());

@@ -186,7 +186,7 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
         .args(["-f", "dns-sd -R .* _termpod._tcp"])
         .output();
 
-    eprintln!("[LocalServer] Registering mDNS via dns-sd: {} on port {}", service_name, port);
+    log::info!("[LocalServer] Registering mDNS via dns-sd: {} on port {}", service_name, port);
 
     let dns_sd_process = std::process::Command::new("dns-sd")
         .args(["-R", &service_name, "_termpod._tcp", "local.", &port.to_string()])
@@ -195,7 +195,7 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
         .spawn()
         .map_err(|e| format!("Failed to start dns-sd: {e}"))?;
 
-    eprintln!("[LocalServer] dns-sd process started (pid: {}) on port {}", dns_sd_process.id(), port);
+    log::info!("[LocalServer] dns-sd process started (pid: {}) on port {}", dns_sd_process.id(), port);
 
     let clients_clone = clients.clone();
     let sessions_clone = sessions.clone();
@@ -214,7 +214,7 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
 
                     tokio::spawn(async move {
                         if let Err(e) = handle_connection(stream, peer_addr, clients, sessions, app, secret).await {
-                            eprintln!("[LocalServer] Connection error: {e}");
+                            log::warn!("[LocalServer] Connection error: {e}");
                         }
                     });
                 }
@@ -440,12 +440,12 @@ async fn handle_connection(
     };
 
     if !authenticated {
-        eprintln!("[LocalServer] Auth failed from {peer_addr}");
+        log::warn!("[LocalServer] Auth failed from {peer_addr}");
         forward_task.abort();
         return Ok(());
     }
 
-    eprintln!("[LocalServer] Auth OK from {peer_addr}");
+    log::info!("[LocalServer] Auth OK from {peer_addr}");
 
     let mut registered_id: Option<String> = None;
     let mut client_device = String::new();

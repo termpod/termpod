@@ -171,6 +171,7 @@ Mobile opens app → WebSocket connect to relay
 ### PTY lives on the Mac, not in the cloud
 
 The shell runs locally with full access to your filesystem, credentials, SSH keys, and tools. Nothing is sandboxed or containerized. This means:
+
 - Claude Code can read/write your actual project files
 - Git operations use your real SSH keys
 - Environment variables and PATH are your real ones
@@ -179,6 +180,7 @@ The shell runs locally with full access to your filesystem, credentials, SSH key
 ### Relay uses Durable Objects with Hibernation
 
 Two DO types: **User DO** (one per account, device-level control plane) and **TerminalSession DO** (one per session, binary data relay). This gives us:
+
 - **Single-threaded coordination**: No race conditions when multiple clients send input
 - **Built-in persistence**: SQLite storage for device/session metadata
 - **Cost efficiency**: Hibernatable WebSockets mean we only pay when data flows

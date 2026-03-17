@@ -27,7 +27,7 @@
 <key>NSFaceIDUsageDescription</key>
 	<string>TermPod uses Face ID to protect your terminal sessions.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>TermPod does not use the camera. This permission is required by an embedded networking library.</string>
+	<string>TermPod uses the camera to scan QR codes for quick pairing with your Mac.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>TermPod uses your local network to connect directly to your Mac for lower latency.</string>
 	<key>NSBonjourServices</key>

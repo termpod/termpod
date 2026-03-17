@@ -24,11 +24,10 @@ export interface ShareCryptoSession {
 }
 
 export async function generateShareKey(): Promise<{ key: CryptoKey; keyBase64: string }> {
-  const key = await subtle.generateKey(
-    { name: 'AES-GCM', length: 256 },
-    true,
-    ['encrypt', 'decrypt'],
-  );
+  const key = await subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
+    'encrypt',
+    'decrypt',
+  ]);
 
   const rawKey = await subtle.exportKey('raw', key);
   const keyBase64 = base64UrlEncode(new Uint8Array(rawKey));
@@ -77,7 +76,12 @@ export async function encryptShareFrame(
   const aad = encoder.encode(session.sessionId);
 
   const ciphertext = await subtle.encrypt(
-    { name: 'AES-GCM', iv: nonce as Uint8Array<ArrayBuffer>, additionalData: aad, tagLength: TAG_SIZE * 8 },
+    {
+      name: 'AES-GCM',
+      iv: nonce as Uint8Array<ArrayBuffer>,
+      additionalData: aad,
+      tagLength: TAG_SIZE * 8,
+    },
     session.key,
     plaintext as Uint8Array<ArrayBuffer>,
   );
@@ -102,13 +106,20 @@ export async function decryptShareFrame(
   const receivedCounter = nonceToCounter(nonce);
 
   if (receivedCounter < session.recvCounter) {
-    throw new Error(`Replayed share frame: counter ${receivedCounter}, expected >= ${session.recvCounter}`);
+    throw new Error(
+      `Replayed share frame: counter ${receivedCounter}, expected >= ${session.recvCounter}`,
+    );
   }
 
   const aad = encoder.encode(session.sessionId);
 
   const plaintext = await subtle.decrypt(
-    { name: 'AES-GCM', iv: nonce as Uint8Array<ArrayBuffer>, additionalData: aad, tagLength: TAG_SIZE * 8 },
+    {
+      name: 'AES-GCM',
+      iv: nonce as Uint8Array<ArrayBuffer>,
+      additionalData: aad,
+      tagLength: TAG_SIZE * 8,
+    },
     session.key,
     ciphertext as Uint8Array<ArrayBuffer>,
   );

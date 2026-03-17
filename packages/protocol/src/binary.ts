@@ -113,7 +113,10 @@ export function encodeMuxTerminalResize(sessionId: string, cols: number, rows: n
   return frame;
 }
 
-export function encodeMuxTerminalDataCompressed(sessionId: string, compressedData: Uint8Array): Uint8Array {
+export function encodeMuxTerminalDataCompressed(
+  sessionId: string,
+  compressedData: Uint8Array,
+): Uint8Array {
   const sidBytes = encoder.encode(sessionId);
   const frame = new Uint8Array(1 + 1 + sidBytes.length + compressedData.length);
   frame[0] = Channel.MUX_TERMINAL_DATA_COMPRESSED;
@@ -132,7 +135,11 @@ export function decodeMuxFrame(
   }
 
   const channel = frame[0];
-  if (channel !== Channel.MUX_TERMINAL_DATA && channel !== Channel.MUX_TERMINAL_RESIZE && channel !== Channel.MUX_TERMINAL_DATA_COMPRESSED) {
+  if (
+    channel !== Channel.MUX_TERMINAL_DATA &&
+    channel !== Channel.MUX_TERMINAL_RESIZE &&
+    channel !== Channel.MUX_TERMINAL_DATA_COMPRESSED
+  ) {
     return null;
   }
 
@@ -249,7 +256,9 @@ export function decodeBinaryFrame(frame: Uint8Array): BinaryFrame {
     case Channel.MUX_TERMINAL_RESIZE: {
       const muxFrame = decodeMuxFrame(frame);
       if (!muxFrame) {
-        throw new Error(`Invalid mux frame for channel: 0x${channelId.toString(16).padStart(2, '0')}`);
+        throw new Error(
+          `Invalid mux frame for channel: 0x${channelId.toString(16).padStart(2, '0')}`,
+        );
       }
 
       return muxFrame;

@@ -55,8 +55,8 @@ function setWsTag(ws: WebSocket, tag: DeviceClientTag): void {
 function getWsTag(ws: WebSocket): DeviceClientTag | null {
   const tag = (ws as unknown as { deserializeAttachment: () => unknown }).deserializeAttachment();
 
-  return (tag && typeof tag === 'object' && 'clientId' in (tag as Record<string, unknown>))
-    ? tag as DeviceClientTag
+  return tag && typeof tag === 'object' && 'clientId' in (tag as Record<string, unknown>)
+    ? (tag as DeviceClientTag)
     : null;
 }
 
@@ -145,7 +145,7 @@ export class User extends DurableObject {
     // Migrate: add process_name column if missing (table was created before this column existed)
     if (tables.includes('sessions')) {
       const cols = this.ctx.storage.sql
-        .exec("PRAGMA table_info(sessions)")
+        .exec('PRAGMA table_info(sessions)')
         .toArray()
         .map((r) => r.name as string);
 
@@ -353,9 +353,7 @@ export class User extends DurableObject {
   private async handleSignup(request: Request): Promise<Response> {
     const { email, password } = (await request.json()) as { email: string; password: string };
 
-    const existing = this.ctx.storage.sql
-      .exec('SELECT email FROM profile LIMIT 1')
-      .toArray();
+    const existing = this.ctx.storage.sql.exec('SELECT email FROM profile LIMIT 1').toArray();
 
     if (existing.length > 0) {
       return Response.json({ error: 'Account already exists' }, { status: 409 });
@@ -378,16 +376,10 @@ export class User extends DurableObject {
     // Rate limiting: max 5 failed attempts per 15-minute window
     const windowStart = new Date(Date.now() - 15 * 60 * 1000).toISOString();
 
-    this.ctx.storage.sql.exec(
-      'DELETE FROM login_attempts WHERE attempted_at < ?',
-      windowStart,
-    );
+    this.ctx.storage.sql.exec('DELETE FROM login_attempts WHERE attempted_at < ?', windowStart);
 
     const recentFailures = this.ctx.storage.sql
-      .exec(
-        'SELECT COUNT(*) as cnt FROM login_attempts WHERE attempted_at >= ?',
-        windowStart,
-      )
+      .exec('SELECT COUNT(*) as cnt FROM login_attempts WHERE attempted_at >= ?', windowStart)
       .toArray();
 
     const failCount = (recentFailures[0]?.cnt as number) ?? 0;
@@ -451,7 +443,9 @@ export class User extends DurableObject {
     );
 
     const rows = this.ctx.storage.sql
-      .exec('SELECT id, name, device_type, platform, is_online, last_seen_at, created_at FROM devices ORDER BY created_at')
+      .exec(
+        'SELECT id, name, device_type, platform, is_online, last_seen_at, created_at FROM devices ORDER BY created_at',
+      )
       .toArray();
 
     const devices: DeviceInfo[] = rows.map((r) => ({
@@ -680,18 +674,13 @@ export class User extends DurableObject {
   }
 
   private handleClearPendingRequests(deviceId: string): Response {
-    this.ctx.storage.sql.exec(
-      'DELETE FROM pending_session_requests WHERE device_id = ?',
-      deviceId,
-    );
+    this.ctx.storage.sql.exec('DELETE FROM pending_session_requests WHERE device_id = ?', deviceId);
 
     return Response.json({ ok: true });
   }
 
   private handleExists(): Response {
-    const rows = this.ctx.storage.sql
-      .exec('SELECT email FROM profile LIMIT 1')
-      .toArray();
+    const rows = this.ctx.storage.sql.exec('SELECT email FROM profile LIMIT 1').toArray();
 
     if (rows.length === 0) {
       return Response.json({ exists: false }, { status: 404 });
@@ -728,7 +717,9 @@ export class User extends DurableObject {
     // Generate random token
     const bytes = new Uint8Array(24);
     crypto.getRandomValues(bytes);
-    const token = Array.from(bytes, (b) => b.toString(36).padStart(2, '0')).join('').slice(0, 32);
+    const token = Array.from(bytes, (b) => b.toString(36).padStart(2, '0'))
+      .join('')
+      .slice(0, 32);
 
     const now = new Date();
     const expires = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
@@ -795,9 +786,7 @@ export class User extends DurableObject {
 
     if (userId) {
       // Verify the authenticated user matches this DO's owner
-      const ownerRows = this.ctx.storage.sql
-        .exec('SELECT email FROM profile LIMIT 1')
-        .toArray();
+      const ownerRows = this.ctx.storage.sql.exec('SELECT email FROM profile LIMIT 1').toArray();
 
       if (ownerRows.length === 0 || (ownerRows[0].email as string) !== userId) {
         return Response.json({ error: 'User mismatch' }, { status: 403 });
@@ -832,7 +821,9 @@ export class User extends DurableObject {
       return;
     }
 
-    const attachment = (ws as unknown as { deserializeAttachment: () => unknown }).deserializeAttachment() as Record<string, unknown> | null;
+    const attachment = (
+      ws as unknown as { deserializeAttachment: () => unknown }
+    ).deserializeAttachment() as Record<string, unknown> | null;
 
     if (attachment?.pendingAuth) {
       await this.handleWsAuth(ws, message, attachment.targetDeviceId as string);
@@ -891,7 +882,11 @@ export class User extends DurableObject {
     await this.webSocketClose(ws);
   }
 
-  private async handleWsAuth(ws: WebSocket, message: string, targetDeviceId: string): Promise<void> {
+  private async handleWsAuth(
+    ws: WebSocket,
+    message: string,
+    targetDeviceId: string,
+  ): Promise<void> {
     let parsed: { type: string; token?: string };
 
     try {
@@ -923,9 +918,7 @@ export class User extends DurableObject {
     }
 
     // Verify the authenticated user matches this DO's owner
-    const ownerRows = this.ctx.storage.sql
-      .exec('SELECT email FROM profile LIMIT 1')
-      .toArray();
+    const ownerRows = this.ctx.storage.sql.exec('SELECT email FROM profile LIMIT 1').toArray();
 
     if (ownerRows.length === 0 || (ownerRows[0].email as string) !== payload.sub) {
       ws.close(1008, 'User mismatch');
@@ -942,9 +935,13 @@ export class User extends DurableObject {
     ws.send(JSON.stringify({ type: 'auth_ok' }));
   }
 
-  private handleWsHello(ws: WebSocket, msg: Record<string, unknown>, attachment: Record<string, unknown>): void {
+  private handleWsHello(
+    ws: WebSocket,
+    msg: Record<string, unknown>,
+    attachment: Record<string, unknown>,
+  ): void {
     const clientId = (msg.clientId as string) || crypto.randomUUID();
-    const role = (msg.role as string) === 'desktop' ? 'desktop' as const : 'viewer' as const;
+    const role = (msg.role as string) === 'desktop' ? ('desktop' as const) : ('viewer' as const);
     const device = (msg.device as string) || 'unknown';
     const targetDeviceId = attachment.targetDeviceId as string;
     const userId = attachment.userId as string;
@@ -1007,11 +1004,13 @@ export class User extends DurableObject {
 
     switch (type) {
       case 'ping':
-        ws.send(JSON.stringify({
-          type: 'pong',
-          timestamp: msg.timestamp,
-          serverTime: Date.now(),
-        }));
+        ws.send(
+          JSON.stringify({
+            type: 'pong',
+            timestamp: msg.timestamp,
+            serverTime: Date.now(),
+          }),
+        );
         break;
 
       case 'list_sessions':
@@ -1037,7 +1036,10 @@ export class User extends DurableObject {
       case 'device_key_exchange_ack':
         // Viewer sends E2E public key back to desktop (add fromClientId for multi-viewer tracking)
         if (tag.role === 'viewer') {
-          this.forwardToDeviceRole(tag.targetDeviceId, ws, 'desktop', { ...msg, fromClientId: tag.clientId });
+          this.forwardToDeviceRole(tag.targetDeviceId, ws, 'desktop', {
+            ...msg,
+            fromClientId: tag.clientId,
+          });
         }
         break;
 
@@ -1046,9 +1048,15 @@ export class User extends DurableObject {
         if (msg.toClientId) {
           this.forwardToClient(msg.toClientId as string, { ...msg, fromClientId: tag.clientId });
         } else if (tag.role === 'desktop') {
-          this.forwardToDeviceRole(tag.targetDeviceId, ws, 'viewer', { ...msg, fromClientId: tag.clientId });
+          this.forwardToDeviceRole(tag.targetDeviceId, ws, 'viewer', {
+            ...msg,
+            fromClientId: tag.clientId,
+          });
         } else if (tag.role === 'viewer') {
-          this.forwardToDeviceRole(tag.targetDeviceId, ws, 'desktop', { ...msg, fromClientId: tag.clientId });
+          this.forwardToDeviceRole(tag.targetDeviceId, ws, 'desktop', {
+            ...msg,
+            fromClientId: tag.clientId,
+          });
         }
         break;
 
@@ -1105,7 +1113,11 @@ export class User extends DurableObject {
     ws.send(JSON.stringify({ type: 'sessions_list', sessions }));
   }
 
-  private handleWsSessionsUpdated(ws: WebSocket, tag: DeviceClientTag, msg: Record<string, unknown>): void {
+  private handleWsSessionsUpdated(
+    ws: WebSocket,
+    tag: DeviceClientTag,
+    msg: Record<string, unknown>,
+  ): void {
     const sessions = msg.sessions as Array<{
       id: string;
       name: string;
@@ -1145,9 +1157,9 @@ export class User extends DurableObject {
              pty_rows = excluded.pty_rows`,
           s.id,
           tag.targetDeviceId,
-          'encrypted',  // real name is E2E encrypted
-          '',            // real cwd is E2E encrypted
-          null,          // real processName is E2E encrypted
+          'encrypted', // real name is E2E encrypted
+          '', // real cwd is E2E encrypted
+          null, // real processName is E2E encrypted
           s.ptyCols ?? 120,
           s.ptyRows ?? 40,
           new Date().toISOString(),
@@ -1172,7 +1184,11 @@ export class User extends DurableObject {
 
   // --- Device WS helpers ---
 
-  private broadcastToDevice(deviceId: string, sender: WebSocket, msg: Record<string, unknown>): void {
+  private broadcastToDevice(
+    deviceId: string,
+    sender: WebSocket,
+    msg: Record<string, unknown>,
+  ): void {
     const json = JSON.stringify(msg);
 
     for (const sock of this.ctx.getWebSockets()) {
@@ -1188,7 +1204,12 @@ export class User extends DurableObject {
     }
   }
 
-  private forwardToDeviceRole(deviceId: string, sender: WebSocket, targetRole: string, msg: Record<string, unknown>): void {
+  private forwardToDeviceRole(
+    deviceId: string,
+    sender: WebSocket,
+    targetRole: string,
+    msg: Record<string, unknown>,
+  ): void {
     const json = JSON.stringify(msg);
 
     for (const sock of this.ctx.getWebSockets()) {

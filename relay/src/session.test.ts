@@ -14,7 +14,7 @@ describe('Binary frame routing logic', () => {
     const view = new DataView(frame.buffer);
     frame[0] = Channel.TERMINAL_RESIZE;
     view.setUint16(1, 132, false); // cols
-    view.setUint16(3, 43, false);  // rows
+    view.setUint16(3, 43, false); // rows
 
     expect(frame[0]).toBe(Channel.TERMINAL_RESIZE);
     expect(view.getUint16(1, false)).toBe(132);

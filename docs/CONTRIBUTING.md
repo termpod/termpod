@@ -60,14 +60,14 @@ termpod/
 
 All sensitive or deployment-specific values come from `.env`. Never commit secrets. Key variables:
 
-| Variable | Used By | Purpose |
-|----------|---------|---------|
-| `VITE_RELAY_URL` | Desktop app | Relay WebSocket URL |
-| `JWT_SECRET` | Relay server | JWT signing key |
-| `APPLE_TEAM_ID` | iOS + macOS builds | Apple Developer Team ID |
-| `APPLE_SIGNING_IDENTITY` | macOS builds | Code signing identity |
-| `APPLE_ID` | macOS notarization | Apple ID for notarization |
-| `APPLE_PASSWORD` | macOS notarization | App-specific password |
+| Variable                 | Used By            | Purpose                   |
+| ------------------------ | ------------------ | ------------------------- |
+| `VITE_RELAY_URL`         | Desktop app        | Relay WebSocket URL       |
+| `JWT_SECRET`             | Relay server       | JWT signing key           |
+| `APPLE_TEAM_ID`          | iOS + macOS builds | Apple Developer Team ID   |
+| `APPLE_SIGNING_IDENTITY` | macOS builds       | Code signing identity     |
+| `APPLE_ID`               | macOS notarization | Apple ID for notarization |
+| `APPLE_PASSWORD`         | macOS notarization | App-specific password     |
 
 For iOS, run `pnpm ios:config` to generate `Config.xcconfig` from your `.env`.
 
@@ -82,6 +82,7 @@ For iOS, run `pnpm ios:config` to generate `Config.xcconfig` from your `.env`.
 ## Testing P2P Transports
 
 ### Local (Bonjour)
+
 - Run the desktop app and iOS app on the same WiFi network
 - The iOS app should discover the desktop via Bonjour automatically
 - Transport badge should show "Local" (green) on device list and session views
@@ -90,6 +91,7 @@ For iOS, run `pnpm ios:config` to generate `Config.xcconfig` from your `.env`.
 - Terminal data flows directly over LAN WebSocket (~1-5ms)
 
 ### WebRTC
+
 - Connect the iOS app from a different network (e.g. cellular, different WiFi)
 - WebRTC signaling flows through the Device WS (User DO); data flows P2P via DataChannel
 - Transport badge should show "P2P" (blue) once the DataChannel opens
@@ -97,6 +99,7 @@ For iOS, run `pnpm ios:config` to generate `Config.xcconfig` from your `.env`.
 - Session management (list, create, delete) works over the DataChannel
 
 ### Relay (fallback)
+
 - If both Bonjour and WebRTC are unavailable, all data flows through the relay Device WS
 - Transport badge shows "Relay" (orange)
 - The relay Device WS is always connected for signaling and session management regardless of active transport

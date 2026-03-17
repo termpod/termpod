@@ -284,10 +284,13 @@ export function TerminalPanel({
     [isSshSession, session.pty, session.exited],
   );
 
-  const handleCwdChange = useCallback((cwd: string) => {
-    autocompleteEngine.setCurrentDirectory(cwd);
-    onCwdChangeRef.current?.(cwd);
-  }, [autocompleteEngine]);
+  const handleCwdChange = useCallback(
+    (cwd: string) => {
+      autocompleteEngine.setCurrentDirectory(cwd);
+      onCwdChangeRef.current?.(cwd);
+    },
+    [autocompleteEngine],
+  );
 
   const handleBlockBoundary = useCallback(
     (boundary: BlockBoundary) => {
@@ -451,8 +454,7 @@ export function TerminalPanel({
 
         const bel = buf.indexOf('\x07', start + 6);
         const st = buf.indexOf('\x1b\\', start + 6);
-        const end =
-          bel === -1 ? st : st === -1 ? bel : Math.min(bel, st);
+        const end = bel === -1 ? st : st === -1 ? bel : Math.min(bel, st);
 
         if (end === -1) break;
 

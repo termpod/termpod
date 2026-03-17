@@ -40,28 +40,31 @@ export function CommandPalette({ onClose, onExecute }: CommandPaletteProps) {
     item?.scrollIntoView({ block: 'nearest' });
   }, [selectedIndex]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    switch (e.key) {
-      case 'Escape':
-        e.preventDefault();
-        onClose();
-        break;
-      case 'ArrowDown':
-        e.preventDefault();
-        setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setSelectedIndex((i) => Math.max(i - 1, 0));
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (filtered[selectedIndex]) {
-          onExecute(filtered[selectedIndex].id);
-        }
-        break;
-    }
-  }, [filtered, selectedIndex, onClose, onExecute]);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      switch (e.key) {
+        case 'Escape':
+          e.preventDefault();
+          onClose();
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setSelectedIndex((i) => Math.max(i - 1, 0));
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (filtered[selectedIndex]) {
+            onExecute(filtered[selectedIndex].id);
+          }
+          break;
+      }
+    },
+    [filtered, selectedIndex, onClose, onExecute],
+  );
 
   return (
     <div className="cp-overlay" onClick={onClose}>
@@ -81,9 +84,7 @@ export function CommandPalette({ onClose, onExecute }: CommandPaletteProps) {
           />
         </div>
         <div className="cp-list" ref={listRef}>
-          {filtered.length === 0 && (
-            <div className="cp-empty">No matching commands</div>
-          )}
+          {filtered.length === 0 && <div className="cp-empty">No matching commands</div>}
           {filtered.map((cmd, i) => (
             <button
               key={cmd.id}

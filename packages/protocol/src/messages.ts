@@ -71,10 +71,7 @@ export interface WebRTCIceCandidateMessage {
   toClientId: string;
 }
 
-export type SignalingMessage =
-  | WebRTCOfferMessage
-  | WebRTCAnswerMessage
-  | WebRTCIceCandidateMessage;
+export type SignalingMessage = WebRTCOfferMessage | WebRTCAnswerMessage | WebRTCIceCandidateMessage;
 
 export interface CreateSessionRequestMessage {
   type: 'create_session_request';

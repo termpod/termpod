@@ -199,7 +199,9 @@ export class TerminalSession extends DurableObject {
     }
 
     // Check if this socket is pending auth
-    const attachment = (ws as unknown as { deserializeAttachment: () => unknown }).deserializeAttachment() as Record<string, unknown> | null;
+    const attachment = (
+      ws as unknown as { deserializeAttachment: () => unknown }
+    ).deserializeAttachment() as Record<string, unknown> | null;
 
     if (attachment?.pendingAuth) {
       await this.handleAuth(ws, message);
@@ -399,6 +401,31 @@ export class TerminalSession extends DurableObject {
       return;
     }
 
+    if (rawType === 'scrollback_request') {
+      const tag = getTag(ws);
+
+      if (tag?.role === 'viewer' && !tag.readonly) {
+        this.forwardToRole(ws, 'desktop', {
+          ...(msg as unknown as Record<string, unknown>),
+          fromClientId: tag.clientId,
+        });
+      }
+
+      return;
+    }
+
+    if (rawType === 'encrypted_scrollback_chunk' || rawType === 'scrollback_complete') {
+      if (getTag(ws)?.role === 'desktop') {
+        const toClientId = (msg as unknown as Record<string, unknown>).toClientId as string;
+
+        if (toClientId) {
+          this.forwardToClient(toClientId, msg as unknown as Record<string, unknown>);
+        }
+      }
+
+      return;
+    }
+
     switch (msg.type) {
       case 'hello':
         this.handleHello(ws, msg);
@@ -433,32 +460,6 @@ export class TerminalSession extends DurableObject {
           this.forwardToRole(ws, 'viewer', msg as unknown as Record<string, unknown>);
         }
         break;
-
-      case 'scrollback_request': {
-        // Viewer requests encrypted scrollback — forward to desktop with viewer's clientId
-        const tag = getTag(ws);
-
-        if (tag?.role === 'viewer' && !tag.readonly) {
-          this.forwardToRole(ws, 'desktop', {
-            ...(msg as unknown as Record<string, unknown>),
-            fromClientId: tag.clientId,
-          });
-        }
-        break;
-      }
-
-      case 'encrypted_scrollback_chunk':
-      case 'scrollback_complete': {
-        // Desktop sends encrypted scrollback to a specific viewer
-        if (getTag(ws)?.role === 'desktop') {
-          const toClientId = (msg as unknown as Record<string, unknown>).toClientId as string;
-
-          if (toClientId) {
-            this.forwardToClient(toClientId, msg as unknown as Record<string, unknown>);
-          }
-        }
-        break;
-      }
     }
   }
 
@@ -479,11 +480,15 @@ export class TerminalSession extends DurableObject {
     });
 
     // Retrieve attachment stored during WS accept
-    const pending = (ws as unknown as { deserializeAttachment: () => { userId?: string; shareReadonly?: boolean } }).deserializeAttachment();
+    const pending = (
+      ws as unknown as { deserializeAttachment: () => { userId?: string; shareReadonly?: boolean } }
+    ).deserializeAttachment();
 
     const assignedRole: ClientRole = pending?.shareReadonly
       ? 'viewer'
-      : (!existingDesktop && msg.role === 'desktop') ? 'desktop' : 'viewer';
+      : !existingDesktop && msg.role === 'desktop'
+        ? 'desktop'
+        : 'viewer';
 
     const tag: ClientTag = {
       clientId: msg.clientId,
@@ -546,7 +551,11 @@ export class TerminalSession extends DurableObject {
     });
   }
 
-  private broadcastToRole(sender: WebSocket, targetRole: ClientRole, message: string | ArrayBuffer): void {
+  private broadcastToRole(
+    sender: WebSocket,
+    targetRole: ClientRole,
+    message: string | ArrayBuffer,
+  ): void {
     for (const ws of this.ctx.getWebSockets()) {
       if (ws === sender) {
         continue;
@@ -570,7 +579,11 @@ export class TerminalSession extends DurableObject {
     }
   }
 
-  private forwardToRole(_sender: WebSocket, targetRole: ClientRole, msg: Record<string, unknown>): void {
+  private forwardToRole(
+    _sender: WebSocket,
+    targetRole: ClientRole,
+    msg: Record<string, unknown>,
+  ): void {
     const json = JSON.stringify(msg);
 
     for (const ws of this.ctx.getWebSockets()) {

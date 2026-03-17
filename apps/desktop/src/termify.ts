@@ -41,7 +41,10 @@ __termpod_debug_trap(){ [[ -n "$_termpod_in_pc" ]] && return; [[ -n "$_termpod_e
 if [[ "\${BASH_VERSINFO[0]}" -ge 4 ]]; then bind -x '"\\C-x\\C-i": __termpod_capture_input' 2>/dev/null || true; bind -x '"\\C-x\\C-h": __termpod_capture_input' 2>/dev/null || true; fi
 if [[ -z "$PROMPT_COMMAND" ]]; then PROMPT_COMMAND="__termpod_prompt_pre;__termpod_prompt_post"; elif [[ "$PROMPT_COMMAND" != *"__termpod_prompt_pre"* ]]; then PROMPT_COMMAND="__termpod_prompt_pre;$PROMPT_COMMAND;__termpod_prompt_post"; fi
 trap '__termpod_debug_trap' DEBUG
-`.trim().split('\n').join('; ');
+`
+  .trim()
+  .split('\n')
+  .join('; ');
 
 // Auto-detect script:
 // - zsh branch is eval'd from heredoc so bash can parse the whole payload safely.

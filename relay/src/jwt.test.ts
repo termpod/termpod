@@ -90,7 +90,10 @@ describe('verifyJWT', () => {
     // Tamper with the payload
     const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
     payload.sub = 'attacker@evil.com';
-    const tampered = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const tampered = btoa(JSON.stringify(payload))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
 
     const tamperedToken = `${parts[0]}.${tampered}.${parts[2]}`;
     const result = await verifyJWT(tamperedToken, TEST_SECRET);

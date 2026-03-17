@@ -14,7 +14,8 @@ export interface DetectedPrompt {
 
 // Strip ANSI escape sequences for matching
 function stripAnsi(text: string): string {
-  return text.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
+  return text
+    .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
     .replace(/\x1b\][^\x07]*\x07/g, '')
     .replace(/\x1b[()][A-Z0-9]/g, '')
     .replace(/\x1b\[[\?]?[0-9;]*[hlm]/g, '');
@@ -31,11 +32,7 @@ const PERMISSION_PATTERNS = [
 ];
 
 // Patterns that indicate the prompt was answered
-const RESOLVED_PATTERNS = [
-  /Allowed/i,
-  /Denied/i,
-  /Skipped/i,
-];
+const RESOLVED_PATTERNS = [/Allowed/i, /Denied/i, /Skipped/i];
 
 export class PromptDetector {
   private buffer = '';

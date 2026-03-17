@@ -77,7 +77,10 @@ export function removeWorkflow(id: string): void {
   update(current.filter((w) => w.id !== id));
 }
 
-export function updateWorkflow(id: string, patch: Partial<Pick<Workflow, 'name' | 'command' | 'category'>>): void {
+export function updateWorkflow(
+  id: string,
+  patch: Partial<Pick<Workflow, 'name' | 'command' | 'category'>>,
+): void {
   update(current.map((w) => (w.id === id ? { ...w, ...patch } : w)));
 }
 
@@ -96,9 +99,12 @@ export function useWorkflows() {
     removeWorkflow(id);
   }, []);
 
-  const edit = useCallback((id: string, patch: Partial<Pick<Workflow, 'name' | 'command' | 'category'>>) => {
-    updateWorkflow(id, patch);
-  }, []);
+  const edit = useCallback(
+    (id: string, patch: Partial<Pick<Workflow, 'name' | 'command' | 'category'>>) => {
+      updateWorkflow(id, patch);
+    },
+    [],
+  );
 
   return { workflows, add, remove, edit };
 }

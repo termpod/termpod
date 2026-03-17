@@ -29,9 +29,9 @@ describe('EMAIL_REGEX', () => {
       '@nouser.com',
       'noat.com',
       'user@',
-      'user @example.com',      // space in local
-      'user@ example.com',      // space in domain
-      'user@example .com',      // space in domain
+      'user @example.com', // space in local
+      'user@ example.com', // space in domain
+      'user@example .com', // space in domain
     ];
 
     for (const email of invalid) {
@@ -78,12 +78,7 @@ describe('Update download filename validation', () => {
   });
 
   it('rejects path traversal attempts', () => {
-    const invalid = [
-      '../etc/passwd',
-      'foo/bar.dmg',
-      '../../secrets',
-      'dir/../file',
-    ];
+    const invalid = ['../etc/passwd', 'foo/bar.dmg', '../../secrets', 'dir/../file'];
 
     for (const f of invalid) {
       expect(isValidFilename(f), `Expected "${f}" to be rejected`).toBe(false);
@@ -198,7 +193,11 @@ describe('Device WS auth routing', () => {
     // Now, if no valid JWT is found in Authorization header or ?token=, return 401.
     // This test asserts the routing contract.
 
-    function extractUserId(authHeader: string | null, urlToken: string | null, urlUserId: string | null): string | null {
+    function extractUserId(
+      authHeader: string | null,
+      urlToken: string | null,
+      urlUserId: string | null,
+    ): string | null {
       // Try Authorization header
       if (authHeader?.startsWith('Bearer ')) {
         return 'user-from-header'; // simulated JWT decode

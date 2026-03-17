@@ -134,19 +134,19 @@ export function useDevice(isAuthenticated: boolean, onCreateSessionRequest?: () 
   );
 
   const updateSession = useCallback(
-    async (_sessionId: string, _updates: { name?: string; cwd?: string; processName?: string | null }) => {
+    async (
+      _sessionId: string,
+      _updates: { name?: string; cwd?: string; processName?: string | null },
+    ) => {
       // No-op: session metadata is delivered E2E encrypted via Device WS (encrypted_control).
       // The relay only stores non-sensitive fields (ID, dimensions) in SQLite.
     },
     [],
   );
 
-  const removeSession = useCallback(
-    async (sessionId: string) => {
-      await deviceFetch(`/sessions/${sessionId}`, 'DELETE');
-    },
-    [],
-  );
+  const removeSession = useCallback(async (sessionId: string) => {
+    await deviceFetch(`/sessions/${sessionId}`, 'DELETE');
+  }, []);
 
   return {
     deviceId,

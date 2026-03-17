@@ -139,8 +139,7 @@ export class AutocompleteEngine {
     // Get ghost text suggestion
     if (this.options.ghostTextEnabled) {
       const ghostText =
-        suggestions.length > 0 &&
-        suggestions[0].text.toLowerCase().startsWith(prefix.toLowerCase())
+        suggestions.length > 0 && suggestions[0].text.toLowerCase().startsWith(prefix.toLowerCase())
           ? suggestions[0].text.slice(prefix.length)
           : null;
       this.notifyGhostText(ghostText);
@@ -344,7 +343,10 @@ export class AutocompleteEngine {
     }
   }
 
-  private computeSuggestions(prefix: string, limit = this.options.maxSuggestions ?? 5): Suggestion[] {
+  private computeSuggestions(
+    prefix: string,
+    limit = this.options.maxSuggestions ?? 5,
+  ): Suggestion[] {
     const historySuggestions = this.historyIndex.getSuggestions(prefix, { limit: limit * 2 });
     const contextSuggestions = this.getContextSuggestions(prefix);
     const merged: Suggestion[] = [];
@@ -380,7 +382,9 @@ export class AutocompleteEngine {
     const matchesDirs = this.cachedDirectories.filter((name) =>
       name.toLowerCase().startsWith(partialLower),
     );
-    const matchesFiles = this.cachedFiles.filter((name) => name.toLowerCase().startsWith(partialLower));
+    const matchesFiles = this.cachedFiles.filter((name) =>
+      name.toLowerCase().startsWith(partialLower),
+    );
 
     const dirOnlyCommands = new Set(['cd', 'pushd', 'popd', 'rmdir', 'mkdir']);
     const fileOrDirCommands = new Set(['ls', 'tree', 'du', 'open', 'code', 'rm', 'cp', 'mv']);

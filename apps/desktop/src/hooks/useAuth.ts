@@ -99,11 +99,11 @@ export function useAuth() {
       });
 
       if (!res.ok) {
-        const body = await res.json() as { error: string };
+        const body = (await res.json()) as { error: string };
         throw new Error(body.error || 'Signup failed');
       }
 
-      const { accessToken, refreshToken } = await res.json() as {
+      const { accessToken, refreshToken } = (await res.json()) as {
         accessToken: string;
         refreshToken: string;
       };
@@ -131,7 +131,7 @@ export function useAuth() {
         throw new Error('Invalid email or password');
       }
 
-      const { accessToken, refreshToken } = await res.json() as {
+      const { accessToken, refreshToken } = (await res.json()) as {
         accessToken: string;
         refreshToken: string;
       };
@@ -183,7 +183,7 @@ async function refreshAccessToken(): Promise<boolean> {
       return false;
     }
 
-    const body = await res.json() as { accessToken: string; refreshToken: string };
+    const body = (await res.json()) as { accessToken: string; refreshToken: string };
     updateState({ ...store.state, accessToken: body.accessToken, refreshToken: body.refreshToken });
 
     return true;
@@ -267,10 +267,7 @@ let refreshPromise: Promise<boolean> | null = null;
 /**
  * Fetch wrapper that auto-refreshes on 401 and retries once.
  */
-export async function authFetch(
-  path: string,
-  options: RequestInit = {},
-): Promise<Response> {
+export async function authFetch(path: string, options: RequestInit = {}): Promise<Response> {
   const token = await getValidAccessToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',

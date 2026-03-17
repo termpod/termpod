@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useKeybindings, formatShortcut, eventToShortcut, DEFAULT_KEYBINDINGS, CATEGORIES } from '../hooks/useKeybindings';
+import {
+  useKeybindings,
+  formatShortcut,
+  eventToShortcut,
+  DEFAULT_KEYBINDINGS,
+  CATEGORIES,
+} from '../hooks/useKeybindings';
 
 interface KeybindingsPanelProps {
   onClose: () => void;
@@ -12,51 +18,53 @@ export function KeybindingsPanel({ onClose }: KeybindingsPanelProps) {
   const [conflict, setConflict] = useState<string | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (recordingId) {
-      e.preventDefault();
-      e.stopPropagation();
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (recordingId) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (e.key === 'Escape') {
+          setRecordingId(null);
+          setPendingShortcut(null);
+          setConflict(null);
+          return;
+        }
+
+        const shortcut = eventToShortcut(e);
+        if (!shortcut) return;
+
+        // Check for conflicts
+        const existing = bindings.find(
+          (b) => b.id !== recordingId && b.shortcut.toLowerCase() === shortcut.toLowerCase(),
+        );
+
+        if (existing) {
+          setConflict(existing.label);
+          setPendingShortcut(shortcut);
+          return;
+        }
+
+        setConflict(null);
+        setPendingShortcut(null);
+        updateBinding(recordingId, shortcut);
+        setRecordingId(null);
+        return;
+      }
 
       if (e.key === 'Escape') {
-        setRecordingId(null);
-        setPendingShortcut(null);
-        setConflict(null);
-        return;
+        onClose();
       }
-
-      const shortcut = eventToShortcut(e);
-      if (!shortcut) return;
-
-      // Check for conflicts
-      const existing = bindings.find(
-        (b) => b.id !== recordingId && b.shortcut.toLowerCase() === shortcut.toLowerCase(),
-      );
-
-      if (existing) {
-        setConflict(existing.label);
-        setPendingShortcut(shortcut);
-        return;
-      }
-
-      setConflict(null);
-      setPendingShortcut(null);
-      updateBinding(recordingId, shortcut);
-      setRecordingId(null);
-      return;
-    }
-
-    if (e.key === 'Escape') {
-      onClose();
-    }
-  }, [recordingId, bindings, updateBinding, onClose]);
+    },
+    [recordingId, bindings, updateBinding, onClose],
+  );
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [handleKeyDown]);
 
-  const getDefault = (id: string) =>
-    DEFAULT_KEYBINDINGS.find((kb) => kb.id === id)?.shortcut ?? '';
+  const getDefault = (id: string) => DEFAULT_KEYBINDINGS.find((kb) => kb.id === id)?.shortcut ?? '';
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -98,9 +106,7 @@ export function KeybindingsPanel({ onClose }: KeybindingsPanelProps) {
                               : 'Press shortcut...'}
                           </span>
                           {conflict && (
-                            <span className="kb-conflict">
-                              Already used by {conflict}
-                            </span>
+                            <span className="kb-conflict">Already used by {conflict}</span>
                           )}
                         </div>
                       ) : (

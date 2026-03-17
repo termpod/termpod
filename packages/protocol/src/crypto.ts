@@ -30,11 +30,9 @@ export interface E2ESession {
 }
 
 export async function generateKeyPair(): Promise<E2EKeyPair> {
-  const keyPair = await subtle.generateKey(
-    { name: 'ECDH', namedCurve: 'P-256' },
-    true,
-    ['deriveBits'],
-  );
+  const keyPair = await subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, [
+    'deriveBits',
+  ]);
 
   const publicKeyJwk = await subtle.exportKey('jwk', keyPair.publicKey);
 
@@ -61,13 +59,7 @@ export async function deriveSessionKey(
   );
 
   // Import shared bits as HKDF base key
-  const hkdfKey = await subtle.importKey(
-    'raw',
-    sharedBits,
-    'HKDF',
-    false,
-    ['deriveKey'],
-  );
+  const hkdfKey = await subtle.importKey('raw', sharedBits, 'HKDF', false, ['deriveKey']);
 
   // Derive AES-256-GCM key with session ID as context
   const aesKey = await subtle.deriveKey(
@@ -128,7 +120,12 @@ export async function encryptFrame(
   const aad = encoder.encode(session.sessionId);
 
   const ciphertext = await subtle.encrypt(
-    { name: 'AES-GCM', iv: nonce as Uint8Array<ArrayBuffer>, additionalData: aad, tagLength: TAG_SIZE * 8 },
+    {
+      name: 'AES-GCM',
+      iv: nonce as Uint8Array<ArrayBuffer>,
+      additionalData: aad,
+      tagLength: TAG_SIZE * 8,
+    },
     session.key,
     plaintext as Uint8Array<ArrayBuffer>,
   );
@@ -156,13 +153,20 @@ export async function decryptFrame(
   const receivedCounter = nonceToCounter(nonce);
 
   if (receivedCounter < session.recvCounter) {
-    throw new Error(`Replayed frame: received counter ${receivedCounter}, expected >= ${session.recvCounter}`);
+    throw new Error(
+      `Replayed frame: received counter ${receivedCounter}, expected >= ${session.recvCounter}`,
+    );
   }
 
   const aad = encoder.encode(session.sessionId);
 
   const plaintext = await subtle.decrypt(
-    { name: 'AES-GCM', iv: nonce as Uint8Array<ArrayBuffer>, additionalData: aad, tagLength: TAG_SIZE * 8 },
+    {
+      name: 'AES-GCM',
+      iv: nonce as Uint8Array<ArrayBuffer>,
+      additionalData: aad,
+      tagLength: TAG_SIZE * 8,
+    },
     session.key,
     ciphertext as Uint8Array<ArrayBuffer>,
   );
@@ -171,4 +175,3 @@ export async function decryptFrame(
 
   return new Uint8Array(plaintext);
 }
-

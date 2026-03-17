@@ -29,12 +29,18 @@ function base64urlEncode(data: Uint8Array): string {
 }
 
 function base64urlDecode(str: string): Uint8Array {
-  const padded = str.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - (str.length % 4)) % 4);
+  const padded =
+    str.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - (str.length % 4)) % 4);
   const binary = atob(padded);
   return new Uint8Array(Array.from(binary, (c) => c.charCodeAt(0)));
 }
 
-async function sendEncrypted(ws: WebSocket, e2eSessions: Map<string, E2ESession>, msg: Record<string, unknown>, toClientId?: string): Promise<void> {
+async function sendEncrypted(
+  ws: WebSocket,
+  e2eSessions: Map<string, E2ESession>,
+  msg: Record<string, unknown>,
+  toClientId?: string,
+): Promise<void> {
   const plaintext = encoder.encode(JSON.stringify(msg));
 
   if (toClientId) {
@@ -43,13 +49,25 @@ async function sendEncrypted(ws: WebSocket, e2eSessions: Map<string, E2ESession>
 
     if (session) {
       const encrypted = await encryptFrame(session, plaintext);
-      ws.send(JSON.stringify({ type: 'encrypted_control', payload: base64urlEncode(encrypted), toClientId }));
+      ws.send(
+        JSON.stringify({
+          type: 'encrypted_control',
+          payload: base64urlEncode(encrypted),
+          toClientId,
+        }),
+      );
     }
   } else {
     // Broadcast to all viewers
     for (const [clientId, session] of e2eSessions) {
       const encrypted = await encryptFrame(session, plaintext);
-      ws.send(JSON.stringify({ type: 'encrypted_control', payload: base64urlEncode(encrypted), toClientId: clientId }));
+      ws.send(
+        JSON.stringify({
+          type: 'encrypted_control',
+          payload: base64urlEncode(encrypted),
+          toClientId: clientId,
+        }),
+      );
     }
   }
 }
@@ -92,7 +110,11 @@ interface DeviceWSOptions {
  *
  * All sensitive messages are E2E encrypted (ECDH P-256 + AES-256-GCM).
  */
-export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, options: DeviceWSOptions = {}) {
+export function useDeviceWS(
+  deviceId: string | null,
+  isAuthenticated: boolean,
+  options: DeviceWSOptions = {},
+) {
   const [status, setStatus] = useState<DeviceWSStatus>('disconnected');
   const wsRef = useRef<WebSocket | null>(null);
   const intentionalCloseRef = useRef(false);
@@ -118,16 +140,19 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
     }
   }, []);
 
-  const flushPendingEncrypted = useCallback(async (ws: WebSocket, sessions: Map<string, E2ESession>) => {
-    const pending = pendingEncryptedRef.current;
-    pendingEncryptedRef.current = [];
+  const flushPendingEncrypted = useCallback(
+    async (ws: WebSocket, sessions: Map<string, E2ESession>) => {
+      const pending = pendingEncryptedRef.current;
+      pendingEncryptedRef.current = [];
 
-    for (const { msg, toClientId } of pending) {
-      if (ws.readyState === WebSocket.OPEN) {
-        await sendEncrypted(ws, sessions, msg, toClientId);
+      for (const { msg, toClientId } of pending) {
+        if (ws.readyState === WebSocket.OPEN) {
+          await sendEncrypted(ws, sessions, msg, toClientId);
+        }
       }
-    }
-  }, []);
+    },
+    [],
+  );
 
   connectRef.current = () => {
     if (!deviceId) {
@@ -187,13 +212,15 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
       switch (type) {
         case 'auth_ok':
           // Auth accepted — now send hello to complete handshake
-          ws.send(JSON.stringify({
-            type: 'hello',
-            role: 'desktop',
-            device: 'macos',
-            clientId: clientIdRef.current,
-            version: 1,
-          }));
+          ws.send(
+            JSON.stringify({
+              type: 'hello',
+              role: 'desktop',
+              device: 'macos',
+              clientId: clientIdRef.current,
+              version: 1,
+            }),
+          );
           break;
 
         case 'hello_ok':
@@ -213,11 +240,13 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
 
             // Send public key to any existing viewers
             if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({
-                type: 'device_key_exchange',
-                publicKey: kp.publicKeyJwk,
-                deviceId,
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: 'device_key_exchange',
+                  publicKey: kp.publicKeyJwk,
+                  deviceId,
+                }),
+              );
             }
           });
           break;
@@ -241,7 +270,12 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
                 const secret = getLocalAuthSecret();
 
                 if (secret) {
-                  await sendEncrypted(ws, e2eSessionsRef.current, { type: 'local_auth_secret', secret }, fromClientId);
+                  await sendEncrypted(
+                    ws,
+                    e2eSessionsRef.current,
+                    { type: 'local_auth_secret', secret },
+                    fromClientId,
+                  );
                 }
               }
             });
@@ -257,47 +291,48 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
 
           if (session && payload) {
             const encrypted = base64urlDecode(payload);
-            decryptFrame(session, encrypted).then((plaintext) => {
-              const inner = JSON.parse(decoder.decode(plaintext)) as Record<string, unknown>;
-              const innerType = inner.type as string;
+            decryptFrame(session, encrypted)
+              .then((plaintext) => {
+                const inner = JSON.parse(decoder.decode(plaintext)) as Record<string, unknown>;
+                const innerType = inner.type as string;
 
-              switch (innerType) {
-                case 'create_session_request':
-                  if (inner.requestId) {
-                    optionsRef.current.onCreateSessionRequest?.(inner.requestId as string);
-                  }
-                  break;
+                switch (innerType) {
+                  case 'create_session_request':
+                    if (inner.requestId) {
+                      optionsRef.current.onCreateSessionRequest?.(inner.requestId as string);
+                    }
+                    break;
 
-                case 'delete_session':
-                  if (inner.sessionId) {
-                    optionsRef.current.onDeleteSession?.(inner.sessionId as string);
-                  }
-                  break;
+                  case 'delete_session':
+                    if (inner.sessionId) {
+                      optionsRef.current.onDeleteSession?.(inner.sessionId as string);
+                    }
+                    break;
 
-                case 'webrtc_offer':
-                case 'webrtc_answer':
-                case 'webrtc_ice':
-                  optionsRef.current.onSignaling?.(inner);
-                  break;
-              }
-            }).catch(() => {});
+                  case 'webrtc_offer':
+                  case 'webrtc_answer':
+                  case 'webrtc_ice':
+                    optionsRef.current.onSignaling?.(inner);
+                    break;
+                }
+              })
+              .catch(() => {});
           }
           break;
         }
 
         case 'client_joined':
-          optionsRef.current.onClientJoined?.(
-            msg.clientId as string,
-            msg.device as string,
-          );
+          optionsRef.current.onClientJoined?.(msg.clientId as string, msg.device as string);
 
           // Re-send key exchange to new viewer so they can set up E2E
           if (keyPairRef.current && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-              type: 'device_key_exchange',
-              publicKey: keyPairRef.current.publicKeyJwk,
-              deviceId,
-            }));
+            ws.send(
+              JSON.stringify({
+                type: 'device_key_exchange',
+                publicKey: keyPairRef.current.publicKeyJwk,
+                deviceId,
+              }),
+            );
           }
           break;
 
@@ -387,14 +422,16 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
     }
 
     // Plaintext: only IDs and dimensions (relay needs these for SQLite routing)
-    ws.send(JSON.stringify({
-      type: 'sessions_updated',
-      sessions: sessions.map((s) => ({
-        id: s.id,
-        ptyCols: s.ptyCols,
-        ptyRows: s.ptyRows,
-      })),
-    }));
+    ws.send(
+      JSON.stringify({
+        type: 'sessions_updated',
+        sessions: sessions.map((s) => ({
+          id: s.id,
+          ptyCols: s.ptyCols,
+          ptyRows: s.ptyRows,
+        })),
+      }),
+    );
 
     // Encrypted: full session metadata
     const e2e = e2eSessionsRef.current;
@@ -442,21 +479,26 @@ export function useDeviceWS(deviceId: string | null, isAuthenticated: boolean, o
   }, []);
 
   /** Send lightweight session property change (encrypted) */
-  const sendSessionPropertyChanged = useCallback((sessionId: string, updates: Record<string, unknown>) => {
-    const ws = wsRef.current;
+  const sendSessionPropertyChanged = useCallback(
+    (sessionId: string, updates: Record<string, unknown>) => {
+      const ws = wsRef.current;
 
-    if (ws?.readyState !== WebSocket.OPEN) {
-      return;
-    }
+      if (ws?.readyState !== WebSocket.OPEN) {
+        return;
+      }
 
-    const e2e = e2eSessionsRef.current;
+      const e2e = e2eSessionsRef.current;
 
-    if (e2e.size > 0) {
-      sendEncrypted(ws, e2e, { type: 'session_property_changed', sessionId, ...updates });
-    } else {
-      pendingEncryptedRef.current.push({ msg: { type: 'session_property_changed', sessionId, ...updates } });
-    }
-  }, []);
+      if (e2e.size > 0) {
+        sendEncrypted(ws, e2e, { type: 'session_property_changed', sessionId, ...updates });
+      } else {
+        pendingEncryptedRef.current.push({
+          msg: { type: 'session_property_changed', sessionId, ...updates },
+        });
+      }
+    },
+    [],
+  );
 
   /** Send WebRTC signaling message (encrypted) */
   const sendSignaling = useCallback((msg: Record<string, unknown>) => {

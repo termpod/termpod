@@ -17,14 +17,19 @@ export function getRemoteSuggestionsBootstrapPayload(): string {
   fc -rl 1 2>/dev/null;
   cat ~/.bash_history ~/.zsh_history 2>/dev/null;
 } | sed '/^[[:space:]]*#[[:space:]]*[0-9]\\+[[:space:]]*$/d' | tail -n 1200
-`.trim().replace(/\n/g, ' ');
+`
+    .trim()
+    .replace(/\n/g, ' ');
 
   const entriesCmd = `ls -1Ap 2>/dev/null | head -n 1200`;
 
   const script = `
 ${oscPayload('hist', historyCmd)}
 ${oscPayload('entries', entriesCmd)}
-`.trim().split('\n').join(' ');
+`
+    .trim()
+    .split('\n')
+    .join(' ');
 
   // Leading space avoids shell history in common shell configs.
   // Clear to hide the injected bootstrap command from the interactive view.

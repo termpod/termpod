@@ -200,6 +200,26 @@ struct SettingsView: View {
                 Text(appVersion)
                     .foregroundStyle(.secondary)
             }
+
+            Link(destination: URL(string: "https://termpod.dev/privacy")!) {
+                HStack {
+                    Text("Privacy Policy")
+                    Spacer()
+                    Image(systemName: "arrow.up.forward")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Link(destination: URL(string: "https://termpod.dev")!) {
+                HStack {
+                    Text("Website")
+                    Spacer()
+                    Image(systemName: "arrow.up.forward")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         } header: {
             Text("About")
         }

@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  generateKeyPair,
-  deriveSessionKey,
-  encryptFrame,
-  decryptFrame,
-} from './crypto.js';
+import { generateKeyPair, deriveSessionKey, encryptFrame, decryptFrame } from './crypto.js';
 
 describe('generateKeyPair', () => {
   it('generates a valid ECDH P-256 key pair', async () => {
@@ -72,11 +67,7 @@ describe('deriveSessionKey', () => {
     const desktop = await generateKeyPair();
     const mobile = await generateKeyPair();
 
-    const session = await deriveSessionKey(
-      desktop.privateKey,
-      mobile.publicKeyJwk,
-      'verify-test',
-    );
+    const session = await deriveSessionKey(desktop.privateKey, mobile.publicKeyJwk, 'verify-test');
 
     expect(session.verificationCode).toBeDefined();
     expect(session.verificationCode).toMatch(/^\d{6}$/);
@@ -146,17 +137,9 @@ describe('deriveSessionKey', () => {
     const desktop = await generateKeyPair();
     const mobile = await generateKeyPair();
 
-    const session1 = await deriveSessionKey(
-      desktop.privateKey,
-      mobile.publicKeyJwk,
-      'session-1',
-    );
+    const session1 = await deriveSessionKey(desktop.privateKey, mobile.publicKeyJwk, 'session-1');
 
-    const session2 = await deriveSessionKey(
-      desktop.privateKey,
-      mobile.publicKeyJwk,
-      'session-2',
-    );
+    const session2 = await deriveSessionKey(desktop.privateKey, mobile.publicKeyJwk, 'session-2');
 
     // Encrypt with session1, try to decrypt with session2 — should fail
     const plaintext = new Uint8Array([0x01, 0x02, 0x03]);
@@ -262,7 +245,9 @@ describe('encryptFrame / decryptFrame', () => {
     const { mobileSession } = await createSessionPair();
     const tooShort = new Uint8Array(20); // Less than nonce (12) + tag (16)
 
-    await expect(decryptFrame(mobileSession, tooShort)).rejects.toThrow('Encrypted frame too short');
+    await expect(decryptFrame(mobileSession, tooShort)).rejects.toThrow(
+      'Encrypted frame too short',
+    );
   });
 
   it('increments send counter', async () => {

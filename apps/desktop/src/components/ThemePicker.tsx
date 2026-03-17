@@ -9,10 +9,23 @@ interface ThemePickerProps {
 }
 
 const LIGHT_THEMES = new Set([
-  'github-light', 'catppuccin-latte', 'solarized-light', 'one-light', 'rose-pine-dawn',
-  'ayu-light', 'night-owl-light', 'everforest-light', 'tokyo-night-light', 'kanagawa-lotus',
-  'gruvbox-light', 'poimandres-light', 'moonlight-light', 'paper', 'winter-light',
-  'horizon-light', 'vitesse-light',
+  'github-light',
+  'catppuccin-latte',
+  'solarized-light',
+  'one-light',
+  'rose-pine-dawn',
+  'ayu-light',
+  'night-owl-light',
+  'everforest-light',
+  'tokyo-night-light',
+  'kanagawa-lotus',
+  'gruvbox-light',
+  'poimandres-light',
+  'moonlight-light',
+  'paper',
+  'winter-light',
+  'horizon-light',
+  'vitesse-light',
 ]);
 
 interface ThemeEntry {
@@ -65,50 +78,58 @@ export function ThemePicker({ selected, onSelect, onClose }: ThemePickerProps) {
     el?.scrollIntoView({ block: 'nearest' });
   }, []);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-      if (query) {
-        setQuery('');
-      } else {
-        onSelect(originalTheme);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        if (query) {
+          setQuery('');
+        } else {
+          onSelect(originalTheme);
+          onClose();
+        }
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        onSelect(hoveredKey);
         onClose();
+        return;
       }
-      return;
-    }
 
-    if (e.key === 'Enter') {
-      onSelect(hoveredKey);
-      onClose();
-      return;
-    }
-
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      const idx = flat.findIndex((t) => t.key === hoveredKey);
-      let next: number;
-      if (e.key === 'ArrowDown') {
-        next = idx < flat.length - 1 ? idx + 1 : 0;
-      } else {
-        next = idx > 0 ? idx - 1 : flat.length - 1;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const idx = flat.findIndex((t) => t.key === hoveredKey);
+        let next: number;
+        if (e.key === 'ArrowDown') {
+          next = idx < flat.length - 1 ? idx + 1 : 0;
+        } else {
+          next = idx > 0 ? idx - 1 : flat.length - 1;
+        }
+        const nextKey = flat[next].key;
+        setHoveredKey(nextKey);
+        scrollToItem(nextKey);
       }
-      const nextKey = flat[next].key;
-      setHoveredKey(nextKey);
-      scrollToItem(nextKey);
-    }
-  }, [flat, hoveredKey, onClose, onSelect, originalTheme, query, scrollToItem]);
+    },
+    [flat, hoveredKey, onClose, onSelect, originalTheme, query, scrollToItem],
+  );
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="tp-container"
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={handleKeyDown}
-      >
+      <div className="tp-container" onClick={(e) => e.stopPropagation()} onKeyDown={handleKeyDown}>
         {/* Sidebar - theme list */}
         <div className="tp-sidebar">
           <div className="tp-search">
-            <svg className="tp-search-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <svg
+              className="tp-search-icon"
+              width="14"
+              height="14"
+              viewBox="0 0 14 14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            >
               <circle cx="6" cy="6" r="4.5" />
               <path d="M9.5 9.5L13 13" />
             </svg>
@@ -141,7 +162,10 @@ export function ThemePicker({ selected, onSelect, onClose }: ThemePickerProps) {
                     isSelected={selected === entry.key}
                     isHovered={hoveredKey === entry.key}
                     onHover={() => setHoveredKey(entry.key)}
-                    onClick={() => { onSelect(entry.key); onClose(); }}
+                    onClick={() => {
+                      onSelect(entry.key);
+                      onClose();
+                    }}
                     ref={(el) => {
                       if (el) {
                         itemRefs.current.set(entry.key, el);
@@ -163,7 +187,10 @@ export function ThemePicker({ selected, onSelect, onClose }: ThemePickerProps) {
                     isSelected={selected === entry.key}
                     isHovered={hoveredKey === entry.key}
                     onHover={() => setHoveredKey(entry.key)}
-                    onClick={() => { onSelect(entry.key); onClose(); }}
+                    onClick={() => {
+                      onSelect(entry.key);
+                      onClose();
+                    }}
                     ref={(el) => {
                       if (el) {
                         itemRefs.current.set(entry.key, el);
@@ -175,9 +202,7 @@ export function ThemePicker({ selected, onSelect, onClose }: ThemePickerProps) {
                 ))}
               </>
             )}
-            {flat.length === 0 && (
-              <div className="tp-empty">No matching themes</div>
-            )}
+            {flat.length === 0 && <div className="tp-empty">No matching themes</div>}
           </div>
         </div>
 
@@ -193,7 +218,9 @@ export function ThemePicker({ selected, onSelect, onClose }: ThemePickerProps) {
               {previewTheme.name}
             </span>
             <div className="tp-preview-dots" style={{ visibility: 'hidden' }}>
-              <span className="tp-dot" /><span className="tp-dot" /><span className="tp-dot" />
+              <span className="tp-dot" />
+              <span className="tp-dot" />
+              <span className="tp-dot" />
             </div>
           </div>
 
@@ -251,12 +278,12 @@ export function ThemePicker({ selected, onSelect, onClose }: ThemePickerProps) {
               <span>{'({'}</span>
             </PreviewLine>
             <PreviewLine>
-              <span>  port: </span>
+              <span> port: </span>
               <span style={{ color: previewTheme.yellow }}>3000</span>
               <span>,</span>
             </PreviewLine>
             <PreviewLine>
-              <span>  debug: </span>
+              <span> debug: </span>
               <span style={{ color: previewTheme.red }}>true</span>
               <span>,</span>
             </PreviewLine>
@@ -283,10 +310,22 @@ export function ThemePicker({ selected, onSelect, onClose }: ThemePickerProps) {
           {/* Color palette bar */}
           <div className="tp-preview-palette">
             {[
-              previewTheme.black, previewTheme.red, previewTheme.green, previewTheme.yellow,
-              previewTheme.blue, previewTheme.magenta, previewTheme.cyan, previewTheme.white,
-              previewTheme.brightBlack, previewTheme.brightRed, previewTheme.brightGreen, previewTheme.brightYellow,
-              previewTheme.brightBlue, previewTheme.brightMagenta, previewTheme.brightCyan, previewTheme.brightWhite,
+              previewTheme.black,
+              previewTheme.red,
+              previewTheme.green,
+              previewTheme.yellow,
+              previewTheme.blue,
+              previewTheme.magenta,
+              previewTheme.cyan,
+              previewTheme.white,
+              previewTheme.brightBlack,
+              previewTheme.brightRed,
+              previewTheme.brightGreen,
+              previewTheme.brightYellow,
+              previewTheme.brightBlue,
+              previewTheme.brightMagenta,
+              previewTheme.brightCyan,
+              previewTheme.brightWhite,
             ].map((color, i) => (
               <span key={i} className="tp-palette-swatch" style={{ background: color }} />
             ))}
@@ -301,13 +340,16 @@ function PreviewLine({ children }: { children?: React.ReactNode }) {
   return <div className="tp-preview-line">{children || '\u00A0'}</div>;
 }
 
-const ThemeListItem = forwardRef<HTMLButtonElement, {
-  entry: ThemeEntry;
-  isSelected: boolean;
-  isHovered: boolean;
-  onHover: () => void;
-  onClick: () => void;
-}>(({ entry, isSelected, isHovered, onHover, onClick }, ref) => {
+const ThemeListItem = forwardRef<
+  HTMLButtonElement,
+  {
+    entry: ThemeEntry;
+    isSelected: boolean;
+    isHovered: boolean;
+    onHover: () => void;
+    onClick: () => void;
+  }
+>(({ entry, isSelected, isHovered, onHover, onClick }, ref) => {
   const { theme } = entry;
   const swatches = [theme.red, theme.green, theme.yellow, theme.blue, theme.magenta, theme.cyan];
 
@@ -329,7 +371,17 @@ const ThemeListItem = forwardRef<HTMLButtonElement, {
         ))}
       </div>
       {isSelected && (
-        <svg className="tp-item-check" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          className="tp-item-check"
+          width="14"
+          height="14"
+          viewBox="0 0 14 14"
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M3 7.5l3 3 5-6" />
         </svg>
       )}

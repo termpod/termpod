@@ -54,9 +54,7 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
             minLength={8}
             required
           />
-          {isSignup && (
-            <p className="login-hint">Minimum 8 characters</p>
-          )}
+          {isSignup && <p className="login-hint">Minimum 8 characters</p>}
 
           {error && <div className="login-error">{error}</div>}
 
@@ -66,16 +64,11 @@ export function LoginScreen({ onLogin, onSignup, loading, error }: LoginScreenPr
             disabled={loading}
           >
             {isSignup ? 'Create Account' : 'Sign In'}
-            {loading && (
-              <span className="login-spinner" />
-            )}
+            {loading && <span className="login-spinner" />}
           </button>
         </form>
 
-        <button
-          className="login-switch"
-          onClick={() => setIsSignup(!isSignup)}
-        >
+        <button className="login-switch" onClick={() => setIsSignup(!isSignup)}>
           {isSignup ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
         </button>
       </div>

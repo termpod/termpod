@@ -47,7 +47,17 @@ describe('PromptDetector', () => {
     });
 
     it('detects all supported tools in dash pattern', () => {
-      const tools = ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'WebFetch', 'WebSearch', 'NotebookEdit'];
+      const tools = [
+        'Read',
+        'Write',
+        'Edit',
+        'Bash',
+        'Glob',
+        'Grep',
+        'WebFetch',
+        'WebSearch',
+        'NotebookEdit',
+      ];
 
       for (const tool of tools) {
         const detector = new PromptDetector();

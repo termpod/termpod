@@ -2,16 +2,20 @@ import type { useUpdater } from '../hooks/useUpdater';
 
 type Props = ReturnType<typeof useUpdater>;
 
-export function UpdateBanner({ status, dismissed, downloadAndInstall, installAndRestart, dismiss }: Props) {
+export function UpdateBanner({
+  status,
+  dismissed,
+  downloadAndInstall,
+  installAndRestart,
+  dismiss,
+}: Props) {
   if (dismissed || status.state === 'idle') {
     return null;
   }
 
   return (
     <div className="update-banner">
-      {status.state === 'checking' && (
-        <span className="update-text">Checking for updates…</span>
-      )}
+      {status.state === 'checking' && <span className="update-text">Checking for updates…</span>}
       {status.state === 'up-to-date' && (
         <>
           <span className="update-text">You're on the latest version.</span>
@@ -53,9 +57,7 @@ export function UpdateBanner({ status, dismissed, downloadAndInstall, installAnd
       )}
       {status.state === 'ready' && (
         <>
-          <span className="update-text">
-            Update ready. Restart to apply.
-          </span>
+          <span className="update-text">Update ready. Restart to apply.</span>
           <button className="update-action" onClick={installAndRestart}>
             Restart Now
           </button>

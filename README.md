@@ -48,19 +48,19 @@ Sessions survive disconnects — close the app, reopen it, and you're right wher
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Desktop app | Tauri 2.0 + React + xterm.js |
-| Mobile app | Native SwiftUI + SwiftTerm |
-| PTY | tauri-plugin-pty (Rust) |
-| Relay | Cloudflare Workers + Durable Objects |
-| Protocol | WebSocket (binary frames for data, JSON for control) |
-| Transport | Device-level multiplexed connections (single WS per transport) |
-| Auth | JWT (HS256) |
-| Security | E2E: ECDH P-256 + AES-256-GCM (relay), DTLS (WebRTC), shared secret (local) |
-| Local transport | Bonjour / mDNS |
-| P2P transport | WebRTC DataChannel (livekit/webrtc) |
-| Auto-update | tauri-plugin-updater via relay proxy |
+| Layer           | Technology                                                                  |
+| --------------- | --------------------------------------------------------------------------- |
+| Desktop app     | Tauri 2.0 + React + xterm.js                                                |
+| Mobile app      | Native SwiftUI + SwiftTerm                                                  |
+| PTY             | tauri-plugin-pty (Rust)                                                     |
+| Relay           | Cloudflare Workers + Durable Objects                                        |
+| Protocol        | WebSocket (binary frames for data, JSON for control)                        |
+| Transport       | Device-level multiplexed connections (single WS per transport)              |
+| Auth            | JWT (HS256)                                                                 |
+| Security        | E2E: ECDH P-256 + AES-256-GCM (relay), DTLS (WebRTC), shared secret (local) |
+| Local transport | Bonjour / mDNS                                                              |
+| P2P transport   | WebRTC DataChannel (livekit/webrtc)                                         |
+| Auto-update     | tauri-plugin-updater via relay proxy                                        |
 
 ## Project Structure
 
