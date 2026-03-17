@@ -16,12 +16,12 @@ export function OpenSource() {
             </span>
           </div>
           <h2 className="mb-4 font-heading text-2xl font-bold tracking-tight text-text-white md:text-[32px] md:leading-tight">
-            Open source. Free forever. Self-host everything.
+            Read every line. Run your own.
           </h2>
           <p className="mb-8 font-mono text-sm leading-relaxed text-text-gray">
             TermPod is MIT licensed. The desktop app, the iOS app, and the relay
-            server are all open source. Self-host the relay on Cloudflare
-            Workers free tier and you never pay a cent.
+            server are all open source. Deploy the relay on Cloudflare Workers
+            free tier and own the entire stack.
           </p>
           <div className="flex flex-col gap-3 sm:flex-row">
             <a

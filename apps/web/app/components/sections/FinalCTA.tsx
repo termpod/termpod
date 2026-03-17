@@ -17,8 +17,8 @@ export function FinalCTA() {
           Your terminal, untethered.
         </h2>
         <p className="mb-10 max-w-[600px] font-mono text-sm leading-relaxed text-text-gray">
-          Stop context-switching between devices. Start a session on your Mac
-          and take it with you — local, P2P, or relay. Your choice.
+          Stop walking back to your desk. Start a session on your Mac
+          and take it with you.
         </p>
         <div className="mb-6 flex flex-col items-center gap-4 sm:flex-row">
           <a
@@ -37,7 +37,7 @@ export function FinalCTA() {
           </a>
         </div>
         <p className="font-mono text-[11px] tracking-wider text-text-dark">
-          Open source &middot; Free for local use &middot; Self-host or go Pro
+          Open source &middot; E2E encrypted &middot; Free forever
         </p>
       </div>
     </section>

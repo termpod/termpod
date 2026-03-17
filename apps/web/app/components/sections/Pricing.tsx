@@ -2,17 +2,17 @@ import { Check, Zap, Github, Server, Heart } from "lucide-react";
 import { SectionHeader } from "../SectionHeader";
 
 const freeFeatures = [
-  "Local WiFi & P2P — always free, no limits",
-  "Unlimited sessions & full PTY",
+  "Local WiFi and P2P, no limits",
+  "Unlimited sessions and full PTY",
   "E2E encryption on all transports",
-  "Self-host relay — all features, zero cost",
+  "Self-host relay for full access",
 ];
 
 const proFeatures = [
   "Everything in Free",
-  "Managed cloud relay — zero setup",
+  "Managed cloud relay, zero setup",
   "Unlimited devices on managed relay",
-  "Share links & TURN fallback",
+  "Share links and TURN fallback",
   "Priority support",
 ];
 
@@ -25,8 +25,8 @@ export function Pricing() {
       <SectionHeader
         number="03"
         label="PRICING"
-        title="Simple, developer-friendly pricing"
-        subtitle="Local and P2P connections are always free. The relay is for when you need it — and you can always self-host."
+        title="Free to use. Open to self-host."
+        subtitle="TermPod works over WiFi and peer-to-peer at no cost. Need a cloud relay? Self-host it for free or let us run it for you."
       />
 
       {/* Pricing Cards */}

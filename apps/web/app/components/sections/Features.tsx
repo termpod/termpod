@@ -158,8 +158,8 @@ export function Features() {
       <SectionHeader
         number="01"
         label="FEATURES"
-        title="Your Mac terminal, in your pocket"
-        subtitle="Real-time streaming, local-first networking, and multi-session tabs. Everything you need to stay connected to your terminal from anywhere."
+        title="Not a viewer. A full terminal."
+        subtitle="Type commands, scroll output, interact with TUI apps. If it runs in your terminal, it runs through TermPod."
       />
 
       {/* Feature 1: Streaming */}
@@ -167,12 +167,11 @@ export function Features() {
         <div className="flex flex-1 flex-col justify-center p-8 md:p-12">
           <FeatureTag color="#C9A962" label="REAL-TIME STREAMING" />
           <h3 className="mb-3 font-heading text-xl font-bold tracking-tight text-text-white md:text-[28px] md:leading-tight">
-            Full terminal — not a read-only viewer
+            Every keystroke, in real time
           </h3>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
-            Type commands, scroll through output, and interact with your
-            terminal session in real time. Everything you can do at your desk,
-            you can do from your phone.
+            This is not a log viewer. Type commands, scroll output, interact
+            with prompts. Your phone becomes your terminal.
           </p>
         </div>
         <div className="flex flex-1 items-center justify-center bg-[#0A0A0A] p-6 md:max-w-[520px]">
@@ -190,13 +189,12 @@ export function Features() {
         <div className="flex flex-1 flex-col justify-center p-8 md:p-12">
           <FeatureTag color="#F59E0B" label="LOCAL-FIRST NETWORKING" />
           <h3 className="mb-3 font-heading text-xl font-bold tracking-tight text-text-white md:text-[28px] md:leading-tight">
-            Your data takes the shortest path — automatically
+            Your data takes the shortest path
           </h3>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
-            On the same WiFi? TermPod connects directly via Bonjour. Different
-            network? It upgrades to WebRTC P2P. Only when both fail does it fall
-            back to the encrypted relay. Your terminal data always takes the
-            fastest, most private route.
+            Same WiFi? TermPod connects directly via Bonjour. Different
+            network? It upgrades to peer-to-peer. Your terminal data always
+            takes the fastest, most private route.
           </p>
         </div>
       </div>
@@ -206,11 +204,11 @@ export function Features() {
         <div className="flex flex-1 flex-col justify-center p-8 md:p-12">
           <FeatureTag color="#A855F7" label="MULTI-SESSION" />
           <h3 className="mb-3 font-heading text-xl font-bold tracking-tight text-text-white md:text-[28px] md:leading-tight">
-            Multiple tabs, multiple devices — seamless
+            All your sessions, one screen
           </h3>
           <p className="mb-6 font-mono text-sm leading-relaxed text-text-gray">
             Run as many terminal sessions as you need. Each tab is an
-            independent PTY — switch between them on your phone just like you
+            independent shell. Switch between them on your phone just like you
             would on your Mac.
           </p>
           <div className="flex flex-wrap gap-6">
@@ -247,8 +245,8 @@ export function Features() {
             E2E Encrypted
           </h4>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
-            AES-256-GCM encryption on every transport. The relay is
-            zero-knowledge — it forwards ciphertext it cannot read.
+            AES-256-GCM on every transport. The relay forwards ciphertext
+            it cannot read. Your terminal data stays yours.
           </p>
         </div>
         <div className="flex flex-col border border-stroke-light p-8">
@@ -257,8 +255,8 @@ export function Features() {
             Sub-5ms Latency
           </h4>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
-            Local connections over Bonjour are near-instant. WebRTC P2P adds
-            minimal overhead. The relay is only a last resort.
+            Local connections are near-instant. Peer-to-peer adds minimal
+            overhead. It feels like typing at your desk.
           </p>
         </div>
         <div className="flex flex-col border border-stroke-light p-8">
@@ -267,8 +265,8 @@ export function Features() {
             Full PTY Support
           </h4>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
-            Not a dumb pipe. Full pseudoterminal with shell integration, resize
-            handling, and support for TUI apps like vim, htop, and more.
+            Full pseudoterminal with shell integration and resize handling.
+            vim, htop, Claude Code. If it runs in a terminal, it works.
           </p>
         </div>
       </div>

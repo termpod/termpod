@@ -37,8 +37,8 @@ export function UseCases() {
       <SectionHeader
         number="02"
         label="USE CASES"
-        title="Start on your Mac. Continue from anywhere."
-        subtitle="Whether you're stepping away from your desk or responding to alerts on the go, TermPod keeps you connected."
+        title="Walk away. Stay in control."
+        subtitle="You left something running. Now you need to check on it, respond to a prompt, or approve a deploy. Your phone is already in your pocket."
       />
 
       {/* UC1 — Walk Away */}
@@ -51,8 +51,8 @@ export function UseCases() {
             Step away without stopping
           </h3>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
-            Long-running builds, database migrations, AI coding agents — start
-            them on your Mac and monitor progress from your phone while you grab
+            Long-running builds, database migrations, AI coding agents. Start
+            them on your Mac and check progress from your phone while you grab
             coffee, walk the dog, or leave the office.
           </p>
         </div>
@@ -116,7 +116,7 @@ export function UseCases() {
           </h3>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
             Deploy confirmations, sudo passwords, Claude Code permission
-            requests — handle interactive prompts from your phone without
+            requests. Handle interactive prompts from your phone without
             running back to your desk.
           </p>
         </div>
@@ -133,7 +133,7 @@ export function UseCases() {
           </h3>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
             SSH into your server from your Mac, then check service status, tail
-            logs, and run health checks from your phone — no separate SSH app
+            logs, and run health checks from your phone. No separate SSH app
             needed.
           </p>
         </div>
