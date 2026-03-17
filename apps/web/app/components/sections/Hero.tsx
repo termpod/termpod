@@ -1,9 +1,20 @@
 import { Monitor, Smartphone, Wifi, Send } from "lucide-react";
 import { Screenshot } from "../Screenshot";
 
+function ToolIcon({ color, children }: { color: string; children: React.ReactNode }) {
+  return (
+    <span
+      className="inline-flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold leading-none"
+      style={{ color, backgroundColor: `${color}18` }}
+    >
+      {children}
+    </span>
+  );
+}
+
 function MacTerminal() {
   return (
-    <div className="w-full max-w-[680px] shrink-0 border border-stroke-light bg-[#0D1117]">
+    <div className="w-full shrink-0 border border-stroke-light bg-[#0D1117]">
       {/* Title bar */}
       <div className="flex h-9 items-center gap-2 border-b border-stroke-light bg-[#161B22] px-4">
         <span className="h-3 w-3 rounded-full bg-gold" />
@@ -143,7 +154,7 @@ export function Hero() {
       <div className="animate-fade-in mb-12 flex items-center gap-2.5 border border-gold/30 px-4 py-1.5">
         <span className="h-2 w-2 rounded-full bg-gold" />
         <span className="font-mono text-[11px] font-semibold tracking-[0.2em] text-gold">
-          OPEN SOURCE &middot; LOCAL &amp; P2P FREE FOREVER
+          OPEN SOURCE
         </span>
       </div>
 
@@ -158,7 +169,7 @@ export function Hero() {
       <p className="animate-fade-in-up delay-200 mb-10 max-w-[720px] text-center font-mono text-sm leading-[1.6] text-text-gray md:text-base">
         Start a terminal session on your Mac — pick it up on your iPhone. Full
         shell, real-time I/O, completely open source. Free for local &amp; P2P
-        use, 1 free relay device included — or go Pro with a 7-day free trial.
+        use, self-host for full access — or go Pro for a managed relay.
       </p>
 
       {/* CTA Row */}
@@ -180,27 +191,42 @@ export function Hero() {
       </div>
 
       {/* Hero Visual */}
-      <div className="animate-fade-in-up delay-400 mb-10 flex flex-col items-center gap-6 border border-stroke-light p-4 md:flex-row md:gap-10 md:p-10">
-        <Screenshot src="/screenshots/hero-mac.png" alt="TermPod desktop app showing a terminal session" width={680} height={500}>
-          <MacTerminal />
-        </Screenshot>
-        <Screenshot src="/screenshots/hero-iphone.png" alt="TermPod iOS app viewing the same session" width={280} height={500}>
-          <IPhoneMockup />
-        </Screenshot>
+      <div className="animate-fade-in-up delay-400 relative mb-10 flex w-full max-w-[900px] flex-col items-center gap-6 md:block">
+        {/* Mac terminal — full width of container */}
+        <div className="w-full border border-stroke-light p-4 md:p-8">
+          <Screenshot src="/screenshots/hero-mac.png" alt="TermPod desktop app showing a terminal session" width={680} height={500}>
+            <MacTerminal />
+          </Screenshot>
+        </div>
+        {/* iPhone — overlaps bottom-right on desktop, stacked on mobile */}
+        <div className="md:absolute md:right-[-40px] md:bottom-[-40px] md:z-10">
+          <div className="shadow-2xl shadow-black/40">
+            <Screenshot src="/screenshots/hero-iphone.png" alt="TermPod iOS app viewing the same session" width={280} height={500}>
+              <IPhoneMockup />
+            </Screenshot>
+          </div>
+        </div>
       </div>
 
       {/* Trust Row */}
-      <div className="animate-fade-in delay-500 flex flex-wrap items-center justify-center gap-4 md:gap-6">
+      <div className="animate-fade-in delay-500 mt-12 flex flex-wrap items-center justify-center gap-5 md:mt-16 md:gap-6">
         <span className="font-mono text-[11px] font-semibold tracking-[0.2em] text-text-dark">
           RUN ANYTHING:
         </span>
-        {["zsh", "vim", "htop", "Claude Code", "any CLI"].map((item, i) => (
-          <span key={item} className="flex items-center gap-3">
+        {[
+          { name: "Claude Code", icon: <ToolIcon color="#D97757">✦</ToolIcon> },
+          { name: "Codex", icon: <ToolIcon color="#10A37F">◈</ToolIcon> },
+          { name: "vim", icon: <ToolIcon color="#019833">V</ToolIcon> },
+          { name: "htop", icon: <ToolIcon color="#E44D26">H</ToolIcon> },
+          { name: "any CLI", icon: <ToolIcon color="#C9A962">&gt;_</ToolIcon> },
+        ].map((item, i) => (
+          <span key={item.name} className="flex items-center gap-3">
             {i > 0 && (
               <span className="h-1 w-1 rounded-full bg-text-dark" />
             )}
-            <span className="font-mono text-[11px] tracking-wider text-text-gray">
-              {item}
+            <span className="flex items-center gap-1.5 font-mono text-[11px] tracking-wider text-text-gray">
+              {item.icon}
+              {item.name}
             </span>
           </span>
         ))}

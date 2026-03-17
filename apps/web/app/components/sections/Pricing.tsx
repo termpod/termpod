@@ -2,22 +2,18 @@ import { Check, Zap, Github, Server, Heart } from "lucide-react";
 import { SectionHeader } from "../SectionHeader";
 
 const freeFeatures = [
-  "Local WiFi (Bonjour) — unlimited",
-  "WebRTC P2P — unlimited",
-  "Unlimited sessions",
-  "Full PTY support",
-  "Self-host relay (everything unlocked)",
-  "1 desktop device on managed relay",
+  "Local WiFi & P2P — always free, no limits",
+  "Unlimited sessions & full PTY",
   "E2E encryption on all transports",
+  "Self-host relay — all features, zero cost",
 ];
 
 const proFeatures = [
   "Everything in Free",
-  "Managed cloud relay",
-  "Unlimited relay devices",
+  "Managed cloud relay — zero setup",
+  "Unlimited devices on managed relay",
+  "Share links & TURN fallback",
   "Priority support",
-  "Share links",
-  "TURN relay fallback",
 ];
 
 export function Pricing() {
@@ -58,9 +54,9 @@ export function Pricing() {
           </ul>
           <div className="mb-6 border border-stroke-light bg-bg-inset p-4">
             <p className="font-mono text-[11px] leading-relaxed text-text-dark">
-              <span className="text-text-gray">Self-host tip:</span> Deploy the
-              relay on Cloudflare Workers free tier and unlock all Pro features
-              at zero cost.
+              <span className="text-text-gray">Self-host tip:</span> Deploy your
+              own relay on Cloudflare Workers free tier — unlimited devices,
+              share links, everything. No subscription needed.
             </p>
           </div>
           <a
