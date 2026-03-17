@@ -462,20 +462,38 @@ function buildResetEmail(code: string): string {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Your TermPod reset code</title>
 </head>
-<body style="margin:0;padding:0;background:#1a1b26;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#1a1b26;min-height:100vh;">
+<body style="margin:0;padding:0;background:#0A0A0A;font-family:'IBM Plex Mono',-apple-system,BlinkMacSystemFont,'Segoe UI',monospace;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0A0A0A;">
     <tr>
       <td align="center" style="padding:48px 16px;">
-        <table width="480" cellpadding="0" cellspacing="0" style="background:#1e2030;border-radius:12px;border:1px solid rgba(255,255,255,0.08);max-width:480px;width:100%;">
+        <!-- Logo -->
+        <table width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;">
           <tr>
-            <td style="padding:40px 40px 32px;">
-              <p style="margin:0 0 8px;font-size:20px;font-weight:700;color:#c0caf5;">TermPod</p>
-              <p style="margin:0 0 32px;font-size:14px;color:rgba(192,202,245,0.5);">Password reset</p>
-              <p style="margin:0 0 16px;font-size:15px;color:#c0caf5;">Use this code to reset your password. It expires in 1 hour.</p>
-              <div style="background:#13141c;border-radius:8px;border:1px solid rgba(255,255,255,0.06);padding:24px;text-align:center;margin:0 0 32px;">
-                <span style="font-size:36px;font-weight:700;letter-spacing:8px;color:#7aa2f7;font-family:Menlo,Monaco,'Courier New',monospace;">${code}</span>
+            <td style="padding:0 0 32px;">
+              <span style="font-size:22px;font-weight:700;color:#C9A962;font-family:'IBM Plex Mono',Menlo,monospace;">&gt;_</span>
+              <span style="font-size:18px;font-weight:700;letter-spacing:3px;color:#FFFFFF;font-family:'IBM Plex Mono',Menlo,monospace;">&nbsp;TERMPOD</span>
+            </td>
+          </tr>
+        </table>
+        <!-- Card -->
+        <table width="480" cellpadding="0" cellspacing="0" style="background:#111111;border:1px solid #333333;max-width:480px;width:100%;">
+          <tr>
+            <td style="padding:40px 36px 36px;">
+              <p style="margin:0 0 6px;font-size:11px;font-weight:600;letter-spacing:3px;color:#555555;text-transform:uppercase;">Password reset</p>
+              <p style="margin:0 0 28px;font-size:22px;font-weight:700;color:#FFFFFF;line-height:1.3;">Your reset code</p>
+              <p style="margin:0 0 20px;font-size:14px;color:#999999;line-height:1.6;">Use this code to reset your password. It expires in 1 hour.</p>
+              <div style="background:#0A0A0A;border:1px solid #333333;padding:24px;text-align:center;margin:0 0 28px;">
+                <span style="font-size:36px;font-weight:700;letter-spacing:8px;color:#C9A962;font-family:'IBM Plex Mono',Menlo,Monaco,'Courier New',monospace;">${code}</span>
               </div>
-              <p style="margin:0;font-size:13px;color:rgba(192,202,245,0.4);">If you didn't request a password reset, you can safely ignore this email.</p>
+              <p style="margin:0;font-size:12px;color:#555555;line-height:1.5;">If you didn't request a password reset, you can safely ignore this email.</p>
+            </td>
+          </tr>
+        </table>
+        <!-- Footer -->
+        <table width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;">
+          <tr>
+            <td style="padding:24px 0 0;text-align:center;">
+              <p style="margin:0;font-size:11px;color:#555555;">TermPod &mdash; Your Mac terminal, in your pocket.</p>
             </td>
           </tr>
         </table>
