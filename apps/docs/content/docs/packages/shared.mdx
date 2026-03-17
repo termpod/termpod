@@ -1,0 +1,111 @@
+---
+title: "@termpod/shared"
+description: Shared constants, types, block tracking, prompt detection, and autocomplete engine.
+---
+
+The `packages/shared/` package contains shared business logic used by both the desktop app and the UI package.
+
+## Files
+
+```
+packages/shared/src/
+├── index.ts              # Main exports
+├── types.ts              # Common TypeScript types
+├── constants.ts          # Magic strings, limits, colors
+├── blocks.ts             # BlockTracker (OSC 133 command lifecycle)
+├── promptDetector.ts     # Claude Code permission prompt detection
+├── tabIcons.ts           # Process-to-icon mapping
+├── autocomplete/
+│   ├── index.ts
+│   ├── AutocompleteEngine.ts  # Suggestion generator
+│   └── HistoryIndex.ts        # Shell history indexing
+└── *.test.ts
+```
+
+## BlockTracker
+
+Tracks command execution blocks via OSC 133 markers (FinalTerm standard).
+
+### Block Lifecycle
+
+```
+A (prompt start) → B (prompt end) → C (output start) → D (command finished + exit code)
+```
+
+### Interface
+
+```typescript
+interface BlockBoundary {
+  marker: 'A' | 'B' | 'C' | 'D';
+  line: number;
+  exitCode?: number;    // Only on 'D' marker
+  cursorX?: number;     // Only on 'B' marker (command start position)
+}
+```
+
+### Key Details
+
+- **B marker's `cursorX`** is used for precise command text extraction — not heuristic regex
+- **Blank line** emitted between blocks via shell `precmd` (after D, before next A)
+- Stores block metadata: ID, line numbers, exit code, timing
+
+## PromptDetector
+
+Detects Claude Code permission prompts in terminal output.
+
+### Patterns Detected
+
+- `"Do you want to allow..."`
+- `"Allow <Tool>: <detail>?"`
+
+### Interface
+
+```typescript
+interface DetectedPrompt {
+  type: 'permission';
+  tool: string;       // Tool name (Read, Bash, etc.)
+  detail: string;     // What file/command
+  timestamp: number;
+}
+```
+
+### How It Works
+
+1. Strips ANSI escape sequences from terminal output
+2. Matches against known prompt patterns
+3. Fires events when prompts appear or resolve
+4. Used by the mobile app to show quick-action buttons
+
+## AutocompleteEngine
+
+Generates shell command suggestions from history and filesystem context.
+
+### Features
+
+- **History-based**: Indexes shell history files (zsh, bash, fish)
+- **Filesystem-aware**: Suggests file paths based on current directory
+- **Context-aware**: Considers current command prefix, directory, and patterns
+- **Two display modes**: Ghost text (faded next-word preview) and popup list
+
+### Interface
+
+```typescript
+interface Suggestion {
+  text: string;                           // Suggested completion
+  type: 'history' | 'path' | 'command';  // Source type
+  confidence: number;                      // 0-1 relevance score
+  context?: string;                        // Directory, pattern, etc.
+}
+```
+
+### HistoryIndex
+
+Parses shell history files and builds an in-memory index:
+
+- Supports zsh (`~/.zsh_history`), bash (`~/.bash_history`), fish (`~/.local/share/fish/fish_history`)
+- Handles zsh extended history format (timestamps)
+- Ranks by frequency and recency
+
+## Tab Icons
+
+`tabIcons.ts` maps running process names to display icons for session tabs (e.g., `node` → Node.js icon, `python` → Python icon).

@@ -1,0 +1,76 @@
+---
+title: Subscription Gating
+description: Free vs Pro tier feature gating, Polar.sh integration, and self-hosted relay behavior.
+---
+
+TermPod uses an open-core freemium model. The app is free and open source; the hosted relay charges for bandwidth-intensive features.
+
+## Tier Comparison
+
+| Feature | Free Tier | Pro Tier |
+| --- | --- | --- |
+| Local (Bonjour) | Yes | Yes |
+| WebRTC (STUN) | Yes | Yes |
+| WebRTC (TURN) | No | Yes |
+| Relay terminal data | No | Yes |
+| Session sharing | No | Yes |
+
+**Rationale**: Local and P2P are free to operate (zero infrastructure cost). Relay and TURN have ongoing bandwidth costs, so they require a subscription.
+
+## How Gating Works
+
+### Session WS Gate
+
+When a free-tier user attempts to connect to `/sessions/:sessionId/ws` on a hosted relay:
+
+1. Worker checks the user's subscription status
+2. Returns HTTP **403** with `{ code: "RELAY_UPGRADE_REQUIRED" }`
+3. As defense-in-depth, the Session DO also closes WebSocket with code **4403**
+
+### Share Viewer Bypass
+
+Share viewers (connecting with `?share_token=...`) bypass the subscription gate. The session owner already proved they have a Pro plan when creating the share token.
+
+## Self-Hosted Relays
+
+Self-hosted relays **bypass all plan gates automatically**.
+
+The detection is based on the `POLAR_WEBHOOK_SECRET` environment variable:
+- **Present**: Hosted mode — subscription gates enforced
+- **Absent**: Self-hosted mode — all features unlocked for all users
+
+```json
+// Self-hosted relay response
+{ "selfHosted": true }
+```
+
+You do **not** need to configure Polar.sh for self-hosted relays.
+
+## Polar.sh Integration
+
+For hosted multi-user relays, TermPod integrates with [Polar.sh](https://polar.sh) for subscription billing:
+
+### Webhook
+
+```
+POST /webhooks/polar
+```
+
+The relay verifies the webhook signature using `POLAR_WEBHOOK_SECRET` and updates the user's subscription status in the User DO.
+
+### Configuration
+
+```bash
+wrangler secret put POLAR_WEBHOOK_SECRET  # From Polar dashboard
+wrangler secret put POLAR_API_KEY         # For API access
+```
+
+### Events Handled
+
+- `subscription.created` — User upgraded to Pro
+- `subscription.updated` — Plan changed
+- `subscription.canceled` — User downgraded
+
+## Desktop UI
+
+The `RelayGatedBanner` component shows a banner when free-tier users attempt relay-gated features, with a link to upgrade.

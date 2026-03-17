@@ -1,0 +1,113 @@
+---
+title: "@termpod/protocol"
+description: WebSocket protocol definitions, binary frame encoding, E2E encryption, and compression.
+---
+
+The `packages/protocol/` package contains all WebSocket protocol definitions, binary frame encoding/decoding, and E2E encryption for the desktop app.
+
+## Files
+
+```
+packages/protocol/src/
+├── index.ts           # Main exports
+├── constants.ts       # Channel IDs, frame sizes, limits
+├── messages.ts        # Control message TypeScript interfaces
+├── binary.ts          # Binary frame encoding/decoding
+├── crypto.ts          # ECDH P-256 + AES-256-GCM (Web Crypto API)
+├── share-crypto.ts    # Share token encryption (symmetric AES-256-GCM)
+├── compression.ts     # Deflate compression for large frames
+└── *.test.ts          # Tests
+```
+
+## Message Types
+
+All control messages are defined as TypeScript interfaces in `messages.ts`:
+
+- `HelloMessage`, `HelloOkMessage`
+- `AuthMessage`, `AuthOkMessage`
+- `KeyExchangeMessage`, `KeyExchangeAckMessage`
+- `SessionInfoMessage`, `ReadyMessage`
+- `ClientJoinedMessage`, `ClientLeftMessage`
+- `ListSessionsMessage`, `SessionsListMessage`
+- `CreateSessionRequestMessage`, `SessionCreatedMessage`
+- `WebRTCOfferMessage`, `WebRTCAnswerMessage`, `WebRTCIceMessage`
+- `ErrorMessage`, `PingMessage`, `PongMessage`
+
+## Binary Encoding
+
+`binary.ts` provides functions for encoding and decoding binary frames:
+
+### Channel Constants
+
+```typescript
+const CHANNEL_DATA = 0x00;      // Terminal data (deprecated on relay)
+const CHANNEL_RESIZE = 0x01;    // Terminal resize
+const CHANNEL_SCROLLBACK = 0x02; // Scrollback chunk
+const CHANNEL_ENCRYPTED = 0xe0;  // E2E encrypted
+const CHANNEL_SHARE = 0xe1;      // Share encrypted
+```
+
+### Multiplexed Frame Encoding
+
+```typescript
+// Encode
+function encodeMuxFrame(channel: number, sessionId: string, payload: Uint8Array): Uint8Array
+
+// Decode
+function decodeMuxFrame(data: Uint8Array): { channel: number; sessionId: string; payload: Uint8Array }
+```
+
+## Crypto
+
+`crypto.ts` implements E2E encryption using the Web Crypto API:
+
+```typescript
+// Generate ECDH P-256 key pair
+async function generateKeyPair(): Promise<CryptoKeyPair>
+
+// Export public key to JWK
+async function exportPublicKey(key: CryptoKey): Promise<JsonWebKey>
+
+// Import peer's public key from JWK
+async function importPublicKey(jwk: JsonWebKey): Promise<CryptoKey>
+
+// Derive session key via ECDH + HKDF-SHA256
+async function deriveSessionKey(
+  privateKey: CryptoKey,
+  peerPublicKey: CryptoKey,
+  sessionId: string
+): Promise<E2ESession>
+
+// Encrypt a frame
+async function encryptFrame(session: E2ESession, data: Uint8Array): Promise<Uint8Array>
+
+// Decrypt a frame
+async function decryptFrame(session: E2ESession, data: Uint8Array): Promise<Uint8Array>
+```
+
+## Share Crypto
+
+`share-crypto.ts` implements symmetric encryption for session sharing:
+
+```typescript
+// Generate random AES-256-GCM key
+async function generateShareKey(): Promise<CryptoKey>
+
+// Export key to base64 (for URL fragment)
+async function exportShareKey(key: CryptoKey): Promise<string>
+
+// Import key from base64
+async function importShareKey(keyBase64: string): Promise<CryptoKey>
+
+// Encrypt/decrypt share frames
+async function encryptShareFrame(key: CryptoKey, data: Uint8Array): Promise<Uint8Array>
+async function decryptShareFrame(key: CryptoKey, data: Uint8Array): Promise<Uint8Array>
+```
+
+## Compression
+
+`compression.ts` provides raw deflate compression for multiplexed frames:
+
+- Used when payload is >= 256 bytes
+- Compressed mux frames use channel `0x12`
+- Automatic decompression on receive

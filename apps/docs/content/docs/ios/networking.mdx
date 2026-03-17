@@ -1,0 +1,106 @@
+---
+title: Networking & Transports
+description: iOS transport layer — Local (Bonjour), WebRTC, and Relay transport implementations.
+---
+
+The iOS app manages three transport layers for connecting to the desktop, orchestrated by `DeviceTransportManager`.
+
+## Transport Protocol
+
+All transports conform to the `Transport` protocol:
+
+```swift
+protocol Transport {
+    var isConnected: Bool { get }
+    func connect()
+    func disconnect()
+    func send(_ data: Data)
+    var onReceive: ((Data) -> Void)? { get set }
+    var onStatusChange: ((TransportStatus) -> Void)? { get set }
+}
+```
+
+## Transport Priority
+
+1. **Local (Bonjour)** — `LocalTransport.swift`
+2. **WebRTC** — `WebRTCTransport.swift`
+3. **Relay** — `RelayClient.swift`
+
+The app sends via the best available transport but receives from all active transports.
+
+## Local Transport (Bonjour)
+
+`LocalTransport.swift` handles direct LAN connections:
+
+1. **Discovery**: Uses `NWBrowser` to find `_termpod._tcp` services on the local network
+2. **Resolution**: `NWConnection` resolves Bonjour endpoint to IP + port
+3. **Connection**: Establishes WebSocket connection (`ws://`)
+4. **Auth**: Sends auth secret (obtained via relay Device WS) as first message
+5. **Subscription**: Sends `subscribe_session` for each session to view
+
+**Important**: Must strip `%en0` interface scope from the resolved IP before building the WebSocket URL.
+
+## WebRTC Transport
+
+`WebRTCTransport.swift` handles peer-to-peer connections via DataChannel:
+
+- Uses `livekit/webrtc-xcframework` (LKRTC\* prefix classes)
+- Gated behind `canImport(LiveKitWebRTC)` for conditional compilation
+- Signaling flows through the relay Device WS:
+  1. Desktop sends `webrtc_offer` via Device WS
+  2. iOS creates answer, sends `webrtc_answer` back
+  3. ICE candidates exchanged via `webrtc_ice` messages
+  4. DataChannel opens for multiplexed binary data + JSON control
+
+**ICE Servers**:
+- Google STUN: `stun:stun.l.google.com:19302`, `stun:stun1.l.google.com:19302`
+- Cloudflare STUN: `stun:stun.cloudflare.com:3478`
+- Optional Cloudflare TURN (Pro tier): Fetched from `GET /turn-credentials`
+
+## Relay Transport
+
+`RelayClient.swift` handles WebSocket connections through the Cloudflare relay:
+
+- Connects to the Device WS endpoint (`/devices/:deviceId/ws?token=JWT`)
+- Handles auth handshake and hello exchange
+- Receives multiplexed binary frames for subscribed sessions
+- Always connected for control plane (signaling, session management)
+- Terminal data forwarding requires Pro subscription on hosted relay
+
+## DeviceTransportManager
+
+`DeviceTransportManager.swift` orchestrates all three transports:
+
+- Spawns all transports concurrently on connection
+- Each transport reports status independently
+- Selects best connected transport for sending (by priority)
+- Routes incoming data from all transports to the connection handler
+- Handles transport failures and fallback
+
+## ReconnectionManager
+
+`ReconnectionManager.swift` implements exponential backoff:
+
+- Starts with short delay, increases exponentially
+- Caps at a maximum interval
+- Resets on successful connection
+- Handles transport-specific reconnection logic
+
+## Connection Flow
+
+```
+App Launch
+  │
+  ├── Auth (JWT from Keychain)
+  │
+  ├── DeviceTransportManager.connect()
+  │   ├── LocalTransport → Bonjour browse
+  │   ├── WebRTCTransport → signaling via Device WS
+  │   └── RelayClient → Device WS connect
+  │
+  ├── Best transport selected
+  │
+  ├── E2E Key Exchange (ECDH via CryptoService)
+  │
+  └── Encrypted streaming begins
+```

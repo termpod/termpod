@@ -1,0 +1,97 @@
+---
+title: Terminal Rendering
+description: SwiftTerm terminal rendering on iOS — delegate implementation, data batching, and special keys.
+---
+
+The iOS app uses **SwiftTerm 1.11.2** for native terminal rendering via CoreText.
+
+## SwiftTerm Integration
+
+Terminal rendering is handled by `RemoteTerminalView.swift`, which implements the `TerminalViewDelegate` protocol.
+
+### Required Delegate Methods
+
+```swift
+protocol TerminalViewDelegate {
+    func send(source: TerminalView, data: ArraySlice<UInt8>)
+    func scrolled(source: TerminalView, position: Double)
+    func setTerminalTitle(source: TerminalView, title: String)
+    func bell(source: TerminalView)
+    func sizeChanged(source: TerminalView, newCols: Int, newRows: Int)
+    func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?)
+    func requestOpenLink(source: TerminalView, link: String, params: [String: String])
+    func clipboardCopy(source: TerminalView, content: Data)
+    func iTermContent(source: TerminalView, content: ArraySlice<UInt8>)
+    func rangeChanged(source: TerminalView, startY: Int, endY: Int)
+}
+```
+
+### Key Implementation Details
+
+- **`feed()` accepts `ArraySlice<UInt8>`** — not `[UInt8]`. You must slice the data array before feeding.
+- **`caretView` is internal** — cannot access directly from a subclass in a different module.
+
+## Data Batching
+
+SwiftTerm requires data batching to prevent **cursor ghosting** in TUI applications (like vim, htop):
+
+1. Incoming data is buffered per run loop cycle
+2. All buffered data is fed to SwiftTerm in a single batch
+3. `setNeedsDisplay()` is called after each batch feed
+4. This ensures smooth rendering without visual artifacts
+
+```swift
+// Buffer data per run loop cycle
+pendingData.append(contentsOf: data)
+
+// Feed on next run loop iteration
+DispatchQueue.main.async {
+    let batch = self.pendingData
+    self.pendingData = []
+    self.terminalView.feed(byteArray: ArraySlice(batch))
+    self.terminalView.setNeedsDisplay()
+}
+```
+
+## Mobile Resize
+
+The iOS app only syncs **columns** with the desktop — not rows. This preserves the desktop's vertical viewport while adapting to the mobile screen width.
+
+When the terminal view resizes:
+- Columns are sent to the desktop via the active transport
+- Desktop adjusts PTY columns
+- Rows remain at the desktop's value
+
+## Special Keys Bar
+
+`SpecialKeysBar.swift` provides a toolbar above the keyboard with commonly needed terminal keys:
+
+- **Ctrl** — Toggle modifier for next keypress
+- **Esc** — Send escape sequence
+- **Tab** — Send tab character
+- **Arrow keys** — Up, Down, Left, Right
+- **Additional keys** — Configurable via settings
+
+## Terminal Input
+
+Terminal input goes directly to SwiftTerm:
+- `canBecomeFirstResponder = true` — the terminal view receives keyboard events
+- Standard text input flows through the SwiftTerm delegate's `send()` method
+- Special keys are injected programmatically via the SpecialKeysBar
+
+## Themes
+
+`TerminalTheme.swift` defines color themes:
+- Multiple built-in themes with named colors
+- Applied to SwiftTerm's color palette
+- Persisted in user settings
+
+## QR Code Pairing
+
+The iOS app supports QR code-based pairing as a fallback:
+
+```
+termpod://pair?relay=<wsUrl>&session=<sessionId>
+```
+
+Format uses URL scheme (not JSON). The app registers the `termpod://` URL scheme for deep linking.

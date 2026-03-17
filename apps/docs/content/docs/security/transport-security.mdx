@@ -1,0 +1,98 @@
+---
+title: Transport Security
+description: Security details for each transport layer — relay, local Bonjour, WebRTC, and session sharing.
+---
+
+Each transport in TermPod has its own security model, all ensuring that terminal data remains encrypted end-to-end.
+
+## Relay Transport
+
+The relay is the most security-critical transport since data traverses a third-party server.
+
+- **E2E encrypted**: All terminal data is encrypted with AES-256-GCM before leaving the client
+- **0xE0 frames only**: The relay only forwards `0xE0` encrypted frames. Plaintext `0x00` frames are rejected
+- **Zero-knowledge**: The relay cannot decrypt, inspect, or store terminal content
+- **Control messages**: Session metadata (name, CWD, process name) is sent via `encrypted_control` — the relay forwards the opaque ciphertext
+- **Scrollback**: Buffered locally on desktop, delivered encrypted after key exchange. The relay never stores scrollback
+
+### Key Exchange Flow (Relay)
+
+```
+Desktop                         Relay                         Viewer
+   │                              │                              │
+   │──── key_exchange ───────────►│──── key_exchange ───────────►│
+   │     (desktop public key)     │     (forwarded blindly)      │
+   │                              │                              │
+   │◄─── key_exchange_ack ───────│◄─── key_exchange_ack ────────│
+   │     (viewer public key)      │     (forwarded blindly)      │
+   │                              │                              │
+   │     ═══ Both derive shared AES-256-GCM key ═══             │
+   │                              │                              │
+   │──── [0xE0][encrypted] ──────►│──── [0xE0][encrypted] ─────►│
+   │                              │     (cannot decrypt)         │
+```
+
+## Local Transport (Bonjour)
+
+When both devices are on the same LAN, they connect directly via Bonjour WebSocket.
+
+- **Auth secret**: Desktop generates a random secret on startup, shares it with iOS through the authenticated relay Device WS (E2E encrypted via `encrypted_control`)
+- **Auth handshake**: iOS must send `{ type: "auth", secret: "..." }` as the first message — desktop validates before accepting any data
+- **E2E encryption**: After auth, desktop initiates ECDH key exchange (same protocol as relay)
+- **All data encrypted**: Once E2E is established, all terminal data uses `0xE0` encrypted frames
+- **Randomized service name**: The mDNS service name is randomized to avoid leaking the hostname
+
+### Key Exchange Flow (Local)
+
+```
+Desktop                                       iPhone
+   │                                             │
+   │◄─── Bonjour discovery ─────────────────────│
+   │◄─── WebSocket connect ─────────────────────│
+   │◄─── { type: "auth", secret: "..." } ──────│
+   │                                             │
+   │──── key_exchange (desktop public key) ────►│
+   │◄─── key_exchange_ack (viewer public key) ──│
+   │                                             │
+   │     ═══ E2E encrypted data flow ═══        │
+```
+
+## WebRTC Transport
+
+WebRTC provides inherent E2E encryption via DTLS on the DataChannel — no additional application-layer encryption is needed.
+
+- **DTLS**: All DataChannel traffic is encrypted at the transport layer
+- **Signaling via relay**: Offer/answer/ICE candidates are exchanged through the Device WS
+- **ICE servers**: Google STUN + Cloudflare STUN (free), optional Cloudflare TURN (Pro)
+- **Timeout fallback**: 30-second connection timeout, falls back to relay
+
+## Session Sharing (0xE1)
+
+Session sharing uses a separate symmetric encryption channel:
+
+- **Key generation**: Desktop generates a random AES-256-GCM key
+- **Key distribution**: Key is embedded in the share URL fragment (`#key=base64`)
+- **Never sent to server**: The URL fragment is never transmitted to the relay
+- **Separate channel**: Share viewers receive `0xE1` frames (not `0xE0`)
+- **Relay-only**: Share viewers connect via relay (no local/WebRTC)
+- **Read-only**: Share viewers can only observe, not send input
+
+### Share Crypto Implementation
+
+```
+packages/protocol/src/share-crypto.ts
+```
+
+- `generateShareKey()` — Random 256-bit AES-GCM key
+- `importShareKey(keyBase64)` — Import from URL fragment
+- `encryptShareFrame(key, data)` — Encrypt for share viewers
+- `decryptShareFrame(key, data)` — Decrypt at share viewer
+
+## Security Best Practices
+
+When contributing to TermPod:
+
+1. **Never send sensitive data in plaintext to the relay** — all terminal data, session names, CWDs, and process names must use E2E encrypted channels
+2. **Update both crypto implementations** — Changes to `packages/protocol/src/crypto.ts` must be mirrored in `apps/ios/TermPod/Services/CryptoService.swift`
+3. **Test cross-platform** — Verify that desktop-encrypted frames can be decrypted by iOS and vice versa
+4. **Reject plaintext on relay** — The relay must reject any `0x00` binary frames

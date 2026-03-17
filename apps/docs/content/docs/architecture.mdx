@@ -1,0 +1,187 @@
+---
+title: Architecture Overview
+description: System design, data flow, and key architectural decisions behind TermPod.
+---
+
+TermPod follows a hub-and-spoke architecture with three components: the desktop app (the "worker"), the mobile app (the "viewer"), and the relay server (the "hub").
+
+## System Design
+
+### Desktop App (The "Worker")
+
+The Mac app is the only component that runs an actual shell. It has two responsibilities:
+
+**Local terminal**: Spawns PTY sessions via `tauri-plugin-pty`, renders them with xterm.js, and lets you interact normally — it's a fully functional terminal on its own.
+
+**Relay client**: Streams PTY output to the TermPod relay over WebSocket, and receives input from remote viewers (your phone) to forward to the PTY.
+
+```
+Desktop App
+├── Tauri 2.0 shell (Rust backend + WKWebView frontend)
+├── React UI
+│   ├── xterm.js terminal (with fit, webgl, web-links addons)
+│   ├── Session tabs (create, switch, close sessions)
+│   └── Settings (relay config, theme, font)
+├── PTY Manager (Rust)
+│   ├── tauri-plugin-pty for shell spawning
+│   ├── Session lifecycle (create, resize, destroy)
+│   └── Working directory tracking
+├── Local Server (Rust)
+│   ├── WebSocket server for LAN connections
+│   └── Bonjour/mDNS advertisement via dns-sd
+├── WebRTC (TypeScript)
+│   ├── DataChannel for P2P terminal data + control messages
+│   ├── Signaling via relay (offer/answer/ICE)
+│   └── ICE servers: Google + Cloudflare STUN, optional Cloudflare TURN
+├── E2E Encryption (TypeScript)
+│   ├── ECDH P-256 key exchange with viewer
+│   ├── AES-256-GCM encryption (HKDF-SHA256 derived key)
+│   └── Counter-based nonces
+└── Relay Connection (TypeScript)
+    ├── WebSocket client to relay
+    ├── Reconnection with exponential backoff
+    └── JWT auth
+```
+
+### Mobile App (The "Viewer")
+
+The iOS app is a native Swift app. It does **not** run a shell — it connects to the desktop (directly or via relay) and renders the terminal stream.
+
+```
+iOS App (SwiftUI + SwiftTerm)
+├── Terminal rendering (SwiftTerm — native CoreText)
+├── Connection Manager (orchestrates all transports)
+│   ├── Local transport (Bonjour discovery → direct WebSocket)
+│   ├── WebRTC transport (P2P DataChannel via livekit/webrtc)
+│   └── Relay transport (WebSocket via Cloudflare)
+├── E2E Encryption (CryptoKit)
+│   ├── ECDH P-256 key exchange with desktop
+│   ├── AES-256-GCM decryption/encryption
+│   └── HKDF-SHA256 key derivation
+├── Auth (JWT stored in Keychain)
+├── Device & session discovery
+└── Special keys bar (Ctrl, Esc, Tab, arrows)
+```
+
+### Relay Server (The "Hub")
+
+The relay is a Cloudflare Worker + two Durable Object types. The User DO acts as the device-level control plane; the TerminalSession DO handles per-session binary relay.
+
+```
+Cloudflare Edge
+├── Worker (stateless entry point)
+│   ├── Auth: signup, login, refresh, password reset
+│   ├── Devices: registration, heartbeat, offline
+│   ├── Sessions: CRUD, metadata
+│   ├── Device WS: /devices/:id/ws → User DO
+│   ├── Session WS: /sessions/:id/ws → TerminalSession DO
+│   └── Auto-update proxy
+└── Durable Objects
+    ├── User (one per email) — device control plane
+    │   ├── Device WS connections (desktop + N mobile viewers)
+    │   ├── Control message forwarding (desktop ↔ mobile)
+    │   ├── WebRTC signaling relay
+    │   ├── SQLite storage (devices, sessions, shares)
+    │   └── Hibernatable WebSockets
+    └── TerminalSession (one per session) — zero-knowledge relay
+        ├── Session WS connections (desktop + N viewers)
+        ├── Forwards 0xE0/0xE1 encrypted frames blindly
+        ├── No plaintext terminal data
+        └── Hibernation (sleeps when idle)
+```
+
+## Data Flow
+
+### Terminal Output (Mac → Phone)
+
+```
+PTY stdout → Desktop xterm.js (local render)
+          → E2E encrypt (AES-256-GCM) → [0xE0][nonce][ciphertext]
+          → WebSocket binary frame → Relay DO
+          → DO fans out encrypted frames to all viewers
+          → Mobile E2E decrypt → SwiftTerm (remote render)
+```
+
+### Terminal Input (Phone → Mac)
+
+```
+Mobile keyboard → E2E encrypt → WebSocket binary frame → Relay DO
+               → DO forwards encrypted frame to desktop
+               → Desktop E2E decrypt → writes to PTY stdin
+               → PTY processes input
+               → Output flows back via the output path above
+```
+
+### Device-Level Transport Architecture
+
+All transports operate at the **device level**, not per-session. A single connection carries multiplexed data for all active sessions using a binary frame prefix:
+
+```
+[channel:u8][sid_len:u8][session_id:utf8][payload:bytes]
+```
+
+One Bonjour connection, one WebRTC DataChannel, and one relay Device WS handle all sessions for a device. The mobile app subscribes/unsubscribes from individual sessions as the user navigates.
+
+## Transport Priority
+
+Transport priority: **Local WS (Bonjour) > WebRTC DataChannel > Relay Device WS**
+
+The desktop sends terminal data through the **single best connected transport** — not all at once:
+
+| Priority | Transport | Latency | Free Tier | Pro Tier |
+| --- | --- | --- | --- | --- |
+| 1 | Local WebSocket (Bonjour) | ~1-5ms | Yes | Yes |
+| 2 | WebRTC DataChannel (STUN) | ~10-30ms | Yes | Yes |
+| 3 | WebRTC DataChannel (TURN) | ~20-50ms | No | Yes |
+| 4 | Relay Device WS | ~30-80ms | No | Yes |
+
+The relay Device WS stays connected regardless of P2P status — it serves as the control plane for session management, signaling, and as the fallback data path.
+
+### Local P2P (Same Network)
+
+```
+iPhone discovers Mac via Bonjour (_termpod._tcp)
+ → Resolves IP + port
+ → Direct WebSocket connection (ws://)
+ → Sends subscribe_session for each session to view
+ → Receives multiplexed binary frames for subscribed sessions
+ → ~1-5ms latency vs ~30-80ms via relay
+```
+
+### WebRTC P2P (Different Networks)
+
+```
+Desktop creates WebRTC offer
+ → Offer sent to mobile via Device WS (toClientId targeting)
+ → Mobile creates answer, sent back via Device WS
+ → ICE candidates exchanged (STUN + optional TURN)
+ → DataChannel opens → multiplexed binary data + JSON control
+ → ~10-30ms latency (30s timeout, falls back to relay)
+```
+
+## Key Design Decisions
+
+### PTY lives on the Mac, not in the cloud
+
+The shell runs locally with full access to your filesystem, credentials, SSH keys, and tools. Nothing is sandboxed or containerized. This means:
+
+- Claude Code can read/write your actual project files
+- Git operations use your real SSH keys
+- Environment variables and PATH are your real ones
+- The Mac must be awake for sessions to be active
+
+### Relay uses Durable Objects with Hibernation
+
+Two DO types give us:
+- **Single-threaded coordination**: No race conditions when multiple clients send input
+- **Built-in persistence**: SQLite storage for device/session metadata
+- **Cost efficiency**: Hibernatable WebSockets mean we only pay when data flows
+- **Global edge**: DO runs near the desktop client, minimizing latency
+
+### Device-level multiplexing
+
+Instead of one WebSocket per session, each transport maintains a single device-level connection. Sessions are multiplexed using a binary frame prefix. This reduces connection overhead and simplifies transport management.
+
+### Binary frames for data, JSON for control
+
+Terminal output is raw bytes — ANSI escape codes, UTF-8 text, control characters. Terminal I/O uses WebSocket binary frames (zero copy, zero parse). Control messages use JSON text frames. The first byte of each binary frame is a channel ID for extensibility.

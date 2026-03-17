@@ -1,0 +1,102 @@
+---
+title: E2E Encryption
+description: End-to-end encryption protocol — ECDH key exchange, AES-256-GCM, counter-based nonces, and verification codes.
+---
+
+All terminal data in TermPod is end-to-end encrypted. The relay forwards opaque ciphertext — it cannot decrypt, inspect, or store terminal content.
+
+## Key Exchange
+
+TermPod uses **ECDH P-256** for key exchange between desktop and viewer:
+
+1. Desktop generates an ephemeral P-256 key pair
+2. Desktop sends its public key to the viewer via `key_exchange` message
+3. Viewer generates its own P-256 key pair
+4. Viewer responds with its public key via `key_exchange_ack`
+5. Both sides compute the shared secret using ECDH
+
+## Key Derivation
+
+From the ECDH shared secret, session keys are derived using **HKDF-SHA256**:
+
+```
+ikm    = ECDH shared secret (raw bytes)
+salt   = empty
+info   = "termpod-e2e-{sessionId}" (UTF-8)
+output = 256-bit AES key
+```
+
+This produces a unique AES-256-GCM key per session.
+
+## Encrypted Frame Format
+
+```
+[0xE0][nonce:12 bytes][ciphertext + 16-byte GCM auth tag]
+```
+
+- **Channel byte**: `0xE0` identifies E2E encrypted frames
+- **Nonce**: 12 bytes — 8-byte counter (big-endian) + 4 bytes zero padding
+- **Ciphertext**: AES-256-GCM encrypted payload
+- **Auth tag**: 16-byte GCM authentication tag (integrity + authenticity)
+
+The inner plaintext is a standard binary frame (`[0x00][terminal data]` or `[0x01][resize]`).
+
+## Counter-Based Nonces
+
+Each peer maintains a send counter and a receive counter:
+
+- **Send counter**: Incremented after each encrypted frame sent
+- **Receive counter**: Tracks the highest nonce received
+- **Replay protection**: Frames with nonces at or below the receive counter are rejected
+- **Counter format**: 8-byte big-endian integer, zero-padded to 12 bytes
+
+## Verification Code
+
+Both peers derive a 6-digit verification code from the shared secret for **MITM detection**:
+
+```
+ikm    = ECDH shared secret
+salt   = empty
+info   = "termpod-verify-{sessionId}" (UTF-8)
+output = 6-digit numeric code
+```
+
+Users can compare verification codes out-of-band to confirm no intermediary is intercepting the key exchange.
+
+## E2E Session State
+
+```typescript
+interface E2ESession {
+  key: CryptoKey;           // AES-256-GCM derived key
+  sendCounter: number;      // Monotonic send nonce counter
+  recvCounter: number;      // Highest received nonce
+  sessionId: string;        // Session ID (used in HKDF info)
+  verificationCode: string; // 6-digit MITM detection code
+}
+```
+
+## Implementation Files
+
+| Platform | File | API |
+| --- | --- | --- |
+| Desktop | `packages/protocol/src/crypto.ts` | Web Crypto API |
+| iOS | `apps/ios/TermPod/Services/CryptoService.swift` | CryptoKit |
+
+Both implementations must produce identical output for the same inputs. Key functions:
+
+- `generateKeyPair()` — ECDH P-256 ephemeral key pair
+- `deriveSessionKey(privateKey, peerPublicKey, sessionId)` — HKDF-SHA256
+- `encryptFrame(session, data)` — AES-256-GCM with counter nonce
+- `decryptFrame(session, data)` — Decrypt + verify + counter check
+
+## Scrollback Encryption
+
+When a new viewer connects mid-session, the desktop delivers historical scrollback:
+
+1. Key exchange completes (ECDH + HKDF)
+2. Desktop reads local scrollback buffer
+3. Each scrollback chunk is encrypted with the session key
+4. Sent as `encrypted_scrollback_chunk` JSON messages
+5. Viewer decrypts and feeds to terminal
+
+The relay never sees plaintext scrollback.

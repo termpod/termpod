@@ -1,0 +1,55 @@
+---
+title: Security Overview
+description: TermPod's security model — E2E encryption, zero-knowledge relay, and transport-level authentication.
+---
+
+Security is a core design principle of TermPod. Terminal sessions contain sensitive data — credentials, source code, API keys — so TermPod ensures that **no intermediary can read your terminal content**.
+
+## Zero-Knowledge Relay
+
+The relay server is zero-knowledge by design:
+
+- **Only forwards encrypted frames** — `0xE0` (E2E encrypted) and `0xE1` (share encrypted) frames are forwarded blindly
+- **Rejects plaintext terminal data** — `0x00` frames are rejected on the relay
+- **No terminal data stored** — No scrollback buffer, no command history
+- **No session metadata stored** — Session names, CWDs, and process names are delivered E2E encrypted via `encrypted_control`; the relay only stores non-sensitive fields (IDs, PTY dimensions)
+
+## Authentication
+
+- **JWT (HS256)** for all authenticated endpoints
+- **PBKDF2** (100,000 iterations, SHA-256) for password hashing
+- **Tokens stored securely**: localStorage on desktop, Keychain on iOS
+- **Token refresh**: Automatic refresh via `POST /auth/refresh`
+- **Rate limiting**: Per-user, per-action (e.g., password reset: 1/minute)
+
+## Encryption by Transport
+
+| Transport | Encryption | Key Exchange |
+| --- | --- | --- |
+| Relay (Device WS + Session WS) | ECDH P-256 + AES-256-GCM | `key_exchange` / `key_exchange_ack` messages |
+| Local (Bonjour) | ECDH P-256 + AES-256-GCM | Same as relay, with shared auth secret |
+| WebRTC | DTLS (built-in) | STUN/TURN ICE negotiation |
+| Session sharing | Symmetric AES-256-GCM | Key in URL fragment (never sent to server) |
+
+## Dual Crypto Implementations
+
+TermPod has two E2E encryption implementations that must stay in sync:
+
+- **Desktop**: Web Crypto API — `packages/protocol/src/crypto.ts`
+- **iOS**: CryptoKit — `apps/ios/TermPod/Services/CryptoService.swift`
+
+Both implement the same protocol: ECDH P-256 key exchange, HKDF-SHA256 key derivation, AES-256-GCM encryption with counter-based nonces.
+
+## Subscription Gates
+
+On the hosted relay (`termpod.dev`), relay terminal data forwarding and TURN are gated behind a Pro subscription:
+
+| Feature | Free Tier | Pro Tier |
+| --- | --- | --- |
+| Local (Bonjour) | Yes | Yes |
+| WebRTC (STUN) | Yes | Yes |
+| WebRTC (TURN) | No | Yes |
+| Relay terminal data | No | Yes |
+| Session sharing | No | Yes |
+
+**Self-hosted relays bypass all gates** — all features are unlocked when `POLAR_WEBHOOK_SECRET` is absent.

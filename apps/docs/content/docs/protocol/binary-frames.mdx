@@ -1,0 +1,104 @@
+---
+title: Binary Frame Formats
+description: Binary WebSocket frame specifications for terminal data, resize, encryption, and multiplexing.
+---
+
+## Session-Level Binary Frames
+
+Used on Session WS (`/sessions/:id/ws`). All frames start with a 1-byte channel ID:
+
+| Channel | Direction | Description |
+| --- | --- | --- |
+| `0x00` | _(rejected)_ | Plaintext terminal data — no longer accepted on relay |
+| `0x01` | desktop → relay | Terminal resize: `[0x01][cols:u16be][rows:u16be]` |
+| `0x02` | desktop → viewer | Encrypted scrollback chunk |
+| `0xE0` | bidirectional | E2E encrypted data: `[0xE0][nonce:12][ciphertext+tag]` |
+| `0xE1` | desktop → share viewers | Share-encrypted data: `[0xE1][nonce:12][ciphertext+tag]` |
+
+### Terminal Data (0x00) — Deprecated on Relay
+
+```
+[0x00][raw terminal bytes...]
+```
+
+- **No longer accepted on the relay** — all terminal data must be E2E encrypted (`0xE0`)
+- Still used on local (Bonjour) transport before E2E key exchange completes
+- Maximum frame size: 64KB (split larger output into multiple frames)
+
+### Terminal Resize (0x01)
+
+```
+[0x01][cols:u16be][rows:u16be]
+```
+
+- Sent by desktop when the terminal window is resized
+- Relay broadcasts to all viewers so they can adjust their viewport
+- Viewers do NOT send resize — they render at the desktop's dimensions
+
+### Scrollback Chunk (0x02)
+
+```
+[0x02][offset:u32be][raw terminal bytes...]
+```
+
+- Used inside E2E encrypted scrollback delivery (desktop → viewer after key exchange)
+- Desktop buffers scrollback locally and sends it encrypted via `encrypted_scrollback_chunk` JSON messages
+- The relay does not store or serve scrollback
+
+### E2E Encrypted Data (0xE0)
+
+```
+[0xE0][nonce:12bytes][ciphertext + AES-GCM auth tag]
+```
+
+- Used on both relay and local (Bonjour) transports
+- Inner plaintext is a standard `[0x00][terminal data]` or `[0x01][resize]` frame
+- Nonce is counter-based (8-byte counter, big-endian, zero-padded to 12 bytes)
+- Key derived via HKDF-SHA256 from ECDH shared secret, with `termpod-e2e-{sessionId}` as info
+- Both peers derive a 6-digit verification code for MITM detection
+
+### Share Encrypted Data (0xE1)
+
+```
+[0xE1][nonce:12bytes][ciphertext + AES-GCM auth tag]
+```
+
+- Used for session sharing with read-only viewers
+- Separate symmetric AES-256-GCM key (not derived from ECDH)
+- Key distributed in URL fragment (never sent to relay)
+- Share viewers are relay-only (no local/WebRTC)
+
+## Multiplexed Binary Frames (Device-Level)
+
+Used on Device WS (`/devices/:deviceId/ws`) and Local WS (Bonjour). Prefixes each frame with a session ID to multiplex multiple sessions over a single connection.
+
+```
+[channel:u8][sid_len:u8][sid:utf8][payload:bytes]
+```
+
+| Field | Size | Description |
+| --- | --- | --- |
+| `channel` | 1 byte | Channel ID (0x00, 0x01, 0x02, 0xE0) |
+| `sid_len` | 1 byte | Length of session ID string in bytes |
+| `sid` | `sid_len` bytes | Session ID (UTF-8 encoded) |
+| `payload` | remaining bytes | Channel-specific payload |
+
+### Multiplexed Terminal Data (0x00)
+
+```
+[0x00][sid_len][sid][raw terminal bytes...]
+```
+
+### Multiplexed Terminal Resize (0x01)
+
+```
+[0x01][sid_len][sid][cols:u16be][rows:u16be]
+```
+
+### Multiplexed Encrypted Data (0xE0)
+
+```
+[0xE0][sid_len][sid][nonce:12][ciphertext+tag]
+```
+
+This format is used across all device-level transports (Bonjour, WebRTC, relay Device WS), ensuring consistent frame handling regardless of the active transport.

@@ -1,0 +1,121 @@
+---
+title: iOS App Overview
+description: Native SwiftUI iOS app — architecture, file structure, and key components.
+---
+
+The TermPod iOS app is a native **SwiftUI** application that serves as a viewer and input device for terminal sessions running on the desktop. It does not run a shell itself.
+
+## Tech Stack
+
+- **SwiftUI**: UI framework
+- **SwiftTerm 1.11.2**: Terminal rendering via SPM
+- **LiveKit WebRTC**: WebRTC P2P via `livekit/webrtc-xcframework`
+- **CryptoKit**: E2E encryption (ECDH + AES-256-GCM)
+- **SentrySwiftUI**: Error tracking
+
+## Project Configuration
+
+- **Bundle ID**: `dev.termpod.mobile`
+- **Deployment target**: iOS 17.0
+- **Swift version**: 5.9
+- **Project generation**: XcodeGen from `project.yml`
+- **Config**: `Config.xcconfig` generated from `.env` via `generate-config.sh`
+
+```bash
+# Generate Xcode project
+pnpm ios:generate
+
+# Open in Xcode
+open apps/ios/TermPod.xcodeproj
+```
+
+**Important**: Edit `project.yml` for project changes, not `.xcodeproj` directly.
+
+## File Structure
+
+```
+apps/ios/
+├── TermPod/
+│   ├── App/
+│   │   ├── TermPodApp.swift          # SwiftUI app entry
+│   │   ├── AppState.swift            # Global app state (@Observable)
+│   │   └── Info.plist
+│   ├── Networking/
+│   │   ├── Transport.swift           # Transport protocol
+│   │   ├── LocalTransport.swift      # Bonjour WebSocket
+│   │   ├── WebRTCTransport.swift     # WebRTC DataChannel
+│   │   ├── RelayClient.swift         # Relay WebSocket
+│   │   ├── DeviceTransportManager.swift  # Transport orchestration
+│   │   ├── ConnectionManager.swift   # High-level connection logic
+│   │   └── ReconnectionManager.swift # Backoff + fallback
+│   ├── Terminal/
+│   │   ├── RemoteTerminalView.swift  # SwiftTerm delegate
+│   │   └── TerminalHostView.swift    # Terminal + input management
+│   ├── Models/
+│   │   ├── Session.swift             # Session data model
+│   │   ├── TerminalSettings.swift    # User preferences
+│   │   ├── TerminalTheme.swift       # Color themes
+│   │   └── Clip.swift                # Clipboard/snippet model
+│   ├── Views/
+│   │   ├── LoginView.swift           # Auth UI
+│   │   ├── DeviceListView.swift      # Discovered devices
+│   │   ├── DeviceSessionsView.swift  # Sessions per device
+│   │   ├── SessionDetailView.swift   # Terminal + controls
+│   │   ├── SettingsView.swift        # Preferences
+│   │   ├── OnboardingView.swift      # First-time setup
+│   │   ├── SpecialKeysBar.swift      # Ctrl, Esc, Tab, arrows
+│   │   └── ClipsEditorView.swift     # Saved snippets
+│   ├── Services/
+│   │   ├── CryptoService.swift       # E2E encryption (CryptoKit)
+│   │   ├── KeychainService.swift     # JWT storage
+│   │   ├── DeviceService.swift       # Device registration API
+│   │   └── HapticService.swift       # Haptic feedback
+│   └── Resources/
+│       └── Assets.xcassets
+├── project.yml                       # XcodeGen spec
+├── generate-config.sh                # .env → Config.xcconfig
+└── TermPod.xcodeproj (generated)
+```
+
+## Key Classes
+
+### `AppState`
+
+Global `@Observable` state machine that manages:
+- Authentication state
+- Device list and connection status
+- Active session tracking
+- Transport status
+
+### `DeviceTransportManager`
+
+Orchestrates three transport layers concurrently:
+- Spawns Local, WebRTC, and Relay transports
+- Each transport independently connects and reports status
+- Selects best available transport for sending
+- Receives data from all active transports
+
+### `ConnectionManager`
+
+High-level connection logic:
+- Manages transport lifecycle
+- Handles session subscriptions
+- Exponential backoff reconnection
+- Transport fallback
+
+### `CryptoService`
+
+E2E encryption using CryptoKit:
+- ECDH P-256 key exchange
+- HKDF-SHA256 key derivation
+- AES-256-GCM encryption/decryption
+- Must stay in sync with desktop implementation
+
+## Info.plist Requirements
+
+The iOS app requires these entitlements for local networking:
+
+```
+NSLocalNetworkUsageDescription — Bonjour discovery
+NSBonjourServices — _termpod._tcp
+```

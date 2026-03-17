@@ -1,0 +1,94 @@
+---
+title: Relay Server Overview
+description: Cloudflare Worker relay — architecture, routing, authentication, and deployment.
+---
+
+The TermPod relay server runs on **Cloudflare Workers + Durable Objects**. It handles authentication, device management, WebSocket routing, WebRTC signaling, and auto-update proxying.
+
+The relay is **zero-knowledge** — all terminal data is E2E encrypted. The relay forwards opaque ciphertext and cannot read your terminal content.
+
+## Tech Stack
+
+- **Cloudflare Workers**: Stateless HTTP request handling
+- **Durable Objects**: Stateful WebSocket coordination with SQLite storage
+- **Wrangler**: Development and deployment tooling
+- **Vitest**: Unit and integration testing
+
+## File Structure
+
+```
+relay/
+├── src/
+│   ├── worker.ts              # Entry point + routing
+│   ├── user.ts                # User DO (device control plane)
+│   ├── session.ts             # TerminalSession DO (binary relay)
+│   ├── jwt.ts                 # JWT signing/verification (HS256)
+│   ├── auth.ts                # Password hashing (PBKDF2)
+│   ├── subscription.ts        # Polar.sh webhook verification
+│   ├── rate-limit.ts          # Per-user rate limiting
+│   ├── message-routing.ts     # Device WS message forwarding
+│   └── *.test.ts              # Test files
+├── wrangler.toml              # Cloudflare Workers config
+├── vitest.config.ts           # Unit test config
+├── vitest.integration.config.ts  # Integration test config
+└── package.json
+```
+
+## Request Routing
+
+The Worker entry point (`worker.ts`) routes requests to the appropriate handler:
+
+| Route | Handler |
+| --- | --- |
+| `POST /auth/*` | Auth handlers (signup, login, refresh, password reset) |
+| `GET/POST/DELETE /devices*` | Device management → User DO |
+| `GET /devices/:id/ws` | Device WebSocket → User DO |
+| `GET/POST/DELETE /sessions*` | Session management → User DO |
+| `GET /sessions/:id/ws` | Session WebSocket → TerminalSession DO |
+| `GET /updates/*` | Auto-update proxy → GitHub releases |
+| `GET /turn-credentials` | TURN credential provisioning |
+| `POST /webhooks/polar` | Subscription webhook → Polar.sh |
+
+## Authentication
+
+- **JWT (HS256)** signed with `JWT_SECRET` via `crypto.subtle`
+- **Access tokens**: Short-lived (15 minutes)
+- **Refresh tokens**: Long-lived (30 days)
+- **Password hashing**: PBKDF2 with 100,000 iterations, SHA-256
+
+## Development
+
+```bash
+cd relay
+
+# Local development with Miniflare
+pnpm dev
+
+# Run tests
+pnpm test
+
+# Deploy to Cloudflare
+wrangler deploy
+```
+
+## Deployment
+
+```bash
+cd relay
+
+# Set required secrets
+wrangler secret put JWT_SECRET
+wrangler secret put RESEND_API_KEY
+wrangler secret put EMAIL_FROM
+
+# Optional secrets
+wrangler secret put SENTRY_DSN
+wrangler secret put GITHUB_TOKEN
+wrangler secret put TURN_KEY_ID
+wrangler secret put TURN_KEY_API_TOKEN
+
+# Deploy
+wrangler deploy
+```
+
+See [Self-Hosting](/docs/self-hosting) for a complete deployment guide.

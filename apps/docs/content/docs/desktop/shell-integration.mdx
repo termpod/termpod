@@ -1,0 +1,75 @@
+---
+title: Shell Integration
+description: OSC 133 shell integration for command blocks — zsh, bash, and fish support.
+---
+
+TermPod uses **OSC 133** (FinalTerm standard) shell integration to detect command boundaries, track exit codes, and render Warp-style command blocks. This is the same protocol used by Kitty, Ghostty, and VS Code.
+
+## How It Works
+
+Shell integration scripts inject escape sequences into the shell prompt lifecycle:
+
+| Marker | Name | When | Purpose |
+| --- | --- | --- | --- |
+| `A` | Prompt Start | Before prompt renders | Marks beginning of prompt area |
+| `B` | Prompt End | After user finishes typing | Marks end of input, start of execution |
+| `C` | Output Start | Command begins executing | Marks start of command output |
+| `D` | Command Finished | Command completes | Includes exit code |
+
+### Lifecycle Example
+
+```
+\e]133;A\a          ← Prompt starts
+$ git status        ← User types command
+\e]133;B\a          ← User presses Enter (prompt end)
+\e]133;C\a          ← Command output begins
+On branch main...   ← Command output
+\e]133;D;0\a        ← Command finished with exit code 0
+```
+
+## Shell Scripts
+
+Located in `apps/desktop/src-tauri/shell-integration/`:
+
+### zsh
+
+Uses `ZDOTDIR` trick: Tauri sets `ZDOTDIR` to the integration directory, which sources `.zshenv` → loads the integration, then restores the original `ZDOTDIR`.
+
+Hooks into `precmd` and `preexec` functions.
+
+### bash
+
+Uses `--init-file` flag: Tauri passes the integration script as bash's init file.
+
+Hooks into `PROMPT_COMMAND` for prompt markers and `DEBUG` trap for pre-exec.
+
+### fish
+
+Uses `XDG_DATA_DIRS`: Adds the integration directory to fish's vendor config path.
+
+Uses fish event system (`fish_prompt`, `fish_preexec`, `fish_postexec`).
+
+## Auto-Injection
+
+Shell integration is automatically injected at PTY spawn time by the Rust backend (`pty.rs`):
+
+1. `setup_shell_integration()` detects the user's shell (zsh, bash, fish)
+2. Sets appropriate environment variables for each shell
+3. Shell scripts are bundled via `tauri.conf.json` resources
+4. Uses `CARGO_MANIFEST_DIR` fallback for development, `resource_dir()` for production
+
+## Block Tracking
+
+The `BlockTracker` class (`packages/shared/src/blocks.ts`) processes OSC 133 markers:
+
+- Tracks block metadata: ID, line numbers, exit code, timing
+- The **B marker's `cursorX`** position is used for precise command text extraction (not heuristic regex)
+- A blank line is emitted between blocks via shell `precmd` (after D, before next A)
+
+## Block Decorations
+
+The `BlockDecorationManager` (`packages/ui/src/terminal/BlockDecorations.ts`) renders floating action bars:
+
+- **Exit code badge**: Always visible, color-coded (green for 0, red for non-zero)
+- **Hover actions**: Copy command output, re-run command
+- Positioned per OSC 133 markers at block boundaries

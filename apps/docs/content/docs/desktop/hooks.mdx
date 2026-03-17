@@ -1,0 +1,116 @@
+---
+title: Hooks Reference
+description: Core React hooks that power the desktop app — auth, transport, session management, and more.
+---
+
+The desktop app's business logic lives in custom React hooks in `apps/desktop/src/hooks/`.
+
+## Auth & Device
+
+### `useAuth`
+
+Manages JWT authentication state using `useSyncExternalStore` pattern.
+
+- Stores tokens in `localStorage` under the `termpod-auth` key
+- Provides `login()`, `signup()`, `logout()`, `refreshToken()` methods
+- Auto-refreshes tokens before expiry
+
+### `useDevice`
+
+Handles device registration with the relay.
+
+- Registers the device via `POST /devices` on mount
+- **Session queuing**: Sessions created before device registration are queued and flushed after registration completes
+- Heartbeat and offline status management
+
+## Transport Layer
+
+### `useRelayConnection`
+
+Manages the relay WebSocket lifecycle.
+
+- Generates session UUID locally
+- Includes JWT in WebSocket URL (`?token=...`)
+- Reconnection with exponential backoff
+- Handles auth errors (401/403)
+
+### `useDeviceWS`
+
+Device-level multiplexed WebSocket connection to the User DO.
+
+- Single connection carries all session data
+- Forwards messages to registered handlers
+- Handles auth, hello handshake, and message routing
+
+### `useLocalServer`
+
+Manages the local Bonjour WebSocket server (Rust backend).
+
+- Listens for Tauri events from `local_server.rs`
+- Manages local auth secret generation and distribution
+- Handles viewer connections and session subscriptions
+
+### `useWebRTC`
+
+WebRTC P2P signaling and DataChannel setup.
+
+- Fetches ICE servers (STUN + optional TURN) from relay
+- Creates and handles offers/answers via Device WS signaling
+- Manages DataChannel lifecycle
+- 30-second connection timeout with relay fallback
+
+### `useRelayBridge`
+
+Transport abstraction layer that selects the best available transport.
+
+- Priority: Local > WebRTC > Relay
+- Multiplex dispatch — routes frames through selected transport
+- Falls back automatically when preferred transport disconnects
+- Share frames (`0xE1`) always routed via relay
+
+## Session Management
+
+### `useSessionManager`
+
+Session CRUD operations.
+
+- Creates, deletes, and tracks PTY sessions
+- Syncs session list with relay
+- Manages session metadata (name, CWD, process)
+
+## UI & Preferences
+
+### `useKeybindings`
+
+Global keyboard shortcuts and command palette bindings.
+
+### `useSettings`
+
+User preferences stored in `localStorage`:
+
+- Theme, font family, font size
+- Relay URL override
+- Terminal behavior options
+
+### `useUpdater`
+
+Desktop auto-update via `tauri-plugin-updater`.
+
+- Checks for updates via relay proxy
+- Downloads and installs updates
+- Shows update banner in UI
+
+### `useRecording`
+
+Session recording (captures terminal output for playback).
+
+### `useWorkflows`
+
+Saved shell commands (workflows) that can be executed with a single click.
+
+### `localAuthSecret`
+
+Manages the local auth secret used for Bonjour connections.
+
+- Generates a random secret on startup
+- Shares the secret with mobile viewers via `local_auth_secret` (E2E encrypted)

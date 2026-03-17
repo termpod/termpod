@@ -1,0 +1,125 @@
+---
+title: "@termpod/ui"
+description: Shared React terminal components — xterm.js wrapper, block decorations, autocomplete, and quick actions.
+---
+
+The `packages/ui/` package contains shared React components used by the desktop app.
+
+## Files
+
+```
+packages/ui/src/
+├── index.ts                        # Main exports
+├── terminal/
+│   ├── Terminal.tsx                # Main xterm.js wrapper
+│   └── BlockDecorations.ts        # OSC 133 action bar decorations
+├── session-list/
+│   └── SessionList.tsx            # Session tabs/list
+├── quick-actions/
+│   └── QuickActions.tsx           # One-tap actions
+└── autocomplete/
+    ├── index.ts
+    ├── AutocompletePopup.tsx      # Dropdown suggestion list
+    └── GhostText.tsx             # Faded next-word suggestion
+```
+
+## Terminal Component
+
+The main terminal component wraps xterm.js with a React-friendly API.
+
+### TerminalHandle (via `forwardRef`)
+
+```typescript
+interface TerminalHandle {
+  write(data: string | Uint8Array): void;
+  clear(): void;
+  focus(): void;
+  fit(): void;
+  resize(cols: number, rows: number): void;
+  lockSize(): void;
+  unlockSize(): void;
+  openSearch(): void;
+  closeSearch(): void;
+  findNext(): void;
+  findPrevious(): void;
+  refresh(): void;
+  scrollToTop(): void;
+  scrollToBottom(): void;
+  selectAll(): void;
+  readonly cols: number;
+  readonly rows: number;
+}
+```
+
+### TerminalProps
+
+```typescript
+interface TerminalProps {
+  onData?: (data: string) => void;         // User keyboard input
+  onResize?: (size: PtySize) => void;      // Terminal resize
+  onTitleChange?: (title: string) => void;
+  onCwdChange?: (cwd: string) => void;
+  onBlockBoundary?: (boundary: BlockBoundary) => void;
+  blockDecorationsMode?: 'full' | 'minimal' | 'off';
+  autocompleteEnabled?: boolean;
+  // ... styling options (fontSize, fontFamily, theme, etc.)
+}
+```
+
+### xterm.js Addons
+
+| Addon | Purpose |
+| --- | --- |
+| FitAddon | Responsive terminal sizing |
+| WebglAddon | GPU-accelerated rendering |
+| WebLinksAddon | Clickable URLs in terminal output |
+| SearchAddon | Find text in terminal buffer |
+| UnicodeGraphemesAddon | Proper Unicode character width handling |
+
+## BlockDecorationManager
+
+Renders floating action bars above command blocks based on OSC 133 markers.
+
+### Features
+
+- **Exit code badge**: Always visible, color-coded (green for 0, red for non-zero)
+- **Hover actions**: Copy command output, re-run command
+- **Positioned**: At block boundaries detected by `BlockTracker`
+
+### Decoration Modes
+
+| Mode | Behavior |
+| --- | --- |
+| `full` | Exit badge + hover actions |
+| `minimal` | Exit badge only |
+| `off` | No decorations |
+
+## Autocomplete
+
+### AutocompletePopup
+
+Dropdown list showing top suggestions:
+- Ranked by confidence score
+- Shows suggestion type (history, path, command)
+- Keyboard navigable (up/down arrows, Tab to accept)
+
+### GhostText
+
+Faded inline preview of the top suggestion:
+- Rendered after the cursor position
+- Dimmed color to distinguish from actual text
+- Tab to accept, continue typing to dismiss
+
+## QuickActions
+
+One-tap action buttons for common terminal operations:
+- **Ctrl+C** — Interrupt running process
+- **Enter** — Submit command
+- **Allow/Deny** — Claude Code permission prompts (via PromptDetector)
+
+## SessionList
+
+Session tabs/list component:
+- Shows session name, process icon, and status
+- Supports reordering and closing sessions
+- Active session highlighted

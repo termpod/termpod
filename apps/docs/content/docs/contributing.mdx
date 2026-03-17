@@ -1,0 +1,90 @@
+---
+title: Contributing
+description: Development setup, code style, testing, and pull request guidelines for TermPod contributors.
+---
+
+## Prerequisites
+
+- **macOS 13+** (Ventura or later)
+- **Xcode 16+** (for iOS builds)
+- **Rust** (latest stable via [rustup](https://rustup.rs/))
+- **Node.js 20+** (LTS)
+- **pnpm 10+** (`npm install -g pnpm`)
+- **XcodeGen** (`brew install xcodegen`)
+
+## Setup
+
+```bash
+git clone https://github.com/termpod/termpod.git
+cd termpod
+pnpm install
+cp .env.example .env
+```
+
+Edit `.env` with your values (see [Configuration](/docs/configuration)).
+
+## Running Locally
+
+```bash
+# Desktop app (dev mode with hot reload)
+pnpm dev:desktop
+
+# Relay (local dev with Miniflare)
+pnpm dev:relay
+
+# Both at once
+pnpm dev
+
+# iOS app
+pnpm ios:generate
+open apps/ios/TermPod.xcodeproj
+```
+
+## Code Style
+
+- **TypeScript**: Prettier for formatting (`pnpm format`), `tsc --noEmit` for type checking (`pnpm lint`)
+- **Rust**: Clippy (`cargo clippy`)
+- **Swift**: Standard Swift conventions
+
+## Making Changes
+
+- Follow the [Protocol Specification](/docs/protocol) for any WebSocket changes
+- Terminal data = binary frames (channel 0x00), control = JSON text frames
+- Shared React components go in `packages/ui/`, not duplicated per app
+- Test relay changes with Miniflare locally before deploying
+- iOS project is generated via XcodeGen — edit `project.yml`, not `.xcodeproj` directly
+
+## Testing P2P Transports
+
+### Local (Bonjour)
+
+- Run the desktop app and iOS app on the same WiFi network
+- iOS discovers the desktop via Bonjour automatically
+- Transport badge shows "Local" (green)
+- Terminal data flows directly over LAN (~1-5ms)
+
+### WebRTC
+
+- Connect from a different network (e.g. cellular)
+- WebRTC signaling flows through the Device WS; data flows P2P via DataChannel
+- Transport badge shows "P2P" (blue)
+- Falls back to relay after 30s timeout if STUN fails
+
+### Relay (fallback)
+
+- If both Bonjour and WebRTC are unavailable, data flows through the relay
+- Transport badge shows "Relay" (orange)
+- In local dev (Miniflare), `POLAR_WEBHOOK_SECRET` is not set, so the relay runs in self-hosted mode with all features unlocked
+
+## Security Guidelines
+
+- **Never send sensitive data in plaintext to the relay** — all terminal data, session names, CWDs, and process names must use E2E encrypted channels
+- **Update both crypto implementations** — Changes to `packages/protocol/src/crypto.ts` must be mirrored in `apps/ios/TermPod/Services/CryptoService.swift`
+- **Reject plaintext on relay** — The relay must reject any `0x00` binary frames
+
+## Pull Requests
+
+1. Branch from `main`
+2. Make changes
+3. Run `pnpm lint` and test locally
+4. Open a PR with a clear description of what and why

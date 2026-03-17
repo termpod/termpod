@@ -1,0 +1,101 @@
+---
+title: Configuration
+description: Environment variables and configuration options for TermPod desktop, relay, and iOS.
+---
+
+All sensitive and deployment-specific values are configured via environment variables in a `.env` file at the project root. Never commit secrets to the repository.
+
+## Essential Variables
+
+| Variable | Used By | Description |
+| --- | --- | --- |
+| `VITE_RELAY_URL` | Desktop app | Relay WebSocket URL (e.g., `wss://relay.termpod.dev`) |
+| `JWT_SECRET` | Relay server | JWT signing key — generate with `openssl rand -base64 32` |
+| `APPLE_TEAM_ID` | iOS + macOS | Apple Developer Team ID |
+
+## Auth & Email
+
+| Variable | Used By | Description |
+| --- | --- | --- |
+| `RESEND_API_KEY` | Relay server | [Resend](https://resend.com) API key for password reset emails |
+| `EMAIL_FROM` | Relay server | Sender address (e.g., `TermPod <noreply@email.yourdomain.com>`) |
+
+Set these via `wrangler secret put` for production deployments. If `RESEND_API_KEY` is not configured, the relay returns 503 for password reset requests. Everything else works normally.
+
+## Apple Code Signing
+
+| Variable | Used By | Description |
+| --- | --- | --- |
+| `APPLE_SIGNING_IDENTITY` | macOS builds | Code signing identity |
+| `APPLE_ID` | macOS notarization | Apple ID email |
+| `APPLE_PASSWORD` | macOS notarization | App-specific password |
+
+## Error Tracking
+
+| Variable | Used By | Description |
+| --- | --- | --- |
+| `VITE_SENTRY_DSN` | Desktop app | Sentry DSN (optional) |
+| `SENTRY_DSN` | Relay + iOS | Sentry DSN (optional) |
+
+## WebRTC TURN
+
+| Variable | Used By | Description |
+| --- | --- | --- |
+| `TURN_KEY_ID` | Relay server | Cloudflare TURN key ID |
+| `TURN_KEY_API_TOKEN` | Relay server | Cloudflare TURN API token |
+
+Create TURN keys at: Cloudflare Dashboard → Calls → TURN Keys. TURN is optional — without it, WebRTC only works via STUN (fails on symmetric NATs). The relay WebSocket is always available as a fallback.
+
+## Auto-Update Proxy
+
+| Variable | Used By | Description |
+| --- | --- | --- |
+| `GITHUB_TOKEN` | Relay server | GitHub token for proxying release artifacts |
+
+The relay proxies desktop auto-update downloads from GitHub releases, enabling updates from private repos without exposing GitHub tokens to clients.
+
+## Subscription Billing
+
+| Variable | Used By | Description |
+| --- | --- | --- |
+| `POLAR_WEBHOOK_SECRET` | Relay server | [Polar.sh](https://polar.sh) webhook signature verification |
+| `POLAR_API_KEY` | Relay server | Polar API access |
+
+When `POLAR_WEBHOOK_SECRET` is absent, the relay runs in **self-hosted mode** with all features unlocked. You only need these if running a hosted multi-user relay with paid subscriptions.
+
+## Tauri Updater Signing
+
+| Variable | Note |
+| --- | --- |
+| `TAURI_SIGNING_PRIVATE_KEY` | Must be set in shell environment, **not** in `.env` |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Password for the signing key |
+
+## iOS Configuration
+
+The iOS app reads its configuration from `Config.xcconfig`, generated from `.env` by `apps/ios/generate-config.sh`. Run `pnpm ios:generate` after changing any iOS-relevant variables.
+
+Variables injected into iOS config:
+- `RELAY_URL` — from `VITE_RELAY_URL`
+- `TERMPOD_TEAM_ID` — from `APPLE_TEAM_ID`
+- `SENTRY_DSN` — from `SENTRY_DSN`
+
+## Example `.env` File
+
+```bash
+# Relay server WebSocket URL
+VITE_RELAY_URL=wss://relay.termpod.dev
+
+# Relay server JWT secret
+JWT_SECRET=change-me-to-a-random-secret
+
+# Apple Developer
+APPLE_TEAM_ID=YOUR_TEAM_ID
+APPLE_SIGNING_IDENTITY=Developer ID Application: Your Name (YOUR_TEAM_ID)
+
+# Apple notarization
+APPLE_ID=your-apple-id@example.com
+APPLE_PASSWORD=your-app-specific-password
+
+# Sentry (optional)
+VITE_SENTRY_DSN=
+```

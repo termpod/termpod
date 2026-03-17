@@ -1,0 +1,21 @@
+{
+  "title": "Documentation",
+  "pages": [
+    "index",
+    "---Getting Started---",
+    "getting-started",
+    "configuration",
+    "---Architecture---",
+    "architecture",
+    "...protocol",
+    "...security",
+    "---Components---",
+    "...desktop",
+    "...ios",
+    "...relay",
+    "...packages",
+    "---Guides---",
+    "self-hosting",
+    "contributing"
+  ]
+}

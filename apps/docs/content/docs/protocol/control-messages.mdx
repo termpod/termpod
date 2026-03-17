@@ -1,0 +1,300 @@
+---
+title: Control Messages
+description: JSON control message specification for session management, key exchange, WebRTC signaling, and client presence.
+---
+
+Control messages are sent as JSON text frames on WebSocket connections. They handle authentication, session management, E2E key exchange, WebRTC signaling, and client presence.
+
+## Session WS Messages
+
+These messages are exchanged on the per-session WebSocket (`/sessions/:id/ws`).
+
+### Client → Relay
+
+#### `hello`
+
+Sent immediately after WebSocket connection is established.
+
+```json
+{
+  "type": "hello",
+  "version": 1,
+  "role": "desktop" | "viewer",
+  "device": "macos" | "iphone" | "ipad" | "browser",
+  "clientId": "uuid-v4"
+}
+```
+
+#### `key_exchange`
+
+Sent by desktop to initiate E2E encryption with a viewer.
+
+```json
+{
+  "type": "key_exchange",
+  "publicKey": { "kty": "EC", "crv": "P-256", "x": "base64url", "y": "base64url" },
+  "toClientId": "viewer-uuid"
+}
+```
+
+#### `key_exchange_ack`
+
+Sent by viewer in response. After both sides exchange public keys, they derive the shared AES-256-GCM key via HKDF-SHA256.
+
+```json
+{
+  "type": "key_exchange_ack",
+  "publicKey": { "kty": "EC", "crv": "P-256", "x": "base64url", "y": "base64url" },
+  "toClientId": "desktop-uuid"
+}
+```
+
+#### `input_lock_request` / `input_lock_release`
+
+Request or release exclusive input rights.
+
+```json
+{ "type": "input_lock_request", "clientId": "uuid-v4" }
+{ "type": "input_lock_release", "clientId": "uuid-v4" }
+```
+
+#### `ping`
+
+Application-level keepalive (in addition to WebSocket protocol pings).
+
+```json
+{ "type": "ping", "timestamp": 1709654400000 }
+```
+
+### Relay → Client
+
+#### `session_info`
+
+Sent after `hello`. Provides session metadata. Note: `name` and `cwd` are always empty strings on the relay — real session metadata is delivered E2E encrypted via `encrypted_control`.
+
+```json
+{
+  "type": "session_info",
+  "sessionId": "session-abc123",
+  "name": "",
+  "cwd": "",
+  "ptySize": { "cols": 120, "rows": 40 },
+  "createdAt": "2026-03-05T10:00:00Z",
+  "clients": [
+    { "clientId": "uuid-1", "role": "desktop", "device": "macos", "connectedAt": "..." }
+  ]
+}
+```
+
+#### `ready`
+
+Sent after all scrollback chunks have been delivered.
+
+```json
+{ "type": "ready" }
+```
+
+#### `client_joined` / `client_left`
+
+Broadcast when clients connect to or disconnect from the session.
+
+```json
+{ "type": "client_joined", "clientId": "uuid-v4", "role": "viewer", "device": "iphone" }
+{ "type": "client_left", "clientId": "uuid-v4", "reason": "closed" | "timeout" | "error" }
+```
+
+#### `pty_resize`
+
+Broadcast when the desktop resizes the terminal.
+
+```json
+{ "type": "pty_resize", "cols": 120, "rows": 40 }
+```
+
+#### `session_ended`
+
+Sent when the desktop PTY exits or disconnects.
+
+```json
+{ "type": "session_ended", "reason": "pty_exit" | "desktop_disconnected", "exitCode": 0 }
+```
+
+#### `error`
+
+```json
+{
+  "type": "error",
+  "code": "AUTH_FAILED" | "SESSION_NOT_FOUND" | "RATE_LIMITED" | "INTERNAL",
+  "message": "Human-readable description"
+}
+```
+
+---
+
+## Device WS Messages
+
+These messages are exchanged on the per-device WebSocket (`/devices/:deviceId/ws`).
+
+### Authentication
+
+#### `auth` / `auth_ok`
+
+```json
+{ "type": "auth", "token": "JWT_ACCESS_TOKEN" }
+{ "type": "auth_ok" }
+```
+
+### Handshake
+
+#### `hello` (device)
+
+```json
+{
+  "type": "hello",
+  "role": "desktop" | "viewer",
+  "device": "macos" | "iphone" | "ipad",
+  "clientId": "uuid-v4",
+  "version": 1
+}
+```
+
+#### `hello_ok`
+
+```json
+{
+  "type": "hello_ok",
+  "clients": [
+    { "clientId": "uuid", "role": "desktop", "device": "macos", "connectedAt": "ISO-8601" }
+  ]
+}
+```
+
+### Session Management
+
+#### `list_sessions` / `sessions_list`
+
+```json
+{ "type": "list_sessions" }
+```
+
+```json
+{
+  "type": "sessions_list",
+  "sessions": [
+    { "id": "uuid", "ptyCols": 120, "ptyRows": 40, "createdAt": "ISO-8601" }
+  ]
+}
+```
+
+The relay only returns non-sensitive fields (ID, dimensions, timestamps). Session metadata (name, cwd, processName) is delivered E2E encrypted via `encrypted_control`.
+
+#### `create_session_request` / `session_created`
+
+```json
+{ "type": "create_session_request", "requestId": "uuid" }
+```
+
+```json
+{
+  "type": "session_created",
+  "requestId": "uuid",
+  "sessionId": "new-session-uuid",
+  "name": "project-name",
+  "cwd": "/path",
+  "ptyCols": 120,
+  "ptyRows": 40
+}
+```
+
+`session_created` is sent E2E encrypted via `encrypted_control`.
+
+#### `delete_session` / `session_closed`
+
+```json
+{ "type": "delete_session", "sessionId": "uuid" }
+{ "type": "session_closed", "sessionId": "uuid" }
+```
+
+### E2E Key Exchange
+
+Same format as Session WS, but routed through the User DO:
+
+```json
+{
+  "type": "key_exchange",
+  "publicKey": { "kty": "EC", "crv": "P-256", "x": "base64url", "y": "base64url" },
+  "toClientId": "viewer-uuid"
+}
+```
+
+### Local Auth
+
+#### `local_auth_secret`
+
+Sent by desktop to mobile viewers, wrapped in `encrypted_control` (E2E encrypted). Contains the auth secret for Bonjour connections.
+
+```json
+{ "type": "local_auth_secret", "secret": "random-auth-secret" }
+```
+
+### WebRTC Signaling
+
+WebRTC signaling is routed through the Device WS with `toClientId` targeting.
+
+#### `webrtc_offer`
+
+```json
+{
+  "type": "webrtc_offer",
+  "toClientId": "target-uuid",
+  "from": "source-uuid",
+  "offer": { "type": "offer", "sdp": "v=0\r\no=- ..." }
+}
+```
+
+#### `webrtc_answer`
+
+```json
+{
+  "type": "webrtc_answer",
+  "toClientId": "target-uuid",
+  "from": "source-uuid",
+  "answer": { "type": "answer", "sdp": "v=0\r\no=- ..." }
+}
+```
+
+#### `webrtc_ice`
+
+```json
+{
+  "type": "webrtc_ice",
+  "toClientId": "target-uuid",
+  "from": "source-uuid",
+  "candidate": { "candidate": "candidate:...", "sdpMLineIndex": 0 }
+}
+```
+
+ICE servers: Google STUN (`stun:stun.l.google.com:19302`, `stun:stun1.l.google.com:19302`) and Cloudflare STUN (`stun:stun.cloudflare.com:3478`). Optional Cloudflare TURN credentials are fetched from `GET /turn-credentials` before each WebRTC connection attempt.
+
+---
+
+## Local WS Messages (Bonjour P2P)
+
+### `auth`
+
+Must be the **first message** on the local WebSocket. The desktop validates the secret before accepting anything else.
+
+```json
+{ "type": "auth", "secret": "random-auth-secret" }
+```
+
+The secret is obtained via the `local_auth_secret` Device WS message.
+
+### `subscribe_session` / `unsubscribe_session`
+
+```json
+{ "type": "subscribe_session", "sessionId": "uuid" }
+{ "type": "unsubscribe_session", "sessionId": "uuid" }
+```
+
+Session management messages (`list_sessions`, `sessions_list`, `create_session_request`, `delete_session`, `session_closed`) also work over the local WS.

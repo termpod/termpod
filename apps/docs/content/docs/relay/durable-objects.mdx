@@ -1,0 +1,102 @@
+---
+title: Durable Objects
+description: User DO and TerminalSession DO — stateful coordination, SQLite storage, and hibernatable WebSockets.
+---
+
+The relay uses two Durable Object types for stateful WebSocket coordination.
+
+## User DO
+
+**One instance per email address.** Handles the device-level control plane.
+
+### Responsibilities
+
+- **Device WS connections**: Desktop + N mobile viewers per account
+- **Control message forwarding**: Routes messages between desktop ↔ mobile
+- **WebRTC signaling**: Forwards offer/answer/ICE candidates with `toClientId` targeting
+- **Session management**: Tracks session list, handles create/delete requests
+- **SQLite storage**: Persists device list, non-sensitive session fields, share tokens
+- **Rate limiting**: Per-user, per-action rate limits
+
+### SQLite Schema
+
+The User DO stores:
+- **Devices**: ID, name, platform, online status, last heartbeat
+- **Sessions**: ID, device ID, PTY dimensions, timestamps (no sensitive metadata)
+- **Share tokens**: Token, session ID, permissions, expiry
+
+Session metadata (name, CWD, processName) is **never stored** — it's delivered E2E encrypted via `encrypted_control` and only visible to authenticated clients.
+
+### Hibernation
+
+The User DO uses **Hibernatable WebSockets**:
+- Sleeps when no messages are flowing
+- Wakes on incoming message
+- Cost efficient — only billed when active
+- State (SQLite) persists across hibernation cycles
+
+### Message Flow
+
+```
+Mobile viewer                    User DO                    Desktop
+      │                            │                           │
+      ├── list_sessions ──────────►│─── list_sessions ────────►│
+      │                            │                           │
+      │◄── sessions_list ─────────│◄── sessions_list ─────────│
+      │                            │                           │
+      ├── key_exchange_ack ───────►│─── key_exchange_ack ─────►│
+      │                            │   (forwarded blindly)     │
+      │                            │                           │
+      │◄── [mux binary frames] ───│◄── [mux binary frames] ──│
+      │    (encrypted, forwarded)  │    (from desktop PTY)     │
+```
+
+## TerminalSession DO
+
+**One instance per session.** Handles binary terminal data relay.
+
+### Responsibilities
+
+- **Session WS connections**: Desktop + N viewers per session
+- **Binary frame forwarding**: Forwards `0xE0` and `0xE1` encrypted frames
+- **PTY dimensions**: Tracks from plaintext `0x01` resize frames (non-sensitive metadata)
+- **Zero-knowledge**: Cannot read, inspect, or store terminal content
+
+### What It Does NOT Store
+
+- No plaintext terminal data
+- No scrollback buffer
+- No command history
+- No session metadata (name, CWD, process)
+
+### Frame Handling
+
+```
+Desktop                    TerminalSession DO              Viewers
+   │                              │                           │
+   ├── [0xE0][encrypted] ────────►│─── [0xE0][encrypted] ───►│ (all viewers)
+   │                              │    (forwarded blindly)    │
+   │                              │                           │
+   │◄── [0xE0][encrypted] ───────│◄── [0xE0][encrypted] ────│ (from viewer)
+   │                              │    (forwarded to desktop) │
+   │                              │                           │
+   ├── [0x01][cols][rows] ────────►│   (updates internal PTY size)
+   │                              │                           │
+   │   [0x00] plaintext ──── REJECTED                        │
+```
+
+### Hibernation
+
+The TerminalSession DO also uses Hibernatable WebSockets:
+- Hibernates when no clients are connected or when idle
+- Wakes on incoming WebSocket message
+- Lightweight — minimal memory footprint when sleeping
+
+## Migrations
+
+Durable Object migrations are defined in `wrangler.toml`:
+
+- **v1**: Adds TerminalSession DO with SQLite
+- **v2**: Adds User DO with SQLite
+
+Cloudflare applies migrations automatically on deploy. No manual database steps required.

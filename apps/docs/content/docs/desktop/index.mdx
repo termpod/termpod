@@ -1,0 +1,82 @@
+---
+title: Desktop App Overview
+description: Tauri 2.0 desktop application — architecture, file structure, and key components.
+---
+
+The TermPod desktop app is a macOS application built with **Tauri 2.0** (Rust backend + React frontend). It is the only component that runs an actual shell — spawning PTY sessions locally with full access to the filesystem, credentials, and environment.
+
+## Tech Stack
+
+- **Tauri 2.0**: Rust backend with WKWebView frontend
+- **React 19**: UI framework
+- **xterm.js 6.0**: Terminal rendering (with WebGL, fit, search, web-links, unicode-graphemes addons)
+- **tauri-plugin-pty 0.2.1**: PTY spawning and management
+- **TypeScript 5.8**: Type-safe frontend code
+
+## File Structure
+
+```
+apps/desktop/
+├── src/
+│   ├── App.tsx                    # Root component
+│   ├── main.tsx                   # Vite entry
+│   ├── pty.ts                     # PTY management interface
+│   ├── hooks/                     # Core business logic
+│   │   ├── useAuth.ts             # JWT auth state
+│   │   ├── useDevice.ts           # Device registration
+│   │   ├── useRelayConnection.ts  # Relay WebSocket management
+│   │   ├── useDeviceWS.ts         # Device WS (multiplexed)
+│   │   ├── useLocalServer.ts      # Local Bonjour WS server
+│   │   ├── useWebRTC.ts           # WebRTC P2P
+│   │   ├── useRelayBridge.ts      # Transport abstraction
+│   │   ├── useSessionManager.ts   # Session CRUD
+│   │   ├── useKeybindings.ts      # Keyboard shortcuts
+│   │   ├── useSettings.ts         # User preferences
+│   │   ├── useUpdater.ts          # Auto-updates
+│   │   ├── useRecording.ts        # Session recording
+│   │   └── useWorkflows.ts        # Saved commands
+│   ├── components/
+│   │   ├── TerminalPanel.tsx      # Main terminal view with tabs
+│   │   ├── TabBar.tsx             # Session tabs
+│   │   ├── LoginScreen.tsx        # Auth UI
+│   │   ├── SettingsPanel.tsx      # Settings
+│   │   ├── CommandPalette.tsx     # Command search
+│   │   ├── ShareDialog.tsx        # Session sharing
+│   │   ├── ConnectedDevicesPanel.tsx
+│   │   ├── KeybindingsPanel.tsx
+│   │   ├── WorkflowsPanel.tsx
+│   │   ├── ThemePicker.tsx
+│   │   ├── UpdateBanner.tsx
+│   │   └── RelayGatedBanner.tsx
+│   └── __tests__/
+├── src-tauri/                     # Rust backend
+│   ├── src/
+│   │   ├── main.rs                # Tauri app entry
+│   │   ├── pty.rs                 # PTY + shell integration
+│   │   ├── local_server.rs        # WS server + Bonjour
+│   │   └── lib.rs
+│   ├── shell-integration/         # Shell integration scripts
+│   │   ├── zsh/
+│   │   ├── bash/
+│   │   └── fish/
+│   └── Cargo.toml
+└── package.json
+```
+
+## Key Responsibilities
+
+1. **PTY Management**: Spawns shell sessions, manages resize, tracks working directory
+2. **Terminal Rendering**: xterm.js with WebGL acceleration, search, clickable links
+3. **Multi-Session Tabs**: Multiple concurrent terminal sessions
+4. **Transport Management**: Connects via Bonjour, WebRTC, and relay
+5. **E2E Encryption**: Encrypts all outgoing terminal data
+6. **Auto-Updates**: Self-updates via relay-proxied GitHub releases
+
+## Important Implementation Notes
+
+- **No React StrictMode** — causes duplicate sessions on mount
+- **Tab panels use `position:absolute + visibility:hidden`** — not `display:none`, which breaks xterm.js WebGL rendering in zero-dimension containers
+- **Terminal callbacks stored in refs** — avoids xterm recreation on re-render
+- **Menu handler uses ref pattern** — avoids stale closures
+- **Relay state propagated via ref-based `onRelayChange`** — prevents render loops
+- **PTY onData returns `Uint8Array`** — not string (tauri-plugin-pty behavior)

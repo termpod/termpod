@@ -1,0 +1,94 @@
+---
+title: Getting Started
+description: Set up TermPod for development — prerequisites, installation, and running locally.
+---
+
+## Prerequisites
+
+- **macOS 13+** (Ventura or later)
+- **Xcode 16+** (for iOS builds)
+- **Rust** (latest stable via [rustup](https://rustup.rs/))
+- **Node.js 20+** (LTS)
+- **pnpm 10+** (`npm install -g pnpm`)
+- **XcodeGen** (`brew install xcodegen`)
+
+## Installation
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/termpod/termpod.git
+cd termpod
+pnpm install
+```
+
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your values. See [Configuration](/docs/configuration) for details on each variable.
+
+### 3. Run in development
+
+```bash
+# Desktop app (dev mode with hot reload)
+pnpm dev:desktop
+
+# Relay server (local via Miniflare)
+pnpm dev:relay
+
+# Both at once
+pnpm dev
+```
+
+### 4. iOS app
+
+```bash
+# Generate Xcode config from .env and regenerate .xcodeproj
+pnpm ios:generate
+
+# Open in Xcode
+open apps/ios/TermPod.xcodeproj
+```
+
+Build and run from Xcode on a simulator or device. The `APPLE_TEAM_ID` from your `.env` is used for code signing automatically.
+
+### 5. Production builds
+
+```bash
+# Desktop (sources .env for signing identity + notarization)
+cd apps/desktop
+pnpm build:release
+
+# Relay (deploy to Cloudflare)
+cd relay
+wrangler secret put JWT_SECRET
+wrangler secret put RESEND_API_KEY
+wrangler secret put SENTRY_DSN         # optional
+wrangler secret put GITHUB_TOKEN       # for update proxy
+wrangler deploy
+```
+
+## Build Commands Reference
+
+| Command | Description |
+| --- | --- |
+| `pnpm install` | Install all dependencies |
+| `pnpm dev` | Run desktop + relay together |
+| `pnpm dev:desktop` | Tauri dev with hot reload |
+| `pnpm dev:relay` | Wrangler local dev (Miniflare) |
+| `pnpm build` | Build all packages via Turborepo |
+| `pnpm lint` | TypeScript type checking (all packages) |
+| `pnpm test` | Run all tests (Vitest) |
+| `pnpm format` | Prettier format (write) |
+| `pnpm format:check` | Prettier format (check) |
+| `pnpm ios:generate` | Generate xcconfig + xcodeproj from project.yml |
+| `cd apps/desktop/src-tauri && cargo clippy` | Lint Rust code |
+
+## Code Style
+
+- **TypeScript**: Prettier (`semi: true, singleQuote: true, trailingComma: all, printWidth: 100`). Lint is `tsc --noEmit` (no ESLint).
+- **Rust**: Clippy. Edition 2024.
+- **Swift**: Standard Swift conventions.

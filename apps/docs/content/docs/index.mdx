@@ -1,0 +1,88 @@
+---
+title: Introduction
+description: TermPod — your terminal, everywhere. Start a session on your Mac and pick it up on your iPhone.
+---
+
+# TermPod
+
+**Your terminal, everywhere.**
+
+TermPod is a shared terminal app for developers. Start a session on your Mac — run Claude Code, Codex, or any CLI tool — and pick it up on your iPhone. Both devices see the same live terminal. Type from either one.
+
+No SSH. No tmux hacks. No VPN. Just open the app.
+
+## How It Works
+
+```
+                    ┌────────────────┐
+                    │  TermPod Relay │
+                    │  (Cloudflare   │
+                    │   Durable Obj) │
+                    └───▲────────▲───┘
+                   ws   │        │  ws
+           ┌────────────┘        └────────────┐
+           │                                  │
+     ┌─────▼───┐  bonjour / webrtc (P2P)  ┌──▼──────┐
+     │   Mac   │◄────────────────────────►│  iPhone │
+     │ (PTY +  │                          │ (viewer │
+     │  viewer)│                          │ + input)│
+     └─────────┘                          └─────────┘
+```
+
+Your Mac runs the actual shell. Devices connect in the fastest way available:
+
+1. **Local WebSocket** — Same LAN? Direct connection via Bonjour (~1-5ms)
+2. **WebRTC P2P** — Different networks? Peer-to-peer data channel via STUN/TURN (~10-30ms)
+3. **Relay** — Fallback through Cloudflare (~30-80ms)
+
+Sessions survive disconnects — close the app, reopen it, and you're right where you left off.
+
+## Features
+
+- **Shared sessions** — Same terminal on Mac and iPhone, real-time
+- **Scrollback sync** — Connect your phone mid-session, see everything that happened
+- **Quick actions** — Accept/deny prompts, Ctrl+C, Enter — one tap on mobile
+- **Local P2P** — Direct connection over LAN via Bonjour (no relay needed)
+- **WebRTC P2P** — Peer-to-peer across networks via STUN/TURN, relay as fallback
+- **Multi-session tabs** — Multiple terminal sessions, each in its own tab
+- **Session management** — Named by project directory, device-aware
+- **Auto-updates** — Desktop app updates automatically via relay proxy
+- **E2E encryption** — All transports encrypted; relay can't read your data
+- **Works with everything** — Claude Code, Codex, npm, docker, any CLI
+
+## Tech Stack
+
+| Layer | Technology |
+| --- | --- |
+| Desktop app | Tauri 2.0 + React + xterm.js |
+| Mobile app | Native SwiftUI + SwiftTerm |
+| PTY | tauri-plugin-pty (Rust) |
+| Relay | Cloudflare Workers + Durable Objects |
+| Protocol | WebSocket (binary frames for data, JSON for control) |
+| Transport | Device-level multiplexed connections |
+| Auth | JWT (HS256) |
+| Security | E2E: ECDH P-256 + AES-256-GCM (relay), DTLS (WebRTC) |
+| Local transport | Bonjour / mDNS |
+| P2P transport | WebRTC DataChannel |
+| Auto-update | tauri-plugin-updater via relay proxy |
+
+## Project Structure
+
+```
+termpod/
+├── apps/
+│   ├── desktop/          # Tauri 2.0 macOS app
+│   │   ├── src/          # React frontend
+│   │   ├── src-tauri/    # Rust backend + PTY management
+│   │   └── package.json
+│   └── ios/              # Native iOS app (SwiftUI + SwiftTerm)
+│       ├── TermPod/      # Swift source
+│       ├── project.yml   # XcodeGen project spec
+│       └── generate-config.sh
+├── packages/
+│   ├── ui/               # Shared React components
+│   ├── protocol/         # WebSocket message types + binary encoding + E2E crypto
+│   └── shared/           # Constants, types, utilities
+├── relay/                # Cloudflare Worker + Durable Objects
+└── docs/                 # Architecture docs
+```
