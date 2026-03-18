@@ -1136,7 +1136,11 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
 
         const suggestion = suggestions[index];
         if (!suggestion) {
-          setGhostText(null);
+          // No selection — restore the engine's default ghost text
+          const { buffer, cursor } = autocompleteInputRef.current;
+          const prefix = buffer.slice(0, cursor);
+          const ghostRaw = autocompleteEngineRef.current?.getGhostText() ?? null;
+          setGhostText(ghostRaw ? normalizeCompletionSuffix(prefix, ghostRaw) : null);
           return;
         }
 
