@@ -13,7 +13,7 @@ import { ThemePicker, resolveTheme } from './ThemePicker';
 import { getCustomThemesSnapshot, subscribeCustomThemes } from '../lib/configStore';
 import { resolveRelayUrl } from '../hooks/useAuth';
 
-type SettingsTab = 'appearance' | 'terminal' | 'behavior' | 'connection' | 'account';
+type SettingsTab = 'appearance' | 'terminal' | 'behavior' | 'account';
 
 interface SubscriptionInfo {
   isPro: boolean;
@@ -124,20 +124,6 @@ const TAB_ICONS: Record<SettingsTab, React.ReactNode> = {
       </defs>
     </svg>
   ),
-  connection: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-      <rect x="2" y="2" width="14" height="14" rx="3" fill="url(#connection-grad)" />
-      <circle cx="6.5" cy="9" r="2" stroke="#fff" strokeWidth="1.2" />
-      <circle cx="11.5" cy="9" r="2" stroke="#fff" strokeWidth="1.2" />
-      <path d="M8.5 9h1" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" />
-      <defs>
-        <linearGradient id="connection-grad" x1="2" y1="2" x2="16" y2="16">
-          <stop stopColor="#FF9500" />
-          <stop offset="1" stopColor="#FF6B00" />
-        </linearGradient>
-      </defs>
-    </svg>
-  ),
   account: (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
       <rect x="2" y="2" width="14" height="14" rx="3" fill="url(#account-grad)" />
@@ -162,7 +148,6 @@ const TABS: { id: SettingsTab; label: string }[] = [
   { id: 'appearance', label: 'Appearance' },
   { id: 'terminal', label: 'Terminal' },
   { id: 'behavior', label: 'Behavior' },
-  { id: 'connection', label: 'Connection' },
   { id: 'account', label: 'Account' },
 ];
 
@@ -308,18 +293,6 @@ export function SettingsPanel({
 
                 <div className="sp-group-label">Window</div>
                 <div className="sp-group">
-                  <SettingRow label="Line Height" badge={settings.lineHeight.toFixed(2)}>
-                    <input
-                      className="sp-range"
-                      type="range"
-                      min={0.8}
-                      max={1.6}
-                      step={0.05}
-                      value={settings.lineHeight}
-                      onChange={(e) => onUpdate({ lineHeight: Number(e.target.value) })}
-                    />
-                  </SettingRow>
-                  <div className="sp-separator" />
                   <SettingRow label="Padding" badge={`${settings.windowPadding}px`}>
                     <input
                       className="sp-range"
@@ -424,6 +397,18 @@ export function SettingsPanel({
                       onChange={(v) => onUpdate({ drawBoldInBold: v })}
                     />
                   </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Line Height" badge={settings.lineHeight.toFixed(2)}>
+                    <input
+                      className="sp-range"
+                      type="range"
+                      min={0.8}
+                      max={1.6}
+                      step={0.05}
+                      value={settings.lineHeight}
+                      onChange={(e) => onUpdate({ lineHeight: Number(e.target.value) })}
+                    />
+                  </SettingRow>
                 </div>
 
                 {/* Font preview */}
@@ -465,13 +450,6 @@ export function SettingsPanel({
                       onChange={(e) => onUpdate({ scrollbackLines: Number(e.target.value) })}
                     />
                   </SettingRow>
-                  <div className="sp-separator" />
-                  <SettingRow label="Bell Sound">
-                    <NativeToggle
-                      value={settings.bellEnabled}
-                      onChange={(v) => onUpdate({ bellEnabled: v })}
-                    />
-                  </SettingRow>
                 </div>
 
                 <div className="sp-group-label">Input</div>
@@ -507,22 +485,19 @@ export function SettingsPanel({
                       style={{ fontFamily: 'monospace', fontSize: '12px' }}
                     />
                   </SettingRow>
-                </div>
-              </>
-            )}
-
-            {activeTab === 'behavior' && (
-              <>
-                <div className="sp-group-label">Autocomplete</div>
-                <div className="sp-group">
-                  <SettingRow label="Enable Autocomplete">
+                  <div className="sp-separator" />
+                  <SettingRow label="Autocomplete">
                     <NativeToggle
                       value={settings.autocompleteEnabled}
                       onChange={(v) => onUpdate({ autocompleteEnabled: v })}
                     />
                   </SettingRow>
                 </div>
+              </>
+            )}
 
+            {activeTab === 'behavior' && (
+              <>
                 <div className="sp-group-label">Tabs</div>
                 <div className="sp-group">
                   <SettingRow label="New Tab Directory">
@@ -572,7 +547,10 @@ export function SettingsPanel({
                       onChange={(v) => onUpdate({ confirmCloseRunningProcess: v })}
                     />
                   </SettingRow>
-                  <div className="sp-separator" />
+                </div>
+
+                <div className="sp-group-label">Display</div>
+                <div className="sp-group">
                   <SettingRow label="Pin Prompt to Bottom">
                     <NativeToggle
                       value={settings.promptAtBottom}
@@ -583,6 +561,13 @@ export function SettingsPanel({
 
                 <div className="sp-group-label">Notifications</div>
                 <div className="sp-group">
+                  <SettingRow label="Bell Sound">
+                    <NativeToggle
+                      value={settings.bellEnabled}
+                      onChange={(v) => onUpdate({ bellEnabled: v })}
+                    />
+                  </SettingRow>
+                  <div className="sp-separator" />
                   <SettingRow label="Notify on Bell">
                     <NativeToggle
                       value={settings.notifyOnBell}
@@ -637,28 +622,6 @@ export function SettingsPanel({
                     </div>
                   </>
                 )}
-              </>
-            )}
-
-            {activeTab === 'connection' && (
-              <>
-                <div className="sp-group-label">Relay Server</div>
-                <div className="sp-group">
-                  <SettingRow label="Custom URL">
-                    <input
-                      className="sp-input"
-                      type="text"
-                      value={settings.relayUrl}
-                      onChange={(e) => onUpdate({ relayUrl: e.target.value })}
-                      placeholder="wss://relay.termpod.dev"
-                      spellCheck={false}
-                    />
-                  </SettingRow>
-                </div>
-                <div className="sp-hint">
-                  Leave empty to use the default relay server. Changes take effect on next
-                  connection.
-                </div>
               </>
             )}
 
@@ -768,6 +731,24 @@ export function SettingsPanel({
                     </div>
                   </>
                 )}
+
+                <div className="sp-group-label">Relay Server</div>
+                <div className="sp-group">
+                  <SettingRow label="Custom URL">
+                    <input
+                      className="sp-input"
+                      type="text"
+                      value={settings.relayUrl}
+                      onChange={(e) => onUpdate({ relayUrl: e.target.value })}
+                      placeholder="wss://relay.termpod.dev"
+                      spellCheck={false}
+                    />
+                  </SettingRow>
+                </div>
+                <div className="sp-hint">
+                  Leave empty to use the default relay server. Changes take effect on next
+                  connection.
+                </div>
               </>
             )}
           </div>
