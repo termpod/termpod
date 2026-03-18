@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import { useState } from 'react';
 
 /**
@@ -22,15 +21,13 @@ import { useState } from 'react';
 export function Screenshot({
   src,
   alt,
-  width,
-  height,
   className,
   children,
 }: {
   src: string;
   alt: string;
-  width: number;
-  height: number;
+  width?: number;
+  height?: number;
   className?: string;
   children: React.ReactNode;
 }) {
@@ -40,15 +37,12 @@ export function Screenshot({
   return (
     <>
       {!errored && (
-        <Image
+        <img
           src={src}
           alt={alt}
-          width={width}
-          height={height}
-          className={`${loaded ? '' : 'hidden'} ${className ?? ''}`}
+          className={`w-full ${loaded ? '' : 'hidden'} ${className ?? ''}`}
           onLoad={() => setLoaded(true)}
           onError={() => setErrored(true)}
-          unoptimized
         />
       )}
       {!loaded && <>{children}</>}

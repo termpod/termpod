@@ -61,7 +61,7 @@ export default function RootLayout({
       className={`dark ${spaceGrotesk.variable} ${ibmPlexMono.variable}`}
       suppressHydrationWarning
     >
-      <body className="grain antialiased">
+      <body className="grain overflow-x-hidden antialiased">
         <RootProvider theme={{ forcedTheme: 'dark' }}>{children}</RootProvider>
       </body>
     </html>
