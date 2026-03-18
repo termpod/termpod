@@ -161,7 +161,12 @@ export function TabBar({
 
   return (
     <div className="tab-bar" onMouseDown={handleDrag} data-tauri-drag-region>
-      <div className={`tabs ${dragging !== null ? 'tabs-dragging' : ''}`} ref={tabsRef}>
+      <div
+        className={`tabs ${dragging !== null ? 'tabs-dragging' : ''}`}
+        ref={tabsRef}
+        role="tablist"
+        aria-label="Terminal sessions"
+      >
         {sessions.map((session, index) => (
           <Tab
             key={session.id}
@@ -236,6 +241,9 @@ function Tab({
       onClick={() => onSelect(session.id)}
       onMouseDown={onMouseDown}
       type="button"
+      role="tab"
+      aria-selected={isActive}
+      aria-label={session.name}
     >
       <TabIconView icon={session.icon ?? folderIcon} />
       <span className="tab-name">{session.name}</span>
@@ -260,7 +268,7 @@ function TabIconView({ icon }: { icon: TabIcon }) {
       width="14"
       height="14"
       fill={icon.color}
-      aria-label={icon.title}
+      aria-hidden="true"
     >
       <path d={icon.svgPath} />
     </svg>

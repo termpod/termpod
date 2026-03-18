@@ -66,11 +66,21 @@ export function CommandPalette({ onClose, onExecute }: CommandPaletteProps) {
     [filtered, selectedIndex, onClose, onExecute],
   );
 
+  const listId = 'cp-results-list';
+
   return (
-    <div className="cp-overlay" onClick={onClose}>
-      <div className="cp-container" onClick={(e) => e.stopPropagation()}>
+    <div className="cp-overlay" onClick={onClose} role="presentation">
+      <div
+        className="cp-container"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="Command palette"
+        aria-modal="true"
+      >
         <div className="cp-input-wrap">
-          <span className="cp-input-icon">&gt;</span>
+          <span className="cp-input-icon" aria-hidden="true">
+            &gt;
+          </span>
           <input
             ref={inputRef}
             className="cp-input"
@@ -81,17 +91,30 @@ export function CommandPalette({ onClose, onExecute }: CommandPaletteProps) {
             placeholder="Type a command..."
             spellCheck={false}
             autoComplete="off"
+            aria-label="Search commands"
+            aria-autocomplete="list"
+            aria-controls={listId}
+            aria-activedescendant={
+              filtered[selectedIndex] ? `cp-item-${filtered[selectedIndex].id}` : undefined
+            }
           />
         </div>
-        <div className="cp-list" ref={listRef}>
-          {filtered.length === 0 && <div className="cp-empty">No matching commands</div>}
+        <div className="cp-list" ref={listRef} id={listId} role="listbox" aria-label="Commands">
+          {filtered.length === 0 && (
+            <div className="cp-empty" role="status" aria-live="polite">
+              No matching commands
+            </div>
+          )}
           {filtered.map((cmd, i) => (
             <button
               key={cmd.id}
+              id={`cp-item-${cmd.id}`}
               className={`cp-item ${i === selectedIndex ? 'cp-item-selected' : ''}`}
               onClick={() => onExecute(cmd.id)}
               onMouseEnter={() => setSelectedIndex(i)}
               type="button"
+              role="option"
+              aria-selected={i === selectedIndex}
             >
               <span className="cp-item-category">{cmd.category}</span>
               <span className="cp-item-label">{cmd.label}</span>

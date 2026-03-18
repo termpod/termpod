@@ -23,6 +23,8 @@ export function PaneContainer({
       <div
         className={`pane-leaf${focusedPaneId === node.sessionId ? ' pane-leaf-focused' : ''}`}
         onMouseDown={() => onFocusPane(node.sessionId)}
+        role="group"
+        aria-label="Terminal pane"
       >
         {renderPane(node.sessionId, focusedPaneId === node.sessionId)}
       </div>
@@ -120,6 +122,8 @@ function SplitPane({
       ref={containerRef}
       className={`pane-container pane-container-${isHorizontal ? 'horizontal' : 'vertical'}`}
       style={{ pointerEvents: isDragging ? 'none' : undefined }}
+      role="group"
+      aria-label={`Split pane — ${isHorizontal ? 'horizontal' : 'vertical'} split`}
     >
       <div
         style={{
@@ -143,6 +147,10 @@ function SplitPane({
         className={`pane-divider pane-divider-${isHorizontal ? 'horizontal' : 'vertical'}${isDragging ? ' pane-divider-dragging' : ''}`}
         onMouseDown={handleDividerMouseDown}
         style={{ pointerEvents: 'auto' }}
+        role="separator"
+        aria-orientation={isHorizontal ? 'vertical' : 'horizontal'}
+        aria-label={`Drag to resize ${isHorizontal ? 'horizontal' : 'vertical'} split`}
+        tabIndex={0}
       />
       <div
         style={{

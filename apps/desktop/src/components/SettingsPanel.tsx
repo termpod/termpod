@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  createContext,
+} from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type {
   Settings,
@@ -215,24 +223,39 @@ export function SettingsPanel({
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label="Settings"
+        aria-modal="true"
         tabIndex={-1}
       >
         {/* Sidebar */}
-        <nav className="sp-sidebar">
+        <nav className="sp-sidebar" aria-label="Settings navigation">
           <div className="sp-sidebar-title">Settings</div>
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              className={`sp-tab ${activeTab === tab.id ? 'sp-tab-active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              <span className="sp-tab-icon">{TAB_ICONS[tab.id]}</span>
-              <span>{tab.label}</span>
-            </button>
-          ))}
+          <div role="tablist" aria-label="Settings sections" aria-orientation="vertical">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                className={`sp-tab ${activeTab === tab.id ? 'sp-tab-active' : ''}`}
+                onClick={() => setActiveTab(tab.id)}
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                aria-controls={`sp-panel-${tab.id}`}
+                id={`sp-tab-${tab.id}`}
+                type="button"
+              >
+                <span className="sp-tab-icon" aria-hidden="true">
+                  {TAB_ICONS[tab.id]}
+                </span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
           <div className="sp-sidebar-spacer" />
-          <button className="sp-tab sp-tab-reset" onClick={onReset}>
-            <span className="sp-tab-icon">
+          <button
+            className="sp-tab sp-tab-reset"
+            onClick={onReset}
+            type="button"
+            aria-label="Reset all settings to defaults"
+          >
+            <span className="sp-tab-icon" aria-hidden="true">
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
                 <rect x="2" y="2" width="14" height="14" rx="3" fill="url(#reset-grad)" />
                 <path
@@ -279,7 +302,12 @@ export function SettingsPanel({
             </button>
           </div>
 
-          <div className="sp-content-body">
+          <div
+            className="sp-content-body"
+            role="tabpanel"
+            id={`sp-panel-${activeTab}`}
+            aria-labelledby={`sp-tab-${activeTab}`}
+          >
             {activeTab === 'appearance' && (
               <>
                 <ThemeSelector
@@ -316,6 +344,7 @@ export function SettingsPanel({
                       step={2}
                       value={settings.windowPadding}
                       onChange={(e) => onUpdate({ windowPadding: Number(e.target.value) })}
+                      aria-labelledby="sp-row-padding"
                     />
                   </SettingRow>
                   <div className="sp-separator" />
@@ -333,6 +362,7 @@ export function SettingsPanel({
                       onChange={(e) =>
                         onUpdate({ backgroundOpacity: Number(e.target.value) / 100 })
                       }
+                      aria-labelledby="sp-row-opacity"
                     />
                   </SettingRow>
                   <div className="sp-separator" />
@@ -345,6 +375,7 @@ export function SettingsPanel({
                       step={1}
                       value={settings.blurRadius}
                       onChange={(e) => onUpdate({ blurRadius: Number(e.target.value) })}
+                      aria-labelledby="sp-row-blur-radius"
                     />
                   </SettingRow>
                   <div className="sp-separator" />
@@ -379,6 +410,7 @@ export function SettingsPanel({
                       max={24}
                       value={settings.fontSize}
                       onChange={(e) => onUpdate({ fontSize: Number(e.target.value) })}
+                      aria-labelledby="sp-row-size"
                     />
                   </SettingRow>
                   <div className="sp-separator" />
@@ -421,6 +453,7 @@ export function SettingsPanel({
                       step={0.05}
                       value={settings.lineHeight}
                       onChange={(e) => onUpdate({ lineHeight: Number(e.target.value) })}
+                      aria-labelledby="sp-row-line-height"
                     />
                   </SettingRow>
                 </div>
@@ -446,6 +479,7 @@ export function SettingsPanel({
                         }}
                         spellCheck={false}
                         placeholder="/bin/zsh"
+                        aria-label="Shell path"
                       />
                       {shellValid === false && (
                         <span className="sp-input-hint">Must start with /</span>
@@ -462,6 +496,7 @@ export function SettingsPanel({
                       step={1000}
                       value={settings.scrollbackLines}
                       onChange={(e) => onUpdate({ scrollbackLines: Number(e.target.value) })}
+                      aria-labelledby="sp-row-scrollback"
                     />
                   </SettingRow>
                 </div>
@@ -497,6 +532,7 @@ export function SettingsPanel({
                       onChange={(e) => onUpdate({ wordSeparators: e.target.value })}
                       spellCheck={false}
                       style={{ fontFamily: 'monospace', fontSize: '12px' }}
+                      aria-label="Word separators"
                     />
                   </SettingRow>
                   <div className="sp-separator" />
@@ -536,6 +572,7 @@ export function SettingsPanel({
                           onChange={(e) => onUpdate({ customTabCwdPath: e.target.value })}
                           placeholder="/path/to/directory"
                           spellCheck={false}
+                          aria-label="Custom tab working directory path"
                         />
                       </SettingRow>
                     </>
@@ -618,6 +655,7 @@ export function SettingsPanel({
                               longRunningThreshold: Math.max(5, parseInt(e.target.value, 10) || 30),
                             })
                           }
+                          aria-label="Long-running command threshold in seconds"
                         />
                       </SettingRow>
                     </>
@@ -650,6 +688,7 @@ export function SettingsPanel({
                           onChange={(e) => onUpdate({ customEditorCommand: e.target.value })}
                           placeholder="e.g. zed, nano, emacs"
                           spellCheck={false}
+                          aria-label="Custom editor command"
                         />
                       </SettingRow>
                     </>
@@ -686,6 +725,7 @@ export function SettingsPanel({
                               onUpdate({ dropdownHeight: parseInt(e.target.value, 10) })
                             }
                             style={{ flex: 1 }}
+                            aria-label="Dropdown terminal height percentage"
                           />
                           <span className="sp-value-label">{settings.dropdownHeight}%</span>
                         </div>
@@ -864,6 +904,7 @@ export function SettingsPanel({
                       onChange={(e) => onUpdate({ relayUrl: e.target.value })}
                       placeholder="wss://relay.termpod.dev"
                       spellCheck={false}
+                      aria-label="Custom relay server URL"
                     />
                   </SettingRow>
                 </div>
@@ -882,6 +923,8 @@ export function SettingsPanel({
 
 // --- Sub-components ---
 
+const SettingLabelContext = createContext<string | undefined>(undefined);
+
 function SettingRow({
   label,
   badge,
@@ -891,24 +934,44 @@ function SettingRow({
   badge?: string;
   children: React.ReactNode;
 }) {
+  const id = `sp-row-${label.toLowerCase().replace(/\s+/g, '-')}`;
   return (
-    <div className="sp-row">
-      <div className="sp-row-label">
-        <span>{label}</span>
-        {badge && <span className="sp-row-badge">{badge}</span>}
+    <SettingLabelContext.Provider value={label}>
+      <div className="sp-row">
+        <div className="sp-row-label" id={id}>
+          <span>{label}</span>
+          {badge && (
+            <span className="sp-row-badge" aria-live="polite">
+              {badge}
+            </span>
+          )}
+        </div>
+        <div className="sp-row-control" aria-labelledby={id}>
+          {children}
+        </div>
       </div>
-      <div className="sp-row-control">{children}</div>
-    </div>
+    </SettingLabelContext.Provider>
   );
 }
 
-function NativeToggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+function NativeToggle({
+  value,
+  onChange,
+  label,
+}: {
+  value: boolean;
+  onChange: (v: boolean) => void;
+  label?: string;
+}) {
+  const contextLabel = useContext(SettingLabelContext);
   return (
     <button
       className={`sp-toggle ${value ? 'sp-toggle-on' : ''}`}
       onClick={() => onChange(!value)}
       role="switch"
       aria-checked={value}
+      aria-label={label ?? contextLabel}
+      type="button"
     >
       <span className="sp-toggle-thumb" />
     </button>
@@ -957,6 +1020,13 @@ function HotkeyInput({ value, onChange }: { value: string; onChange: (v: string)
       }}
       onBlur={() => setRecording(false)}
       onKeyDown={handleKeyDown}
+      type="button"
+      aria-label={
+        recording
+          ? 'Recording hotkey — press keys'
+          : `Hotkey: ${value || 'not set'}. Click to record.`
+      }
+      aria-pressed={recording}
     >
       {recording ? 'Press keys…' : value || 'Click to set'}
     </button>
@@ -967,18 +1037,23 @@ function SegmentedControl<T extends string>({
   options,
   value,
   onChange,
+  label,
 }: {
   options: { value: T; label: string }[];
   value: T;
   onChange: (v: T) => void;
+  label?: string;
 }) {
+  const contextLabel = useContext(SettingLabelContext);
   return (
-    <div className="sp-segmented">
+    <div className="sp-segmented" role="group" aria-label={label ?? contextLabel}>
       {options.map((opt) => (
         <button
           key={opt.value}
           className={`sp-segmented-item ${value === opt.value ? 'sp-segmented-active' : ''}`}
           onClick={() => onChange(opt.value)}
+          aria-pressed={value === opt.value}
+          type="button"
         >
           {opt.label}
         </button>
@@ -1003,7 +1078,12 @@ function ThemeSelector({
     <>
       <div className="sp-group-label">Theme</div>
       <div className="sp-group">
-        <button className="sp-theme-selector" onClick={() => setPickerOpen(true)}>
+        <button
+          className="sp-theme-selector"
+          onClick={() => setPickerOpen(true)}
+          type="button"
+          aria-label={`Theme: ${theme.name}. Click to change theme.`}
+        >
           <div className="sp-theme-selector-preview" style={{ background: theme.background }}>
             <div className="sp-theme-selector-line">
               <span style={{ color: theme.green }}>~</span>
@@ -1128,6 +1208,9 @@ function FontPicker({
         onClick={() => setOpen(!open)}
         style={{ fontFamily: value }}
         type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Font family: ${displayName(value)}. Click to change.`}
       >
         <span className="sp-font-trigger-name">{displayName(value)}</span>
         <svg
@@ -1160,10 +1243,11 @@ function FontPicker({
               onKeyDown={handleKeyDown}
               placeholder="Search fonts..."
               spellCheck={false}
+              aria-label="Search fonts"
             />
           </div>
 
-          <div className="sp-font-list" ref={listRef}>
+          <div className="sp-font-list" ref={listRef} role="listbox" aria-label="Font options">
             {filtered.length === 0 ? (
               <div className="sp-font-empty">No matching fonts</div>
             ) : (
@@ -1178,6 +1262,8 @@ function FontPicker({
                   }}
                   style={{ fontFamily: font }}
                   type="button"
+                  role="option"
+                  aria-selected={font === value}
                 >
                   <span className="sp-font-item-name">{displayName(font)}</span>
                   <span className="sp-font-item-sample" style={{ fontFamily: font }}>
@@ -1266,6 +1352,7 @@ function ProfileRow({
           className="sp-profile-expand"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
+          aria-label={`${profile.name}${isDefault ? ' (default)' : ''}. Click to ${expanded ? 'collapse' : 'expand'} profile settings.`}
         >
           <svg
             width="7"
@@ -1288,11 +1375,21 @@ function ProfileRow({
         </button>
         <div className="sp-profile-actions">
           {!isDefault && (
-            <button type="button" className="sp-profile-btn" onClick={onSetDefault}>
+            <button
+              type="button"
+              className="sp-profile-btn"
+              onClick={onSetDefault}
+              aria-label={`Set ${profile.name} as default profile`}
+            >
               Set Default
             </button>
           )}
-          <button type="button" className="sp-profile-btn sp-profile-btn-danger" onClick={onRemove}>
+          <button
+            type="button"
+            className="sp-profile-btn sp-profile-btn-danger"
+            onClick={onRemove}
+            aria-label={`Delete ${profile.name} profile`}
+          >
             Delete
           </button>
         </div>

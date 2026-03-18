@@ -49,7 +49,12 @@ export function OnboardingScreen({ currentTheme, onUpdateSettings, onComplete }:
   };
 
   return (
-    <div className="onboarding-overlay">
+    <div
+      className="onboarding-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Welcome to TermPod"
+    >
       <div
         className={`onboarding-card${animating ? ' onboarding-fade-out' : ' onboarding-fade-in'}`}
       >
@@ -71,13 +76,14 @@ export function OnboardingScreen({ currentTheme, onUpdateSettings, onComplete }:
 function WelcomeStep({ onNext }: { onNext: () => void }) {
   return (
     <div className="onboarding-step">
-      <div className="onboarding-logo">
+      <div className="onboarding-logo" aria-hidden="true">
         <svg
           width="56"
           height="56"
           viewBox="0 0 56 56"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
         >
           <rect width="56" height="56" rx="14" fill="var(--accent)" fillOpacity="0.15" />
           <rect x="10" y="22" width="36" height="3" rx="1.5" fill="var(--accent)" />
@@ -116,7 +122,12 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
         Start a terminal session on your Mac and access it from your iPhone in real time — over
         local Wi-Fi, WebRTC, or the cloud relay.
       </p>
-      <button className="onboarding-btn-primary" onClick={onNext} type="button">
+      <button
+        className="onboarding-btn-primary"
+        onClick={onNext}
+        type="button"
+        aria-label="Get started — go to theme selection"
+      >
         Get Started
       </button>
     </div>
@@ -169,7 +180,12 @@ function ThemeStep({
           ))}
         </div>
       </div>
-      <button className="onboarding-btn-primary" onClick={onNext} type="button">
+      <button
+        className="onboarding-btn-primary"
+        onClick={onNext}
+        type="button"
+        aria-label="Continue to final step"
+      >
         Continue
       </button>
     </div>
@@ -195,6 +211,8 @@ function ThemeSwatch({
       type="button"
       title={theme.name}
       style={{ backgroundColor: theme.background }}
+      aria-label={`${theme.name} theme${selected ? ' (selected)' : ''}`}
+      aria-pressed={selected}
     >
       <div className="onboarding-swatch-lines">
         <div
@@ -228,13 +246,14 @@ function ThemeSwatch({
 function DoneStep({ onComplete }: { onComplete: () => void }) {
   return (
     <div className="onboarding-step">
-      <div className="onboarding-done-icon">
+      <div className="onboarding-done-icon" aria-hidden="true">
         <svg
           width="56"
           height="56"
           viewBox="0 0 56 56"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
         >
           <rect width="56" height="56" rx="14" fill="var(--success)" fillOpacity="0.15" />
           <path
@@ -275,10 +294,22 @@ function DoneStep({ onComplete }: { onComplete: () => void }) {
 
 function StepDots({ step }: { step: Step }) {
   const steps: Step[] = ['welcome', 'theme', 'done'];
+  const currentIndex = steps.indexOf(step) + 1;
   return (
-    <div className="onboarding-dots">
-      {steps.map((s) => (
-        <div key={s} className={`onboarding-dot${step === s ? ' onboarding-dot-active' : ''}`} />
+    <div
+      className="onboarding-dots"
+      role="progressbar"
+      aria-valuenow={currentIndex}
+      aria-valuemin={1}
+      aria-valuemax={steps.length}
+      aria-label={`Step ${currentIndex} of ${steps.length}`}
+    >
+      {steps.map((s, i) => (
+        <div
+          key={s}
+          className={`onboarding-dot${step === s ? ' onboarding-dot-active' : ''}`}
+          aria-hidden="true"
+        />
       ))}
     </div>
   );

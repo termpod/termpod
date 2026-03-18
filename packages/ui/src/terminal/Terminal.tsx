@@ -14,6 +14,7 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon } from '@xterm/addon-search';
 import { UnicodeGraphemesAddon } from '@xterm/addon-unicode-graphemes';
+import { ImageAddon } from '@xterm/addon-image';
 import type { PtySize } from '@termpod/protocol';
 import type { BlockBoundary, Suggestion, AutocompleteEngine } from '@termpod/shared';
 import { BlockDecorationManager } from './BlockDecorations';
@@ -715,6 +716,16 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       term.unicode.activeVersion = '15';
 
       term.open(containerRef.current);
+
+      term.loadAddon(
+        new ImageAddon({
+          enableSizeReports: true,
+          pixelLimit: 16777216,
+          sixelSupport: true,
+          sixelScrolling: true,
+          sixelPaletteLimit: 4096,
+        }),
+      );
 
       try {
         const webgl = new WebglAddon();
