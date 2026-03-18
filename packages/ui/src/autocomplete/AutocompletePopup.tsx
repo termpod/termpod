@@ -108,7 +108,9 @@ export function AutocompletePopup({
           e.stopPropagation();
           enterSelectArmedRef.current = true;
           onSelectedIndexChange(
-            selectedIndex < 0 ? suggestions.length - 1 : (selectedIndex - 1 + suggestions.length) % suggestions.length,
+            selectedIndex < 0
+              ? suggestions.length - 1
+              : (selectedIndex - 1 + suggestions.length) % suggestions.length,
           );
           break;
         case 'Escape':
