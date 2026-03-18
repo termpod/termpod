@@ -263,15 +263,6 @@ describe('Route pattern matching', () => {
     expect(match![1]).toBe('my-device');
   });
 
-  it('matches update download routes', () => {
-    const pattern = /^\/updates\/download\/(.+)$/;
-
-    expect(pattern.test('/updates/download/file.dmg')).toBe(true);
-
-    const match = '/updates/download/termpod_0.1.4_aarch64.dmg'.match(pattern);
-    expect(match![1]).toBe('termpod_0.1.4_aarch64.dmg');
-  });
-
   it('matches session delete/update routes', () => {
     const pattern = /^\/sessions\/([^/]+)$/;
 

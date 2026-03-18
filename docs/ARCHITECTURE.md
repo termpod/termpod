@@ -72,7 +72,7 @@ Cloudflare Edge
 │   ├── Sessions: GET/POST /devices/:id/sessions, DELETE/PATCH /sessions/:id
 │   ├── Device WS: /devices/:id/ws    → route to User DO
 │   ├── Session WS: /sessions/:id/ws  → route to TerminalSession DO
-│   └── Auto-update: /updates/latest.json, /updates/download/:filename
+│   └── Auto-update: via GitHub Releases (direct)
 └── Durable Objects
     ├── User (one per email) — device-level control plane
     │   ├── Device WS connections (desktop + N mobile viewers)
@@ -216,9 +216,9 @@ Each transport has its own security model:
 - **Local (Bonjour)**: Authenticated via shared secret + E2E encrypted. Desktop generates a random auth secret on startup and shares it with iOS through the authenticated relay Device WS. After auth, desktop initiates ECDH key exchange, and all subsequent data is encrypted with AES-256-GCM (same protocol as relay). The mDNS service name is randomized to avoid leaking the hostname.
 - **WebRTC**: E2E encrypted by design — DTLS secures the DataChannel at the transport layer.
 
-### Auto-updates via relay proxy
+### Auto-updates via GitHub Releases
 
-Desktop app auto-updates are served through the relay (`/updates/latest.json`, `/updates/download/:filename`), which proxies GitHub releases. This allows updates to work even from private repos without exposing GitHub tokens to clients.
+Desktop app auto-updates are served directly from GitHub Releases. The Tauri updater fetches `latest.json` from the latest release and downloads update artifacts directly from GitHub.
 
 ## Configuration
 
@@ -232,7 +232,7 @@ All sensitive values are configured via environment variables. See `.env.example
 - `SENTRY_DSN` — Sentry error tracking for relay + iOS (optional)
 - `APPLE_TEAM_ID` — Apple Developer Team ID (iOS + macOS signing)
 - `APPLE_SIGNING_IDENTITY` — macOS code signing identity
-- `GITHUB_TOKEN` — GitHub token for auto-update proxy (Cloudflare Worker secret)
+
 - `TURN_KEY_ID` — Cloudflare TURN key ID (optional, for WebRTC across symmetric NATs)
 - `TURN_KEY_API_TOKEN` — Cloudflare TURN API token (optional)
 

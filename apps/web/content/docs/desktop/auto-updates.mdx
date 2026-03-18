@@ -1,38 +1,17 @@
 ---
 title: Auto-Updates
-description: Desktop app auto-update mechanism via tauri-plugin-updater and relay proxy.
+description: Desktop app auto-update mechanism via tauri-plugin-updater and GitHub Releases.
 ---
 
-The desktop app self-updates using `tauri-plugin-updater`, with the relay server acting as a proxy for GitHub release artifacts.
+The desktop app self-updates using `tauri-plugin-updater`, fetching updates directly from GitHub Releases.
 
 ## How It Works
 
-1. Desktop checks `GET /updates/latest.json` on the relay
-2. Relay proxies the request to GitHub releases API
-3. Download URLs are rewritten to point through the relay (enabling private repo updates)
-4. Desktop downloads the update via `GET /updates/download/:filename`
-5. Update is verified with ECDSA signature
-6. User is prompted to install
-
-## Relay Proxy Endpoints
-
-### `GET /updates/latest.json`
-
-Returns the latest release metadata from GitHub. The relay fetches from the GitHub API using `GITHUB_TOKEN` and rewrites download URLs to go through its own proxy.
-
-### `GET /updates/download/:filename`
-
-Proxies the actual binary download from GitHub releases.
-
-## Configuration
-
-The relay needs a `GITHUB_TOKEN` with read access to the repository's releases:
-
-```bash
-wrangler secret put GITHUB_TOKEN
-```
-
-If `GITHUB_TOKEN` is not configured, the relay returns 204 (no update available).
+1. Desktop checks `latest.json` from the latest GitHub Release
+2. If a newer version is available, the user sees an update banner
+3. Desktop downloads the update artifact directly from GitHub
+4. Update is verified with minisign signature
+5. User is prompted to install and restart
 
 ## Signing
 

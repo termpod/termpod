@@ -8,7 +8,7 @@ export default defineConfig({
       miniflare: {
         bindings: {
           JWT_SECRET: 'test-jwt-secret-for-integration-tests',
-          GITHUB_TOKEN: 'fake-github-token',
+
           TURN_KEY_ID: 'fake-turn-key-id',
           TURN_KEY_API_TOKEN: 'fake-turn-api-token',
         },

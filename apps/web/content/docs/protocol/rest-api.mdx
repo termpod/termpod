@@ -121,16 +121,6 @@ Session-level WebSocket. Auth via `?token=JWT` query param or first-message `aut
 | --- | --- |
 | `4403` | Relay access requires a Pro plan |
 
-## Auto-Update Proxy (Public)
-
-### `GET /updates/latest.json`
-
-Returns latest release metadata from GitHub. Download URLs are rewritten to proxy through the relay (for private repos).
-
-### `GET /updates/download/:filename`
-
-Proxies release artifact downloads from GitHub.
-
 ## TURN Credentials (Authenticated)
 
 ### `GET /turn-credentials`

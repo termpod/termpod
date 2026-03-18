@@ -3,7 +3,7 @@ title: Relay Server Overview
 description: Cloudflare Worker relay — architecture, routing, authentication, and deployment.
 ---
 
-The TermPod relay server runs on **Cloudflare Workers + Durable Objects**. It handles authentication, device management, WebSocket routing, WebRTC signaling, and auto-update proxying.
+The TermPod relay server runs on **Cloudflare Workers + Durable Objects**. It handles authentication, device management, WebSocket routing, and WebRTC signaling.
 
 The relay is **zero-knowledge** — all terminal data is E2E encrypted. The relay forwards opaque ciphertext and cannot read your terminal content.
 
@@ -45,7 +45,7 @@ The Worker entry point (`worker.ts`) routes requests to the appropriate handler:
 | `GET /devices/:id/ws` | Device WebSocket → User DO |
 | `GET/POST/DELETE /sessions*` | Session management → User DO |
 | `GET /sessions/:id/ws` | Session WebSocket → TerminalSession DO |
-| `GET /updates/*` | Auto-update proxy → GitHub releases |
+
 | `GET /turn-credentials` | TURN credential provisioning |
 | `POST /webhooks/polar` | Subscription webhook → Polar.sh |
 
@@ -83,7 +83,6 @@ wrangler secret put EMAIL_FROM
 
 # Optional secrets
 wrangler secret put SENTRY_DSN
-wrangler secret put GITHUB_TOKEN
 wrangler secret put TURN_KEY_ID
 wrangler secret put TURN_KEY_API_TOKEN
 

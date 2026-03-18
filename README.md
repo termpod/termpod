@@ -102,7 +102,7 @@ termpod/
 │   └── shared/           # Constants, types, utilities
 ├── relay/                # Cloudflare Worker + Durable Objects
 │   ├── src/
-│   │   ├── worker.ts     # Entry point, auth, routing, auto-update proxy
+│   │   ├── worker.ts     # Entry point, auth, routing
 │   │   ├── user.ts       # User DO (device control plane, session mgmt)
 │   │   ├── session.ts    # TerminalSession DO (binary relay + scrollback)
 │   │   ├── jwt.ts        # JWT signing + verification
@@ -167,10 +167,6 @@ VITE_SENTRY_DSN=
 # TURN_KEY_ID=your-turn-key-id
 # TURN_KEY_API_TOKEN=your-turn-api-token
 
-# GitHub token (for update proxy — needs repo read access to private releases)
-# Set via: wrangler secret put GITHUB_TOKEN
-# GITHUB_TOKEN=ghp_xxxx
-
 # Tauri updater signing (must be set in shell env, NOT .env file)
 # TAURI_SIGNING_PRIVATE_KEY=content-or-path-to-private-key
 # TAURI_SIGNING_PRIVATE_KEY_PASSWORD=
@@ -213,7 +209,6 @@ cd relay
 wrangler secret put JWT_SECRET           # required
 wrangler secret put RESEND_API_KEY       # for password reset emails
 wrangler secret put SENTRY_DSN           # optional, error tracking
-wrangler secret put GITHUB_TOKEN         # for update proxy
 wrangler secret put TURN_KEY_ID          # optional, for TURN support
 wrangler secret put TURN_KEY_API_TOKEN
 wrangler deploy

@@ -67,14 +67,6 @@ Set these via `wrangler secret put` for production deployments. If `RESEND_API_K
 
 Create TURN keys at: Cloudflare Dashboard → Calls → TURN Keys. TURN is optional — without it, WebRTC only works via STUN (fails on symmetric NATs). The relay WebSocket is always available as a fallback.
 
-## Auto-Update Proxy
-
-| Variable | Used By | Description |
-| --- | --- | --- |
-| `GITHUB_TOKEN` | Relay server | GitHub token for proxying release artifacts |
-
-The relay proxies desktop auto-update downloads from GitHub releases, enabling updates from private repos without exposing GitHub tokens to clients.
-
 ## Subscription Billing
 
 | Variable | Used By | Description |

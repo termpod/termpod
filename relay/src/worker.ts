@@ -9,7 +9,7 @@ interface Env {
   TERMINAL_SESSION: DurableObjectNamespace;
   USER: DurableObjectNamespace;
   JWT_SECRET: string;
-  GITHUB_TOKEN: string;
+
   TURN_KEY_ID: string;
   TURN_KEY_API_TOKEN: string;
   SENTRY_DSN?: string;
@@ -138,18 +138,6 @@ export default {
 
 async function handleRequest(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
-
-  // --- Public update proxy ---
-
-  if (url.pathname === '/updates/latest.json' && request.method === 'GET') {
-    return handleUpdateLatest(env, url.origin);
-  }
-
-  const updateDownloadMatch = url.pathname.match(/^\/updates\/download\/(.+)$/);
-
-  if (updateDownloadMatch && request.method === 'GET') {
-    return handleUpdateDownload(env, updateDownloadMatch[1]);
-  }
 
   // --- Polar webhook (public, signature-verified) ---
 
@@ -736,126 +724,6 @@ async function handlePendingRequests(
   }
 
   return corsJson({ error: 'Method not allowed' }, { status: 405 });
-}
-
-// --- Update proxy handlers ---
-
-const GITHUB_REPO = 'termpod/termpod';
-const GITHUB_API = 'https://api.github.com';
-
-async function handleUpdateLatest(env: Env, origin: string): Promise<Response> {
-  const releaseRes = await fetch(`${GITHUB_API}/repos/${GITHUB_REPO}/releases/latest`, {
-    headers: {
-      Authorization: `token ${env.GITHUB_TOKEN}`,
-      Accept: 'application/vnd.github.v3+json',
-      'User-Agent': 'termpod-relay',
-    },
-  });
-
-  if (!releaseRes.ok) {
-    return corsResponse(204);
-  }
-
-  const release = (await releaseRes.json()) as {
-    assets: Array<{ name: string; url: string }>;
-  };
-
-  const latestAsset = release.assets.find((a) => a.name === 'latest.json');
-
-  if (!latestAsset) {
-    return corsResponse(204);
-  }
-
-  const assetRes = await fetch(latestAsset.url, {
-    headers: {
-      Authorization: `token ${env.GITHUB_TOKEN}`,
-      Accept: 'application/octet-stream',
-      'User-Agent': 'termpod-relay',
-    },
-  });
-
-  if (!assetRes.ok) {
-    return corsResponse(204);
-  }
-
-  const latestJson = (await assetRes.json()) as Record<string, unknown>;
-
-  // Rewrite download URLs to proxy through this worker
-
-  if (latestJson.platforms && typeof latestJson.platforms === 'object') {
-    for (const platform of Object.values(
-      latestJson.platforms as Record<string, { url?: string }>,
-    )) {
-      if (platform.url) {
-        const filename = platform.url.split('/').pop();
-        platform.url = `${origin}/updates/download/${filename}`;
-      }
-    }
-  }
-
-  // Also handle flat format (url at top level)
-  if (typeof latestJson.url === 'string') {
-    const filename = (latestJson.url as string).split('/').pop();
-    latestJson.url = `${origin}/updates/download/${filename}`;
-  }
-
-  const res = Response.json(latestJson);
-
-  for (const [k, v] of Object.entries(CORS_HEADERS)) {
-    res.headers.set(k, v);
-  }
-
-  res.headers.set('Cache-Control', 'public, max-age=300');
-
-  return res;
-}
-
-async function handleUpdateDownload(env: Env, filename: string): Promise<Response> {
-  // Validate filename to prevent path traversal
-  if (filename.includes('/') || filename.includes('..')) {
-    return corsJson({ error: 'Invalid filename' }, { status: 400 });
-  }
-
-  const releaseRes = await fetch(`${GITHUB_API}/repos/${GITHUB_REPO}/releases/latest`, {
-    headers: {
-      Authorization: `token ${env.GITHUB_TOKEN}`,
-      Accept: 'application/vnd.github.v3+json',
-      'User-Agent': 'termpod-relay',
-    },
-  });
-
-  if (!releaseRes.ok) {
-    return corsJson({ error: 'Release not found' }, { status: 404 });
-  }
-
-  const release = (await releaseRes.json()) as {
-    assets: Array<{ name: string; url: string; content_type: string }>;
-  };
-
-  const asset = release.assets.find((a) => a.name === filename);
-
-  if (!asset) {
-    return corsJson({ error: 'Asset not found' }, { status: 404 });
-  }
-
-  const assetRes = await fetch(asset.url, {
-    headers: {
-      Authorization: `token ${env.GITHUB_TOKEN}`,
-      Accept: 'application/octet-stream',
-      'User-Agent': 'termpod-relay',
-    },
-  });
-
-  if (!assetRes.ok) {
-    return corsJson({ error: 'Download failed' }, { status: 502 });
-  }
-
-  const headers = new Headers(CORS_HEADERS);
-  headers.set('Content-Type', asset.content_type || 'application/octet-stream');
-  headers.set('Content-Disposition', `attachment; filename="${filename}"`);
-  headers.set('Cache-Control', 'public, max-age=3600');
-
-  return new Response(assetRes.body, { headers });
 }
 
 // --- Subscription handler ---

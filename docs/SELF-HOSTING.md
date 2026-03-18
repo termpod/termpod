@@ -10,7 +10,6 @@ The relay handles:
 - **Device management**: Registration, heartbeat, session tracking
 - **WebSocket routing**: Forwards encrypted terminal data between desktop and mobile
 - **WebRTC signaling**: Exchanges offers/answers/ICE candidates for P2P connections
-- **Auto-update proxy**: Serves desktop app updates from GitHub releases
 
 The relay is **zero-knowledge** — all terminal data is E2E encrypted (ECDH + AES-256-GCM). The relay forwards opaque ciphertext and cannot read your terminal content.
 
@@ -94,9 +93,6 @@ Self-hosted relays automatically unlock all features — no subscription require
 # Error tracking (Sentry)
 wrangler secret put SENTRY_DSN
 
-# Desktop auto-update proxy (needs GitHub repo read access)
-wrangler secret put GITHUB_TOKEN
-
 # WebRTC TURN relay (for P2P across restrictive NATs)
 # Create at: https://dash.cloudflare.com → Calls → TURN Keys
 wrangler secret put TURN_KEY_ID
@@ -161,7 +157,5 @@ Durable Object migrations are applied automatically. No manual database steps re
 **"Email service not configured" on password reset**: Set `RESEND_API_KEY` and `EMAIL_FROM` secrets.
 
 **WebRTC not working across networks**: Set `TURN_KEY_ID` and `TURN_KEY_API_TOKEN`. Without TURN, WebRTC only works when both devices can reach each other via STUN (fails on symmetric NATs). The relay WebSocket is always available as a fallback.
-
-**Auto-update proxy returning 204**: Set `GITHUB_TOKEN` with read access to the repo's releases.
 
 **Clients can't connect**: Verify the relay URL uses `wss://` (not `https://`) in client configs. Check that the worker is deployed and the custom domain (if any) has valid DNS.
