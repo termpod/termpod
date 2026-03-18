@@ -74,7 +74,6 @@ apps/desktop/
 
 ## Important Implementation Notes
 
-- **No React StrictMode** — causes duplicate sessions on mount
 - **Tab panels use `position:absolute + visibility:hidden`** — not `display:none`, which breaks xterm.js WebGL rendering in zero-dimension containers
 - **Terminal callbacks stored in refs** — avoids xterm recreation on re-render
 - **Menu handler uses ref pattern** — avoids stale closures
