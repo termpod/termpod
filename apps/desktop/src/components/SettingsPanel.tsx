@@ -581,6 +581,33 @@ export function SettingsPanel({
                       onChange={(v) => onUpdate({ notifyOnProcessExit: v })}
                     />
                   </SettingRow>
+                  <div className="sp-separator" />
+                  <SettingRow label="Notify on Long-Running Command">
+                    <NativeToggle
+                      value={settings.notifyLongRunningCommand}
+                      onChange={(v) => onUpdate({ notifyLongRunningCommand: v })}
+                    />
+                  </SettingRow>
+                  {settings.notifyLongRunningCommand && (
+                    <>
+                      <div className="sp-separator" />
+                      <SettingRow label="Long-Running Threshold (seconds)">
+                        <input
+                          type="number"
+                          className="sp-input"
+                          value={settings.longRunningThreshold}
+                          min={5}
+                          max={600}
+                          step={5}
+                          onChange={(e) =>
+                            onUpdate({
+                              longRunningThreshold: Math.max(5, parseInt(e.target.value, 10) || 30),
+                            })
+                          }
+                        />
+                      </SettingRow>
+                    </>
+                  )}
                 </div>
 
                 <div className="sp-group-label">System</div>

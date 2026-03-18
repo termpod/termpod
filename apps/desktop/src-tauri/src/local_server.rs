@@ -34,8 +34,11 @@ struct Client {
     session_ids: HashSet<String>,
     role: String,
     _device: String,
-    tx: mpsc::UnboundedSender<Message>,
+    tx: mpsc::Sender<Message>,
 }
+
+/// Max queued messages per client before dropping oldest frames.
+const CLIENT_CHANNEL_CAPACITY: usize = 256;
 
 type Clients = Arc<RwLock<HashMap<String, Client>>>;
 
@@ -181,10 +184,8 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
     // Register mDNS service with randomized name to avoid leaking hostname
     let service_name = format!("TP-{}", &generate_auth_secret()[..8]);
 
-    // Kill any stale dns-sd processes from previous runs
-    let _ = std::process::Command::new("pkill")
-        .args(["-f", "dns-sd -R .* _termpod._tcp"])
-        .output();
+    // Note: We no longer blindly pkill all dns-sd processes.
+    // The dns-sd child process PID is tracked in ServerState and killed on cleanup.
 
     log::info!("[LocalServer] Registering mDNS via dns-sd: {} on port {}", service_name, port);
 
@@ -247,10 +248,19 @@ pub async fn stop_local_server() -> Result<(), String> {
     let mut guard = server_lock().lock().await;
 
     if let Some(mut state) = guard.take() {
+        // Send WebSocket close frames to all connected clients
+        {
+            let clients = state.clients.read().await;
+            for client in clients.values() {
+                let _ = client.tx.try_send(Message::Close(None));
+            }
+        }
+
         let _ = state.shutdown_tx.send(()).await;
 
         if let Some(mut child) = state.dns_sd_process.take() {
             let _ = child.kill();
+            let _ = child.wait();
         }
     }
 
@@ -278,7 +288,7 @@ pub async fn local_server_broadcast(session_id: String, data: Vec<u8>) -> Result
 
     for client in clients.values() {
         if client.session_ids.contains(&session_id) && client.role == "viewer" {
-            let _ = client.tx.send(msg.clone());
+            let _ = client.tx.try_send(msg.clone());
         }
     }
 
@@ -298,7 +308,7 @@ pub async fn local_server_broadcast_raw(session_id: String, data: Vec<u8>) -> Re
 
     for client in clients.values() {
         if client.session_ids.contains(&session_id) && client.role == "viewer" {
-            let _ = client.tx.send(msg.clone());
+            let _ = client.tx.try_send(msg.clone());
         }
     }
 
@@ -321,7 +331,7 @@ pub async fn local_server_send_control(
 
     for client in clients.values() {
         if client.session_ids.contains(&session_id) && client.role == "viewer" {
-            let _ = client.tx.send(msg.clone());
+            let _ = client.tx.try_send(msg.clone());
         }
     }
 
@@ -343,7 +353,7 @@ pub async fn local_server_send_to_client(
     let msg = Message::Text(json.into());
 
     if let Some(client) = clients.get(&client_id) {
-        let _ = client.tx.send(msg);
+        let _ = client.tx.try_send(msg);
     }
 
     Ok(())
@@ -378,7 +388,7 @@ pub async fn update_local_sessions(sessions: Vec<SessionInfo>) -> Result<(), Str
     let clients = state.clients.read().await;
 
     for client in clients.values() {
-        let _ = client.tx.send(msg.clone());
+        let _ = client.tx.try_send(msg.clone());
     }
 
     Ok(())
@@ -395,7 +405,7 @@ async fn handle_connection(
     let ws_stream = accept_async(stream).await?;
     let (mut ws_tx, mut ws_rx) = ws_stream.split();
 
-    let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
+    let (tx, mut rx) = mpsc::channel::<Message>(CLIENT_CHANNEL_CAPACITY);
     let _client_id = format!("local-{peer_addr}");
 
     // Spawn a task to forward messages from channel to WebSocket
@@ -421,7 +431,7 @@ async fn handle_connection(
                 if let Ok(auth) = serde_json::from_str::<AuthMsg>(&text) {
                     if auth.msg_type == "auth" && auth.secret == auth_secret {
                         let ok = serde_json::json!({ "type": "auth_ok" });
-                        let _ = tx.send(Message::Text(ok.to_string().into()));
+                        let _ = tx.try_send(Message::Text(ok.to_string().into()));
                         break true;
                     }
                 }
@@ -430,8 +440,8 @@ async fn handle_connection(
                     "type": "error",
                     "message": "Authentication failed"
                 });
-                let _ = tx.send(Message::Text(err.to_string().into()));
-                let _ = tx.send(Message::Close(None));
+                let _ = tx.try_send(Message::Text(err.to_string().into()));
+                let _ = tx.try_send(Message::Close(None));
                 break false;
             }
             Message::Close(_) => break false,
@@ -473,8 +483,8 @@ async fn handle_connection(
                                     "type": "error",
                                     "message": "Unknown session"
                                 });
-                                let _ = tx.send(Message::Text(err.to_string().into()));
-                                let _ = tx.send(Message::Close(None));
+                                let _ = tx.try_send(Message::Text(err.to_string().into()));
+                                let _ = tx.try_send(Message::Close(None));
                                 break;
                             }
                             initial_sessions.insert(sid.clone());
@@ -493,7 +503,7 @@ async fn handle_connection(
 
                         // Send "ready" to the viewer so it knows the handshake is complete
                         let ready = serde_json::json!({ "type": "ready" });
-                        let _ = tx.send(Message::Text(ready.to_string().into()));
+                        let _ = tx.try_send(Message::Text(ready.to_string().into()));
 
                         if let Some(sid) = &hello.session_id {
                             let _ = app.emit(
@@ -537,7 +547,7 @@ async fn handle_connection(
                                         "message": "Unknown session",
                                         "sessionId": sid,
                                     });
-                                    let _ = tx.send(Message::Text(err.to_string().into()));
+                                    let _ = tx.try_send(Message::Text(err.to_string().into()));
                                 }
                             }
                         }
@@ -572,7 +582,7 @@ async fn handle_connection(
                                     .unwrap_or_default()
                                     .as_millis() as u64,
                             });
-                            let _ = tx.send(Message::Text(pong.to_string().into()));
+                            let _ = tx.try_send(Message::Text(pong.to_string().into()));
                         }
 
                         Some("create_session_request") => {
@@ -616,7 +626,7 @@ async fn handle_connection(
                                 "type": "sessions_list",
                                 "sessions": safe,
                             });
-                            let _ = tx.send(Message::Text(response.to_string().into()));
+                            let _ = tx.try_send(Message::Text(response.to_string().into()));
                         }
 
                         Some("delete_session") => {

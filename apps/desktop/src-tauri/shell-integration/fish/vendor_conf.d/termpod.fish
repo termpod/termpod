@@ -31,14 +31,25 @@ end
 
 # Capture input buffer and cursor position for autocomplete
 # Uses OSC 134 to send input state to the terminal
-function __termpod_capture_input --on-event fish_posterror
-    # Alternative: use fish_prompt event to capture periodically
+function __termpod_capture_input
+    set -l buffer (commandline)
+    set -l cursor (commandline -C)
+
+    # Only emit if changed
+    if test "$buffer" != "$__termpod_last_buffer" -o "$cursor" != "$__termpod_last_cursor"
+        set -g __termpod_last_buffer "$buffer"
+        set -g __termpod_last_cursor $cursor
+
+        # Base64 encode the buffer (fish built-in)
+        set -l encoded (printf '%s' "$buffer" | base64)
+        printf '\e]134;input;%s;%d\a' "$encoded" $cursor
+    end
 end
 
 # C marker: command execution start (output begins)
 function __termpod_preexec --on-event fish_preexec
     printf '\e]133;C\a'
-    
+
     # Clear input state and emit execute marker
     set -g __termpod_last_buffer ""
     set -g __termpod_last_cursor 0
@@ -50,25 +61,48 @@ function __termpod_postexec --on-event fish_postexec
     printf '\e]133;D;%d\a' $status
 end
 
-# Capture input on each keystroke using fish key bindings
-function __termpod_capture_buffer
-    set -l buffer (commandline)
-    set -l cursor (commandline -C)
-    
-    # Only emit if changed
-    if test "$buffer" != "$__termpod_last_buffer" -o $cursor -ne $__termpod_last_cursor
-        set -g __termpod_last_buffer "$buffer"
-        set -g __termpod_last_cursor $cursor
-        
-        # Base64 encode the buffer (fish built-in)
-        set -l encoded (printf '%s' "$buffer" | base64)
-        printf '\e]134;input;%s;%d\a' "$encoded" $cursor
-    end
-    
-    # Perform the original action
-    commandline -f accept-autosuggestion
+# Bind editing keys to capture input after each keystroke.
+# Fish lacks per-keystroke hooks like zsh, so we bind common editing
+# actions to wrapper functions that run the default action then capture.
+
+function __termpod_self_insert
+    commandline -f self-insert
+    __termpod_capture_input
 end
 
-# Bind to capture input on common editing actions
-# Note: fish doesn't have per-keystroke hooks like zsh, so we use accept-autosuggestion as a trigger
-# A more robust approach would use fish's --on-variable or periodic checks
+function __termpod_backward_delete
+    commandline -f backward-delete-char
+    __termpod_capture_input
+end
+
+function __termpod_delete_char
+    commandline -f delete-char
+    __termpod_capture_input
+end
+
+function __termpod_backward_word_delete
+    commandline -f backward-kill-word
+    __termpod_capture_input
+end
+
+function __termpod_kill_line
+    commandline -f kill-line
+    __termpod_capture_input
+end
+
+function __termpod_backward_kill_line
+    commandline -f backward-kill-line
+    __termpod_capture_input
+end
+
+# Bind in default and insert modes
+for mode in default insert
+    # Self-insert covers all printable characters
+    bind --mode $mode --preset "" __termpod_self_insert
+    bind --mode $mode \x7f __termpod_backward_delete
+    bind --mode $mode \b __termpod_backward_delete
+    bind --mode $mode \e\[3~ __termpod_delete_char
+    bind --mode $mode \cw __termpod_backward_word_delete
+    bind --mode $mode \ck __termpod_kill_line
+    bind --mode $mode \cu __termpod_backward_kill_line
+end

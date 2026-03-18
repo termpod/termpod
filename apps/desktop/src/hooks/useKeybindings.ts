@@ -29,6 +29,12 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
   { id: 'clear', label: 'Clear Scrollback', shortcut: 'Cmd+K', category: 'Terminal' },
   { id: 'clear_screen', label: 'Clear Screen', shortcut: 'Cmd+L', category: 'Terminal' },
   { id: 'select_all', label: 'Select All', shortcut: 'Cmd+A', category: 'Terminal' },
+  {
+    id: 'export_scrollback',
+    label: 'Export Scrollback',
+    shortcut: 'Cmd+Shift+E',
+    category: 'Terminal',
+  },
 
   // View
   { id: 'zoom_in', label: 'Zoom In', shortcut: 'Cmd+=', category: 'View' },

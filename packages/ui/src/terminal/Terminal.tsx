@@ -37,6 +37,7 @@ export interface TerminalHandle {
   scrollToTop: () => void;
   scrollToBottom: () => void;
   selectAll: () => void;
+  getScrollbackText: () => string;
   readonly cols: number;
   readonly rows: number;
 }
@@ -436,6 +437,27 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       },
       selectAll: () => {
         terminalRef.current?.selectAll();
+      },
+      getScrollbackText: () => {
+        const term = terminalRef.current;
+        if (!term) return '';
+
+        const buf = term.buffer.active;
+        const lines: string[] = [];
+
+        for (let i = 0; i < buf.length; i++) {
+          const line = buf.getLine(i);
+          if (line) {
+            lines.push(line.translateToString(true));
+          }
+        }
+
+        // Trim trailing empty lines
+        while (lines.length > 0 && lines[lines.length - 1].trim() === '') {
+          lines.pop();
+        }
+
+        return lines.join('\n');
       },
       get cols() {
         return terminalRef.current?.cols ?? 120;

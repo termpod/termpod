@@ -63,6 +63,8 @@ interface TerminalPanelProps {
   theme?: TerminalThemeColors;
   bellEnabled?: boolean;
   notifyOnBell?: boolean;
+  notifyLongRunningCommand?: boolean;
+  longRunningThreshold?: number;
   backgroundOpacity?: number;
   scrollbarVisibility?: 'always' | 'when-scrolling' | 'never';
   // Autocomplete settings
@@ -117,6 +119,8 @@ export function TerminalPanel({
   theme,
   bellEnabled,
   notifyOnBell,
+  notifyLongRunningCommand,
+  longRunningThreshold = 30,
   backgroundOpacity,
   scrollbarVisibility,
   autocompleteEnabled = true,
@@ -136,6 +140,7 @@ export function TerminalPanel({
   isRelayAllowed,
 }: TerminalPanelProps) {
   const isSshSession = (session.processName ?? '').toLowerCase() === 'ssh';
+  const commandStartTimeRef = useRef<number | null>(null);
   const remoteEntriesRef = useRef<string[]>([]);
   const remoteBootstrapDoneRef = useRef(false);
   const oscBufferRef = useRef('');
@@ -300,6 +305,24 @@ export function TerminalPanel({
     (boundary: BlockBoundary) => {
       session.blockTracker.handleBoundary(boundary);
 
+      // Track command start for long-running command notifications
+      if (boundary.marker === 'C') {
+        commandStartTimeRef.current = Date.now();
+      } else if (
+        boundary.marker === 'D' &&
+        notifyLongRunningCommand &&
+        commandStartTimeRef.current
+      ) {
+        const elapsed = (Date.now() - commandStartTimeRef.current) / 1000;
+        commandStartTimeRef.current = null;
+
+        if (elapsed >= longRunningThreshold && !document.hasFocus()) {
+          new Notification('Command Finished', {
+            body: `Completed in ${Math.round(elapsed)}s (${session.name || 'Terminal'})`,
+          });
+        }
+      }
+
       if (!isSshSession || !autocompleteEnabled) {
         return;
       }
@@ -318,7 +341,15 @@ export function TerminalPanel({
         }
       }
     },
-    [autocompleteEnabled, isSshSession, session.blockTracker, session.pty],
+    [
+      autocompleteEnabled,
+      isSshSession,
+      notifyLongRunningCommand,
+      longRunningThreshold,
+      session.blockTracker,
+      session.name,
+      session.pty,
+    ],
   );
 
   const handleResize = useCallback(

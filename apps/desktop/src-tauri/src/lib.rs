@@ -313,6 +313,10 @@ pub fn run() {
                 .accelerator("CmdOrCtrl+Shift+R")
                 .build(app)?;
 
+            let export_scrollback = MenuItemBuilder::with_id("export_scrollback", "Export Scrollback\u{2026}")
+                .accelerator("CmdOrCtrl+Shift+E")
+                .build(app)?;
+
             let find = MenuItemBuilder::with_id("find", "Find...")
                 .accelerator("CmdOrCtrl+F")
                 .build(app)?;
@@ -441,6 +445,7 @@ pub fn run() {
                 .item(&termify)
                 .item(&share_session)
                 .item(&record_session)
+                .item(&export_scrollback)
                 .separator()
                 .item(&next_tab)
                 .item(&prev_tab)

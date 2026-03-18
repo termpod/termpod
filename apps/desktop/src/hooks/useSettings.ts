@@ -1074,6 +1074,8 @@ export interface Settings {
   launchAtLogin: boolean;
   notifyOnBell: boolean;
   notifyOnProcessExit: boolean;
+  notifyLongRunningCommand: boolean;
+  longRunningThreshold: number;
 
   // Connection
   relayUrl: string;
@@ -1115,6 +1117,8 @@ const DEFAULTS: Settings = {
   launchAtLogin: false,
   notifyOnBell: false,
   notifyOnProcessExit: true,
+  notifyLongRunningCommand: true,
+  longRunningThreshold: 30,
 
   relayUrl: '',
 

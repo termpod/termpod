@@ -791,6 +791,29 @@ export function App() {
         }
         break;
 
+      case 'export_scrollback':
+        if (activeSession) {
+          const text = activeSession.termRef.current?.getScrollbackText();
+          if (text) {
+            (async () => {
+              try {
+                const { save } = await import('@tauri-apps/plugin-dialog');
+                const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+                const filePath = await save({
+                  defaultPath: `${activeSession.name || 'terminal'}-scrollback.txt`,
+                  filters: [{ name: 'Text', extensions: ['txt'] }],
+                });
+                if (filePath) {
+                  await writeTextFile(filePath, text);
+                }
+              } catch (e) {
+                console.error('Failed to export scrollback:', e);
+              }
+            })();
+          }
+        }
+        break;
+
       case 'zoom_in':
         updateSettings({ fontSize: Math.min(settings.fontSize + 1, 32) });
         break;
@@ -1087,6 +1110,8 @@ export function App() {
             theme={terminalTheme}
             bellEnabled={settings.bellEnabled}
             notifyOnBell={settings.notifyOnBell}
+            notifyLongRunningCommand={settings.notifyLongRunningCommand}
+            longRunningThreshold={settings.longRunningThreshold}
             backgroundOpacity={settings.backgroundOpacity}
             scrollbarVisibility={settings.scrollbarVisibility}
             autocompleteEnabled={settings.autocompleteEnabled}
