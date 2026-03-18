@@ -132,7 +132,7 @@ export function Features() {
         number="01"
         label="FEATURES"
         title="Not a viewer. A full terminal."
-        subtitle="Type commands, scroll output, interact with TUI apps. If it runs in your terminal, it runs through TermPod."
+        subtitle="Type commands, scroll output, answer prompts. If it runs in your Mac's terminal, it runs through TermPod on your phone."
       />
 
       {/* Feature 1: Streaming */}
@@ -143,8 +143,8 @@ export function Features() {
             Every keystroke, in real time
           </h3>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
-            This is not a log viewer. Type commands, scroll output, interact with prompts. Your
-            phone becomes your terminal.
+            Type a command on your phone, see the output instantly on both screens. Scroll through
+            history, interact with prompts, run TUI apps. Your phone becomes your terminal.
           </p>
         </div>
         <div className="flex flex-1 items-center justify-center bg-[#0A0A0A] p-6 md:max-w-[520px]">
@@ -170,8 +170,9 @@ export function Features() {
             Your data takes the shortest path
           </h3>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
-            Same WiFi? TermPod connects directly via Bonjour. Different network? It upgrades to
-            peer-to-peer. Your terminal data always takes the fastest, most private route.
+            Same WiFi? Data goes directly between your devices — never leaves the room. Different
+            network? TermPod upgrades to peer-to-peer. Your terminal data always takes the fastest,
+            most private route.
           </p>
         </div>
       </div>
@@ -184,8 +185,8 @@ export function Features() {
             All your sessions, one screen
           </h3>
           <p className="mb-6 font-mono text-sm leading-relaxed text-text-gray">
-            Run as many terminal sessions as you need. Each tab is an independent shell. Switch
-            between them on your phone just like you would on your Mac.
+            A build in one tab, logs in another, a deploy script in a third. Each tab is an
+            independent shell. Switch between them on your phone just like on your Mac.
           </p>
           <div className="flex flex-wrap gap-6">
             <div>
@@ -216,16 +217,16 @@ export function Features() {
           <Shield size={24} className="mb-4 text-gold" />
           <h4 className="mb-2 font-heading text-base font-bold text-text-white">E2E Encrypted</h4>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
-            AES-256-GCM on every transport. The relay forwards ciphertext it cannot read. Your
-            terminal data stays yours.
+            AES-256-GCM on every transport. The relay is zero-knowledge — it forwards ciphertext it
+            cannot read. Nobody sees your terminal data but you.
           </p>
         </div>
         <div className="flex flex-col border border-stroke-light p-8">
           <Zap size={24} className="mb-4 text-[#EC4899]" />
           <h4 className="mb-2 font-heading text-base font-bold text-text-white">Sub-5ms Latency</h4>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
-            Local connections are near-instant. Peer-to-peer adds minimal overhead. It feels like
-            typing at your desk.
+            Local connections are near-instant. Even over peer-to-peer, the overhead is minimal. It
+            feels like typing at your desk — because you practically are.
           </p>
         </div>
         <div className="flex flex-col border border-stroke-light p-8">
@@ -234,8 +235,8 @@ export function Features() {
             Full PTY Support
           </h4>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
-            Full pseudoterminal with shell integration and resize handling. vim, htop, Claude Code.
-            If it runs in a terminal, it works.
+            A real pseudoterminal, not a remote framebuffer. vim, htop, Claude Code — if it works in
+            your terminal, it works through TermPod.
           </p>
         </div>
       </div>

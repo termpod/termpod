@@ -1,0 +1,55 @@
+---
+title: Session Sharing
+description: Share a read-only, E2E encrypted link to a live terminal session.
+---
+
+Session sharing lets you generate a **read-only link** to a live terminal session. Anyone with the link can watch your terminal output in real time — no account or install required.
+
+## Quick Start
+
+1. Open a terminal session
+2. Share: **Shell > Share Session** (`Cmd+Shift+S`)
+3. Confirm the share dialog
+4. The link is copied to your clipboard automatically
+5. Send it to anyone — they open it in a browser
+
+## How It Works
+
+When you share a session:
+
+1. TermPod generates a **symmetric AES-256-GCM key** locally
+2. The relay creates a share endpoint for your session
+3. You get a URL like `https://termpod.dev/s/abc123#key=base64key`
+4. The encryption key is in the **URL fragment** (`#key=...`) — it never leaves your browser or reaches the server
+
+Share viewers connect to the relay and receive encrypted frames (`0xE1` channel). The relay forwards ciphertext it cannot decrypt.
+
+## Security
+
+| Property | Detail |
+| --- | --- |
+| **Encryption** | AES-256-GCM (separate from your main E2E session key) |
+| **Key distribution** | URL fragment — never sent to server |
+| **Relay access** | Zero-knowledge — relay forwards ciphertext only |
+| **Permissions** | Read-only — viewers cannot send input |
+| **Expiry** | Links expire automatically after 24 hours |
+
+### Separate encryption channel
+
+Share viewers use a different encryption key and frame type (`0xE1`) than your main device connection (`0xE0`). This means:
+
+- Revoking a share link doesn't affect your own connection
+- Share viewers never see your main session key
+- The relay cannot correlate share traffic with your device traffic
+
+## Requirements
+
+Session sharing requires a **Pro subscription** or a self-hosted relay. On the free tier, share is not available since it requires the managed relay.
+
+## Keyboard Shortcut
+
+| Action | Shortcut |
+| --- | --- |
+| Share session | `Cmd+Shift+S` |
+
+If the session is already shared, `Cmd+Shift+S` shows the existing share link dialog instead of creating a new one.

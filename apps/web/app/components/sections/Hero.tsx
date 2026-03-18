@@ -33,9 +33,8 @@ export function Hero() {
 
       {/* Subline */}
       <p className="animate-fade-in-up delay-200 mb-10 max-w-[720px] text-center font-mono text-sm leading-[1.6] text-text-gray md:text-base">
-        Start a terminal session on your Mac, pick it up on your iPhone. Run Claude Code, monitor a
-        deploy, tail logs. All from your pocket. Full shell, real-time I/O, end-to-end encrypted.
-        Open source.
+        Start a session on your Mac. Pick it up on your iPhone. Approve a deploy from the couch, monitor a build from the
+        coffee shop. Full shell access, real-time I/O, end-to-end encrypted. Open source.
       </p>
 
       {/* CTA Row */}

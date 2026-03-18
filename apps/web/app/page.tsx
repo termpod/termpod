@@ -1,6 +1,7 @@
 import { Header } from './components/Header';
 import { Hero } from './components/sections/Hero';
 import { Features } from './components/sections/Features';
+import { PowerFeatures } from './components/sections/PowerFeatures';
 import { UseCases } from './components/sections/UseCases';
 import { Pricing } from './components/sections/Pricing';
 import { OpenSource } from './components/sections/OpenSource';
@@ -15,6 +16,8 @@ export default function Home() {
       <Hero />
       <Divider />
       <Features />
+      <Divider />
+      <PowerFeatures />
       <Divider />
       <UseCases />
       <Divider />

@@ -1,0 +1,90 @@
+---
+title: Autocomplete
+description: Shell history autocomplete with context-aware file and directory suggestions.
+---
+
+TermPod indexes your shell history and suggests commands as you type. Suggestions are ranked by frequency, recency, and context — and they work over SSH sessions too.
+
+## How It Works
+
+As you type at the prompt, TermPod shows a popup with matching commands from your history. Suggestions are context-aware:
+
+- **History commands** are ranked by how often and how recently you ran them
+- **File/directory paths** are suggested based on the command — `cd` suggests directories, `cat` suggests files
+- **Accepted commands** get a ranking boost, so your most-used patterns float to the top
+
+Shell input is captured via OSC 134 escape sequences injected by TermPod's shell integration. This means autocomplete works in zsh, bash, and fish without extra plugins.
+
+## Keyboard Shortcuts
+
+| Key | Action |
+| --- | --- |
+| **Tab** | Accept the first suggestion |
+| **Down / Up** | Navigate through suggestions |
+| **Enter** | Accept the selected suggestion (after navigating with arrows) |
+| **Escape** | Dismiss the popup |
+
+Enter only accepts a suggestion after you've pressed an arrow key — this prevents accidental selection when you're just running a command.
+
+## What Gets Indexed
+
+On launch, TermPod reads your shell history file:
+
+| Shell | History File |
+| --- | --- |
+| zsh | `~/.zsh_history` |
+| bash | `~/.bash_history` |
+| fish | `~/.local/share/fish/fish_history` |
+
+The index is an in-memory trie — fast prefix lookups with no disk writes. Your history stays local and is never sent anywhere.
+
+### Scoring
+
+Suggestions are ranked by a weighted score:
+
+- **Prefix match** — commands that start with your input rank highest
+- **Word boundary match** — matches at word boundaries (e.g., `git` matching `git-status`) rank next
+- **Frequency** — commands you run more often score higher (logarithmic scale)
+- **Recency** — commands from the last 24 hours get a boost
+- **Accepted boost** — commands you've accepted via autocomplete get a permanent ranking increase
+
+## Context-Aware Completions
+
+After the command name, TermPod suggests file and directory paths based on what the command expects:
+
+| Command Type | Examples | Suggests |
+| --- | --- | --- |
+| Directory-only | `cd`, `pushd`, `mkdir`, `rmdir` | Directories |
+| File-only | `cat`, `less`, `vim`, `grep`, `head`, `tail` | Files |
+| File or directory | `ls`, `rm`, `cp`, `mv`, `open`, `code` | Both |
+
+Path suggestions read from the local filesystem via Tauri. When connected over SSH, TermPod uses remote directory listings instead (via OSC 135).
+
+## SSH Support
+
+Autocomplete works over SSH sessions. When TermPod detects an SSH connection:
+
+1. Local filesystem suggestions are disabled
+2. The remote shell sends its history and directory listings via OSC 135 escape sequences
+3. Suggestions reflect the remote environment, not your local machine
+
+Remote context refreshes are throttled to avoid excessive overhead.
+
+## Configuration
+
+Toggle autocomplete in `~/.termpod/config.json`:
+
+```json
+{
+  "autocompleteEnabled": true
+}
+```
+
+You can also toggle it in **Settings > Behavior > Autocomplete**.
+
+The engine uses these defaults internally:
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `minPrefixLength` | `2` | Minimum characters before suggestions appear |
+| `maxSuggestions` | `5` | Maximum suggestions shown in popup |

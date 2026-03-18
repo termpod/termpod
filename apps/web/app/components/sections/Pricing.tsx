@@ -23,10 +23,10 @@ export function Pricing() {
       className="flex flex-col items-center gap-12 px-6 py-16 md:gap-16 md:px-20 md:py-24 lg:px-[120px] lg:py-[100px]"
     >
       <SectionHeader
-        number="03"
+        number="04"
         label="PRICING"
         title="Free to use. Open to self-host."
-        subtitle="TermPod works over WiFi and peer-to-peer at no cost. Need a cloud relay? Self-host it for free or let us run it for you."
+        subtitle="Local and peer-to-peer connections cost us nothing, so they cost you nothing. Need a cloud relay? Self-host for free or let us run it for $5/mo."
       />
 
       {/* Pricing Cards */}

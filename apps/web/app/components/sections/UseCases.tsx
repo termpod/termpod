@@ -27,10 +27,10 @@ export function UseCases() {
       className="flex flex-col items-center gap-12 px-6 py-16 md:gap-16 md:px-20 md:py-24 lg:px-[120px] lg:py-[100px]"
     >
       <SectionHeader
-        number="02"
+        number="03"
         label="USE CASES"
         title="Walk away. Stay in control."
-        subtitle="You left something running. Now you need to check on it, respond to a prompt, or approve a deploy. Your phone is already in your pocket."
+        subtitle="Something is running on your Mac. You need to check on it, respond to a prompt, or approve a deploy. Your phone is already in your pocket."
       />
 
       {/* UC1 — Walk Away */}
@@ -41,8 +41,8 @@ export function UseCases() {
             Step away without stopping
           </h3>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
-            Long-running builds, database migrations, AI coding agents. Start them on your Mac and
-            check progress from your phone while you grab coffee, walk the dog, or leave the office.
+            Kick off a build, start a migration, let Claude Code work. Then grab coffee, walk the
+            dog, leave the office. Check progress from your pocket whenever you want.
           </p>
         </div>
         <div className="flex flex-1 items-center justify-center bg-[#0A0A0A] p-6 md:max-w-[440px]">
@@ -99,11 +99,11 @@ export function UseCases() {
         <div className="flex flex-1 flex-col justify-center p-8 md:p-12">
           <span className="mb-2 font-heading text-4xl font-bold text-stroke">02</span>
           <h3 className="mb-3 font-heading text-xl font-bold tracking-tight text-text-white md:text-[26px] md:leading-tight">
-            Respond to prompts from your phone
+            Answer prompts without going back
           </h3>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
-            Deploy confirmations, sudo passwords, Claude Code permission requests. Handle
-            interactive prompts from your phone without running back to your desk.
+            A deploy needs confirmation. Claude Code needs a permission. Your script wants a
+            password. Type the answer on your phone and keep moving.
           </p>
         </div>
       </div>
@@ -113,11 +113,11 @@ export function UseCases() {
         <div className="flex flex-1 flex-col justify-center p-8 md:p-12">
           <span className="mb-2 font-heading text-4xl font-bold text-stroke">03</span>
           <h3 className="mb-3 font-heading text-xl font-bold tracking-tight text-text-white md:text-[22px] md:leading-tight">
-            Quick-check server health on the go
+            Check on your server from the couch
           </h3>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
             SSH into your server from your Mac, then check service status, tail logs, and run health
-            checks from your phone. No separate SSH app needed.
+            checks from your phone. No separate SSH app, no extra setup.
           </p>
         </div>
         <div className="flex flex-1 items-center justify-center bg-[#0A0A0A] p-6">

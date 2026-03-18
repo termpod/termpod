@@ -1,0 +1,76 @@
+---
+title: Session Recording
+description: Record terminal sessions to asciicast v2 files for playback and sharing.
+---
+
+TermPod can record terminal sessions to **asciicast v2** files — the same format used by [asciinema](https://asciinema.org). Recordings capture all terminal output with precise timing, so playback looks exactly like the original session.
+
+## Quick Start
+
+1. Open a terminal session
+2. Start recording: **Shell > Record Session** (or `Cmd+Shift+R`)
+3. A red recording indicator appears in the tab bar
+4. Run your commands as normal
+5. Stop recording: **Shell > Record Session** again (or `Cmd+Shift+R`)
+6. Choose a save location — the file is saved as `.cast`
+
+## File Format
+
+Recordings use the [asciicast v2 format](https://docs.asciinema.org/manual/asciicast/v2/):
+
+```json
+{"version":2,"width":120,"height":40,"timestamp":1710000000}
+[0.5,"o","$ "]
+[1.2,"o","git status\r\n"]
+[1.8,"o","On branch main\r\n"]
+```
+
+- **Line 1**: Header with terminal dimensions and start timestamp
+- **Subsequent lines**: `[elapsed_seconds, "o", "output_data"]` events
+
+## Playback
+
+### asciinema
+
+```bash
+# Install asciinema
+brew install asciinema
+
+# Play a recording
+asciinema play recording.cast
+
+# Play at 2x speed
+asciinema play -s 2 recording.cast
+```
+
+### Embed in docs
+
+Upload to [asciinema.org](https://asciinema.org) or self-host with the asciinema player:
+
+```html
+<div id="player"></div>
+<script src="https://unpkg.com/asciinema-player@3/dist/bundle/asciinema-player.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/asciinema-player@3/dist/bundle/asciinema-player.css" />
+<script>
+  AsciinemaPlayer.create('recording.cast', document.getElementById('player'));
+</script>
+```
+
+## What Gets Recorded
+
+- All terminal **output** (stdout/stderr) with millisecond-accurate timing
+- Terminal dimensions at recording start
+
+### What Is NOT Recorded
+
+- **Input** (keystrokes) — only output events are captured
+- Terminal resize events during recording
+- Data from other sessions — recording is per-session
+
+## Keyboard Shortcut
+
+| Action | Shortcut |
+| --- | --- |
+| Toggle recording | `Cmd+Shift+R` |
+
+The same shortcut starts and stops recording. You can also use the **Shell > Record Session** menu item.
