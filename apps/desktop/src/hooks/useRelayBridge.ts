@@ -125,6 +125,7 @@ export function useRelayBridge(
     sendTerminalData,
     sendResize,
     sendSignaling,
+    sendControl,
   } = relay;
 
   // Keep sessionId in a ref so the PTY data listener always has the current value
@@ -374,6 +375,7 @@ export function useRelayBridge(
   return {
     ...relay,
     sendResize,
+    sendControl,
     localServerInfo: localServer.serverInfo,
     localViewers: localServer.localViewers,
     webrtcStatus: webrtc.status,

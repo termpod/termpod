@@ -310,6 +310,16 @@ export function TerminalPanel({
     (boundary: BlockBoundary) => {
       session.blockTracker.handleBoundary(boundary);
 
+      relay.sendControl({
+        type: 'block_boundary',
+        marker: boundary.marker,
+        line: boundary.line,
+        ...(boundary.marker === 'D' && boundary.exitCode !== undefined
+          ? { exitCode: boundary.exitCode }
+          : {}),
+        timestamp: Date.now(),
+      });
+
       // Track command start for long-running command notifications
       if (boundary.marker === 'C') {
         commandStartTimeRef.current = Date.now();
@@ -351,6 +361,7 @@ export function TerminalPanel({
       isSshSession,
       notifyLongRunningCommand,
       longRunningThreshold,
+      relay.sendControl,
       session.blockTracker,
       session.name,
       session.pty,

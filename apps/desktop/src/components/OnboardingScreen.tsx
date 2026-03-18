@@ -215,7 +215,12 @@ function ThemeSwatch({
         <span className="onboarding-swatch-dot" style={{ backgroundColor: theme.green }} />
         <span className="onboarding-swatch-dot" style={{ backgroundColor: theme.blue }} />
       </div>
-      <div className="onboarding-swatch-name">{theme.name}</div>
+      <div
+        className="onboarding-swatch-name"
+        style={{ color: isLightColor(theme.background) ? '#333' : '#eee' }}
+      >
+        {theme.name}
+      </div>
     </button>
   );
 }

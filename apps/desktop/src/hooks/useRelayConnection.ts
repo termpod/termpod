@@ -590,6 +590,14 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     }
   }, []);
 
+  const sendControl = useCallback((msg: Record<string, unknown>) => {
+    const ws = wsRef.current;
+
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(msg));
+    }
+  }, []);
+
   const sendSessionCreated = useCallback(
     (
       requestId: string,
@@ -655,6 +663,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
     sendTerminalData,
     sendResize,
     sendSignaling,
+    sendControl,
     sendSessionCreated,
     setShareCrypto,
   };

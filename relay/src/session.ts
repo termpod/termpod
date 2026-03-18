@@ -413,6 +413,14 @@ export class TerminalSession extends DurableObject<SessionEnv> {
       return;
     }
 
+    if (rawType === 'block_boundary') {
+      if (getTag(ws)?.role === 'desktop') {
+        this.broadcastToRole(ws, 'viewer', JSON.stringify(msg));
+      }
+
+      return;
+    }
+
     if (rawType === 'scrollback_request') {
       const tag = getTag(ws);
 
