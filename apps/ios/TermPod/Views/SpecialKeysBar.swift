@@ -8,10 +8,25 @@ struct SpecialKeysBar: View {
     @State private var ctrlActive = false
     @State private var altActive = false
     @State private var showClips = false
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var isCompact: Bool { horizontalSizeClass == .compact }
+
+    // Sizing tokens — compact values used in landscape on iPhone
+    private var buttonHeight: CGFloat { isCompact ? 24 : 28 }
+    private var fontSize: CGFloat { isCompact ? 10 : 12 }
+    private var modFontSize: CGFloat { isCompact ? 10 : 11 }
+    private var minWidthNarrow: CGFloat { isCompact ? 26 : 30 }
+    private var minWidthWide: CGFloat { isCompact ? 34 : 40 }
+    private var minWidthModifier: CGFloat { isCompact ? 30 : 36 }
+    private var groupSpacing: CGFloat { isCompact ? 3 : 4 }
+    private var outerSpacing: CGFloat { isCompact ? 4 : 6 }
+    private var hPadding: CGFloat { isCompact ? 6 : 10 }
+    private var vPadding: CGFloat { isCompact ? 4 : 6 }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
+            HStack(spacing: outerSpacing) {
                 // Modifier toggles
                 modifierGroup
 
@@ -71,8 +86,8 @@ struct SpecialKeysBar: View {
                 // Clips
                 clipsButton
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.horizontal, hPadding)
+            .padding(.vertical, vPadding)
         }
         .background(Color(UIColor.secondarySystemBackground))
         .sheet(isPresented: $showClips) {
@@ -85,7 +100,7 @@ struct SpecialKeysBar: View {
     // MARK: - Modifier Toggles
 
     private var modifierGroup: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: groupSpacing) {
             modifierKey("ctrl", isActive: $ctrlActive)
             modifierKey("alt", isActive: $altActive)
         }
@@ -99,9 +114,9 @@ struct SpecialKeysBar: View {
             HapticService.shared.playTap()
         } label: {
             Text(label)
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .font(.system(size: modFontSize, weight: .semibold, design: .monospaced))
                 .foregroundStyle(isActive.wrappedValue ? .white : .primary)
-                .frame(minWidth: 36, minHeight: 28)
+                .frame(minWidth: minWidthModifier, minHeight: buttonHeight)
                 .background(
                     RoundedRectangle(cornerRadius: 5)
                         .fill(isActive.wrappedValue ? Color.accentColor : Color(UIColor.systemBackground))
@@ -123,14 +138,14 @@ struct SpecialKeysBar: View {
     // MARK: - Keys
 
     private func keyGroup(@ViewBuilder content: () -> some View) -> some View {
-        HStack(spacing: 4) { content() }
+        HStack(spacing: groupSpacing) { content() }
     }
 
     private var divider: some View {
         Rectangle()
             .fill(Color(UIColor.separator).opacity(0.3))
-            .frame(width: 1, height: 20)
-            .padding(.horizontal, 2)
+            .frame(width: 1, height: isCompact ? 16 : 20)
+            .padding(.horizontal, isCompact ? 1 : 2)
     }
 
     private func specialKey(_ label: String, bytes: [UInt8], wide: Bool = false) -> some View {
@@ -138,9 +153,9 @@ struct SpecialKeysBar: View {
             sendKey(bytes)
         } label: {
             Text(label)
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .font(.system(size: fontSize, weight: .medium, design: .monospaced))
                 .foregroundStyle(.primary)
-                .frame(minWidth: wide ? 40 : 30, minHeight: 28)
+                .frame(minWidth: wide ? minWidthWide : minWidthNarrow, minHeight: buttonHeight)
                 .background(
                     RoundedRectangle(cornerRadius: 5)
                         .fill(Color(UIColor.systemBackground))
@@ -214,9 +229,9 @@ struct SpecialKeysBar: View {
             }
         } label: {
             Image(systemName: "doc.on.clipboard.fill")
-                .font(.system(size: 12))
+                .font(.system(size: fontSize))
                 .foregroundStyle(.primary)
-                .frame(minWidth: 30, minHeight: 28)
+                .frame(minWidth: minWidthNarrow, minHeight: buttonHeight)
                 .background(
                     RoundedRectangle(cornerRadius: 5)
                         .fill(Color(UIColor.systemBackground))
@@ -237,15 +252,15 @@ struct SpecialKeysBar: View {
             showClips = true
             HapticService.shared.playTap()
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: isCompact ? 3 : 4) {
                 Image(systemName: "doc.on.clipboard")
-                    .font(.system(size: 10))
+                    .font(.system(size: isCompact ? 9 : 10))
                 Text("Clips")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: isCompact ? 10 : 11, weight: .medium))
             }
             .foregroundStyle(Color.accentColor)
-            .frame(minHeight: 28)
-            .padding(.horizontal, 10)
+            .frame(minHeight: buttonHeight)
+            .padding(.horizontal, isCompact ? 7 : 10)
             .background(
                 RoundedRectangle(cornerRadius: 5)
                     .fill(Color.accentColor.opacity(0.1))
@@ -300,6 +315,10 @@ struct ClipsPopoverView: View {
     @ObservedObject private var store = ClipStore.shared
     @Environment(\.dismiss) private var dismiss
 
+    private var populatedCategories: [String] {
+        store.categories.filter { !store.clips(in: $0).isEmpty }
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -310,24 +329,30 @@ struct ClipsPopoverView: View {
                         Text("Add clips in Settings to use them here.")
                     }
                 } else {
-                    List(store.clips) { clip in
-                        Button {
-                            onSelect(clip.command)
-                            dismiss()
-                        } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(clip.name)
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(.primary)
+                    List {
+                        ForEach(populatedCategories, id: \.self) { category in
+                            Section(category) {
+                                ForEach(store.clips(in: category)) { clip in
+                                    Button {
+                                        onSelect(clip.command)
+                                        dismiss()
+                                    } label: {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(clip.name)
+                                                .font(.subheadline)
+                                                .fontWeight(.medium)
+                                                .foregroundStyle(.primary)
 
-                                Text(clip.command)
-                                    .font(.caption)
-                                    .fontDesign(.monospaced)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
+                                            Text(clip.command)
+                                                .font(.caption)
+                                                .fontDesign(.monospaced)
+                                                .foregroundStyle(.secondary)
+                                                .lineLimit(1)
+                                        }
+                                        .padding(.vertical, 2)
+                                    }
+                                }
                             }
-                            .padding(.vertical, 2)
                         }
                     }
                 }

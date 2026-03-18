@@ -6,6 +6,10 @@ struct ClipsEditorView: View {
     @State private var showAddSheet = false
     @State private var editingClip: Clip?
 
+    private var populatedCategories: [String] {
+        store.categories.filter { !store.clips(in: $0).isEmpty }
+    }
+
     var body: some View {
         List {
             if store.clips.isEmpty {
@@ -19,18 +23,20 @@ struct ClipsEditorView: View {
                 }
                 .listRowBackground(Color.clear)
             } else {
-                ForEach(store.clips) { clip in
-                    ClipRow(clip: clip)
-                        .contentShape(Rectangle())
-                        .onTapGesture { editingClip = clip }
-                }
-                .onDelete { indexSet in
-                    for index in indexSet {
-                        store.delete(store.clips[index])
+                ForEach(populatedCategories, id: \.self) { category in
+                    Section(category) {
+                        ForEach(store.clips(in: category)) { clip in
+                            ClipRow(clip: clip)
+                                .contentShape(Rectangle())
+                                .onTapGesture { editingClip = clip }
+                        }
+                        .onDelete { indexSet in
+                            let categoryClips = store.clips(in: category)
+                            for index in indexSet {
+                                store.delete(categoryClips[index])
+                            }
+                        }
                     }
-                }
-                .onMove { source, destination in
-                    store.move(from: source, to: destination)
                 }
             }
         }
@@ -98,13 +104,19 @@ private struct ClipFormView: View {
     let mode: Mode
     @State private var name: String = ""
     @State private var command: String = ""
+    @State private var category: String = "General"
+    @State private var showCustomCategoryField = false
+    @State private var customCategory: String = ""
     @Environment(\.dismiss) private var dismiss
+
+    private var store: ClipStore { ClipStore.shared }
 
     init(mode: Mode) {
         self.mode = mode
         if case .edit(let clip) = mode {
             _name = State(initialValue: clip.name)
             _command = State(initialValue: clip.command)
+            _category = State(initialValue: clip.category)
         }
     }
 
@@ -126,6 +138,22 @@ private struct ClipFormView: View {
                 } footer: {
                     Text("The command text that will be sent to the terminal.")
                 }
+
+                Section {
+                    Picker("Category", selection: $category) {
+                        ForEach(store.categories, id: \.self) { cat in
+                            Text(cat).tag(cat)
+                        }
+                        Text("Custom…").tag("__custom__")
+                    }
+
+                    if category == "__custom__" || showCustomCategoryField {
+                        TextField("Category name", text: $customCategory)
+                            .autocorrectionDisabled()
+                    }
+                } header: {
+                    Text("Category")
+                }
             }
             .navigationTitle(isEditing ? "Edit Clip" : "New Clip")
             .navigationBarTitleDisplayMode(.inline)
@@ -140,11 +168,14 @@ private struct ClipFormView: View {
                         dismiss()
                     }
                     .fontWeight(.semibold)
-                    .disabled(name.isEmpty || command.isEmpty)
+                    .disabled(isSaveDisabled)
                 }
             }
+            .onChange(of: category) { _, newValue in
+                showCustomCategoryField = newValue == "__custom__"
+            }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
     }
 
     private var isEditing: Bool {
@@ -152,14 +183,28 @@ private struct ClipFormView: View {
         return false
     }
 
+    private var resolvedCategory: String {
+        if category == "__custom__" {
+            return customCategory.trimmingCharacters(in: .whitespaces).isEmpty ? "General" : customCategory.trimmingCharacters(in: .whitespaces)
+        }
+        return category
+    }
+
+    private var isSaveDisabled: Bool {
+        if name.isEmpty || command.isEmpty { return true }
+        if category == "__custom__" && customCategory.trimmingCharacters(in: .whitespaces).isEmpty { return true }
+        return false
+    }
+
     private func save() {
         switch mode {
         case .add:
-            ClipStore.shared.add(name: name, command: command)
+            store.add(name: name, command: command, category: resolvedCategory)
         case .edit(var clip):
             clip.name = name
             clip.command = command
-            ClipStore.shared.update(clip)
+            clip.category = resolvedCategory
+            store.update(clip)
         }
     }
 }
