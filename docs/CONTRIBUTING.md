@@ -60,22 +60,22 @@ termpod/
 
 All sensitive or deployment-specific values come from `.env`. Never commit secrets. Key variables:
 
-| Variable                 | Used By            | Purpose                               |
-| ------------------------ | ------------------ | ------------------------------------- |
-| `VITE_RELAY_URL`         | Desktop app        | Relay WebSocket URL                   |
-| `JWT_SECRET`             | Relay server       | JWT signing key                       |
-| `RESEND_API_KEY`         | Relay server       | Email service for password reset      |
-| `VITE_SENTRY_DSN`        | Desktop app        | Sentry error tracking (optional)      |
-| `SENTRY_DSN`             | Relay + iOS        | Sentry error tracking (optional)      |
-| `APPLE_TEAM_ID`          | iOS + macOS builds | Apple Developer Team ID               |
-| `APPLE_SIGNING_IDENTITY` | macOS builds       | Code signing identity                 |
-| `APPLE_ID`               | macOS notarization | Apple ID for notarization             |
-| `APPLE_PASSWORD`         | macOS notarization | App-specific password                 |
+| Variable                 | Used By            | Purpose                          |
+| ------------------------ | ------------------ | -------------------------------- |
+| `VITE_RELAY_URL`         | Desktop app        | Relay WebSocket URL              |
+| `JWT_SECRET`             | Relay server       | JWT signing key                  |
+| `RESEND_API_KEY`         | Relay server       | Email service for password reset |
+| `VITE_SENTRY_DSN`        | Desktop app        | Sentry error tracking (optional) |
+| `SENTRY_DSN`             | Relay + iOS        | Sentry error tracking (optional) |
+| `APPLE_TEAM_ID`          | iOS + macOS builds | Apple Developer Team ID          |
+| `APPLE_SIGNING_IDENTITY` | macOS builds       | Code signing identity            |
+| `APPLE_ID`               | macOS notarization | Apple ID for notarization        |
+| `APPLE_PASSWORD`         | macOS notarization | App-specific password            |
 
-| `TURN_KEY_ID`            | Relay server       | Cloudflare TURN for WebRTC (optional) |
-| `TURN_KEY_API_TOKEN`     | Relay server       | Cloudflare TURN for WebRTC (optional) |
-| `POLAR_WEBHOOK_SECRET`   | Relay server       | Polar.sh billing webhook (optional)   |
-| `POLAR_API_KEY`          | Relay server       | Polar.sh API key (optional)           |
+| `TURN_KEY_ID` | Relay server | Cloudflare TURN for WebRTC (optional) |
+| `TURN_KEY_API_TOKEN` | Relay server | Cloudflare TURN for WebRTC (optional) |
+| `POLAR_WEBHOOK_SECRET` | Relay server | Polar.sh billing webhook (optional) |
+| `POLAR_API_KEY` | Relay server | Polar.sh API key (optional) |
 
 For iOS, run `pnpm ios:generate` to generate `Config.xcconfig` from your `.env` and regenerate the Xcode project.
 
