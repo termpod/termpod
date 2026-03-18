@@ -47,6 +47,7 @@
     "resources": [
       "shell-integration/zsh/.zshenv",
       "shell-integration/zsh/termpod.zsh",
+      "shell-integration/zsh/zsh-syntax-highlighting/**/*",
       "shell-integration/bash/termpod.bash",
       "shell-integration/fish/vendor_conf.d/termpod.fish"
     ]

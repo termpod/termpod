@@ -117,5 +117,24 @@ _termpod_preexec_capture() {
 # - _termpod_save_status FIRST (captures $? before anything else)
 # - _termpod_precmd early (emits A, D)
 # - _termpod_update_ps1 LAST (appends B after prompt frameworks set PS1)
-precmd_functions=(_termpod_save_status _termpod_precmd "${precmd_functions[@]}" _termpod_update_ps1)
+precmd_functions=(_termpod_save_status _termpod_precmd "${precmd_functions[@]}" _termpod_update_ps1 _termpod_init_syntax_highlighting)
 preexec_functions=(_termpod_preexec_capture "${preexec_functions[@]}")
+
+# One-shot: source bundled zsh-syntax-highlighting on first prompt,
+# but only if the user doesn't already have it loaded.
+_termpod_init_syntax_highlighting() {
+    # Remove ourselves — this runs exactly once
+    precmd_functions=(${precmd_functions:#_termpod_init_syntax_highlighting})
+
+    # Skip if user already has syntax highlighting active
+    # (via oh-my-zsh, zinit, antidote, manual source, etc.)
+    (( ${+ZSH_HIGHLIGHT_VERSION} )) && return
+    [[ -n "${ZSH_HIGHLIGHT_HIGHLIGHTERS+x}" ]] && return
+
+    # Also skip if fast-syntax-highlighting is loaded
+    (( ${+FAST_HIGHLIGHT} )) && return
+
+    # Source our bundled copy
+    local bundled="${TERMPOD_SHELL_INTEGRATION_DIR}/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+    [[ -f "$bundled" ]] && builtin source "$bundled"
+}
