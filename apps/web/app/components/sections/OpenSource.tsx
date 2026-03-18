@@ -3,7 +3,7 @@ import { Github, Heart, BookOpen } from 'lucide-react';
 export function OpenSource() {
   return (
     <section id="open-source" className="px-6 py-16 md:px-20 md:py-24 lg:px-[120px] lg:py-[100px]">
-      <div className="flex flex-col overflow-hidden border border-stroke-light md:flex-row">
+      <div className="feature-card flex flex-col overflow-hidden border border-stroke-light md:flex-row">
         {/* Left */}
         <div className="flex flex-1 flex-col justify-center p-8 md:p-[60px]">
           <div className="mb-4 flex items-center gap-3">
@@ -22,14 +22,14 @@ export function OpenSource() {
           <div className="flex flex-col gap-3 sm:flex-row">
             <a
               href="https://github.com/termpod/termpod"
-              className="flex items-center justify-center gap-2 bg-text-white px-6 py-3 font-mono text-xs font-semibold tracking-wider text-bg transition-opacity hover:opacity-90"
+              className="cta-primary flex items-center justify-center gap-2 bg-text-white px-6 py-3 font-mono text-xs font-semibold tracking-wider text-bg"
             >
               <Github size={14} />
               VIEW ON GITHUB
             </a>
             <a
               href="/docs/self-hosting"
-              className="flex items-center justify-center gap-2 border border-stroke px-6 py-3 font-mono text-xs font-semibold tracking-wider text-text-white transition-colors hover:border-text-gray"
+              className="cta-secondary flex items-center justify-center gap-2 border border-stroke px-6 py-3 font-mono text-xs font-semibold tracking-wider text-text-white"
             >
               <BookOpen size={14} />
               DOCUMENTATION

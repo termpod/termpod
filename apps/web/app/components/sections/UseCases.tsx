@@ -34,7 +34,7 @@ export function UseCases() {
       />
 
       {/* UC1 — Walk Away */}
-      <div className="flex w-full flex-col overflow-hidden border border-stroke-light md:flex-row">
+      <div className="feature-card flex w-full flex-col overflow-hidden border border-stroke-light md:flex-row">
         <div className="flex flex-1 flex-col justify-center p-8 md:p-12">
           <span className="mb-2 font-heading text-4xl font-bold text-stroke">01</span>
           <h3 className="mb-3 font-heading text-xl font-bold tracking-tight text-text-white md:text-[26px] md:leading-tight">
@@ -72,7 +72,7 @@ export function UseCases() {
       </div>
 
       {/* UC2 — Approve */}
-      <div className="flex w-full flex-col-reverse overflow-hidden border border-stroke-light md:flex-row">
+      <div className="feature-card flex w-full flex-col-reverse overflow-hidden border border-stroke-light md:flex-row">
         <div className="flex flex-1 items-center justify-center bg-[#0A0A0A] p-6 md:max-w-[440px]">
           <Screenshot
             src="/screenshots/uc-deploy.png"
@@ -109,7 +109,7 @@ export function UseCases() {
       </div>
 
       {/* UC3 — Monitor */}
-      <div className="flex w-full flex-col overflow-hidden border border-stroke-light md:flex-row">
+      <div className="feature-card flex w-full flex-col overflow-hidden border border-stroke-light md:flex-row">
         <div className="flex flex-1 flex-col justify-center p-8 md:p-12">
           <span className="mb-2 font-heading text-4xl font-bold text-stroke">03</span>
           <h3 className="mb-3 font-heading text-xl font-bold tracking-tight text-text-white md:text-[22px] md:leading-tight">

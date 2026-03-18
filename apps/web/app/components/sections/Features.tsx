@@ -136,7 +136,7 @@ export function Features() {
       />
 
       {/* Feature 1: Streaming */}
-      <div className="flex w-full flex-col overflow-hidden border border-stroke-light md:flex-row">
+      <div className="feature-card flex w-full flex-col overflow-hidden border border-stroke-light md:flex-row">
         <div className="flex flex-1 flex-col justify-center p-8 md:p-12">
           <FeatureTag color="#C9A962" label="REAL-TIME STREAMING" />
           <h3 className="mb-3 font-heading text-xl font-bold tracking-tight text-text-white md:text-[28px] md:leading-tight">
@@ -160,7 +160,7 @@ export function Features() {
       </div>
 
       {/* Feature 2: Local First */}
-      <div className="flex w-full flex-col-reverse overflow-hidden border border-stroke-light md:flex-row">
+      <div className="feature-card flex w-full flex-col-reverse overflow-hidden border border-stroke-light md:flex-row">
         <div className="flex flex-1 items-center justify-center bg-[#0A0A0A] p-6 md:max-w-[480px]">
           <LocalFirstVisual />
         </div>
@@ -178,7 +178,7 @@ export function Features() {
       </div>
 
       {/* Feature 3: Multi Session */}
-      <div className="flex w-full flex-col overflow-hidden border border-stroke-light md:flex-row">
+      <div className="feature-card flex w-full flex-col overflow-hidden border border-stroke-light md:flex-row">
         <div className="flex flex-1 flex-col justify-center p-8 md:p-12">
           <FeatureTag color="#A855F7" label="MULTI-SESSION" />
           <h3 className="mb-3 font-heading text-xl font-bold tracking-tight text-text-white md:text-[28px] md:leading-tight">
@@ -213,7 +213,7 @@ export function Features() {
 
       {/* Secondary Feature Cards */}
       <div className="grid w-full gap-5 md:grid-cols-3">
-        <div className="flex flex-col border border-stroke-light p-8">
+        <div className="feature-card flex flex-col border border-stroke-light p-8">
           <Shield size={24} className="mb-4 text-gold" />
           <h4 className="mb-2 font-heading text-base font-bold text-text-white">E2E Encrypted</h4>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
@@ -221,7 +221,7 @@ export function Features() {
             cannot read. Nobody sees your terminal data but you.
           </p>
         </div>
-        <div className="flex flex-col border border-stroke-light p-8">
+        <div className="feature-card flex flex-col border border-stroke-light p-8">
           <Zap size={24} className="mb-4 text-[#EC4899]" />
           <h4 className="mb-2 font-heading text-base font-bold text-text-white">Sub-5ms Latency</h4>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
@@ -229,7 +229,7 @@ export function Features() {
             feels like typing at your desk — because you practically are.
           </p>
         </div>
-        <div className="flex flex-col border border-stroke-light p-8">
+        <div className="feature-card flex flex-col border border-stroke-light p-8">
           <Terminal size={24} className="mb-4 text-gold" />
           <h4 className="mb-2 font-heading text-base font-bold text-text-white">
             Full PTY Support

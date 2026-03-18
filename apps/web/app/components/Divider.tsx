@@ -1,3 +1,10 @@
 export function Divider() {
-  return <div className="h-px w-full bg-[#8A8A8A]/30" />;
+  return (
+    <div
+      className="mx-auto h-px w-full max-w-5xl"
+      style={{
+        background: 'linear-gradient(to right, transparent, rgba(138,138,138,0.3) 30%, rgba(138,138,138,0.3) 70%, transparent)',
+      }}
+    />
+  );
 }

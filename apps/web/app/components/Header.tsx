@@ -1,11 +1,12 @@
 import { Github } from 'lucide-react';
+import { TermPodIcon } from './TermPodLogo';
 
 export function Header() {
   return (
-    <header className="flex w-full items-center justify-between px-6 py-5 md:px-20">
+    <header className="sticky top-0 z-50 flex w-full items-center justify-between border-b border-stroke-light/20 bg-bg/80 px-6 py-5 backdrop-blur-xl md:px-20">
       {/* Logo */}
       <a href="/" className="flex items-center gap-2.5">
-        <span className="font-heading text-2xl font-bold text-gold">{'>_'}</span>
+        <TermPodIcon size={22} className="text-gold" />
         <span className="font-heading text-xl font-bold tracking-[0.15em] text-text-white">
           TERMPOD
         </span>

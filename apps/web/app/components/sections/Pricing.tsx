@@ -20,7 +20,7 @@ export function Pricing() {
   return (
     <section
       id="pricing"
-      className="flex flex-col items-center gap-12 px-6 py-16 md:gap-16 md:px-20 md:py-24 lg:px-[120px] lg:py-[100px]"
+      className="section-alt flex flex-col items-center gap-12 px-6 py-16 md:gap-16 md:px-20 md:py-24 lg:px-[120px] lg:py-[100px]"
     >
       <SectionHeader
         number="04"
@@ -57,7 +57,7 @@ export function Pricing() {
           </div>
           <a
             href="https://github.com/termpod/termpod"
-            className="flex items-center justify-center gap-2 border border-stroke px-6 py-3 font-mono text-xs font-semibold tracking-wider text-text-white transition-colors hover:border-text-gray"
+            className="cta-secondary flex items-center justify-center gap-2 border border-stroke px-6 py-3 font-mono text-xs font-semibold tracking-wider text-text-white"
           >
             DOWNLOAD FREE
           </a>
@@ -95,7 +95,7 @@ export function Pricing() {
           </p>
           <a
             href={process.env.NEXT_PUBLIC_POLAR_CHECKOUT_URL ?? '#'}
-            className="flex items-center justify-center gap-2 bg-gold px-6 py-3 font-mono text-xs font-semibold tracking-wider text-bg transition-opacity hover:opacity-90"
+            className="cta-primary flex items-center justify-center gap-2 bg-gold px-6 py-3 font-mono text-xs font-semibold tracking-wider text-bg"
           >
             START PRO TRIAL
           </a>

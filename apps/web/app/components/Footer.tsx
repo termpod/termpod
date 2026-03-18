@@ -1,4 +1,5 @@
 import { Twitter, Github, Mail } from 'lucide-react';
+import { TermPodIcon } from './TermPodLogo';
 
 export function Footer() {
   return (
@@ -8,7 +9,7 @@ export function Footer() {
         {/* Logo + tagline */}
         <div className="max-w-[300px]">
           <div className="mb-3 flex items-center gap-2.5">
-            <span className="font-heading text-2xl font-bold text-gold">{'>_'}</span>
+            <TermPodIcon size={22} className="text-gold" />
             <span className="font-heading text-xl font-bold tracking-[0.15em] text-text-white">
               TERMPOD
             </span>

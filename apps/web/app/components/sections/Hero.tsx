@@ -15,7 +15,14 @@ function ToolIcon({ color, children }: { color: string; children: React.ReactNod
 
 export function Hero() {
   return (
-    <section className="flex flex-col items-center px-6 pt-16 pb-16 md:px-20 md:pt-24 md:pb-20 lg:px-[120px] lg:pt-[100px] lg:pb-20">
+    <section className="relative flex flex-col items-center px-6 pt-16 pb-16 md:px-20 md:pt-24 md:pb-20 lg:px-[120px] lg:pt-[100px] lg:pb-20">
+      {/* Atmospheric glow */}
+      <div
+        className="pointer-events-none absolute top-[-200px] left-1/2 h-[600px] w-[800px] -translate-x-1/2"
+        style={{
+          background: 'radial-gradient(ellipse at center, rgba(201,169,98,0.08) 0%, rgba(201,169,98,0.03) 30%, transparent 70%)',
+        }}
+      />
       {/* Badge */}
       <div className="animate-fade-in mb-12 flex items-center gap-2.5 border border-gold/30 px-4 py-1.5">
         <span className="h-2 w-2 rounded-full bg-gold" />
@@ -41,14 +48,14 @@ export function Hero() {
       <div className="animate-fade-in-up delay-300 mb-12 flex flex-col items-center gap-4 sm:flex-row sm:gap-4">
         <a
           href="#download"
-          className="flex items-center gap-2.5 bg-gold px-6 py-3 font-mono text-sm font-semibold tracking-wider text-bg transition-opacity hover:opacity-90"
+          className="cta-primary flex items-center gap-2.5 bg-gold px-6 py-3 font-mono text-sm font-semibold tracking-wider text-bg"
         >
           <Monitor size={16} />
           DOWNLOAD FOR MAC
         </a>
         <a
           href="#download"
-          className="flex items-center gap-2.5 border border-[#555] bg-[#1A1A1A] px-6 py-3 font-mono text-sm font-semibold tracking-wider text-text-white transition-colors hover:border-text-gray"
+          className="cta-secondary flex items-center gap-2.5 border border-[#555] bg-[#1A1A1A] px-6 py-3 font-mono text-sm font-semibold tracking-wider text-text-white"
         >
           <Smartphone size={16} />
           DOWNLOAD FOR IPHONE

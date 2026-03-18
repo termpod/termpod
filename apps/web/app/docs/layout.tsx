@@ -1,11 +1,12 @@
 import { DocsLayout } from 'fumadocs-ui/layouts/docs';
 import type { ReactNode } from 'react';
 import { source } from '@/lib/source';
+import { TermPodIcon } from '../components/TermPodLogo';
 
 function Logo() {
   return (
     <span className="inline-flex items-center gap-1.5 font-heading text-base font-bold">
-      <span className="text-gold">{'>_'}</span>
+      <TermPodIcon size={16} className="text-gold" />
       <span>
         TERMPOD <span className="font-normal text-text-gray">Docs</span>
       </span>

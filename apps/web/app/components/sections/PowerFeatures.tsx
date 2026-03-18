@@ -78,7 +78,7 @@ export function PowerFeatures() {
   return (
     <section
       id="power-features"
-      className="flex flex-col items-center gap-16 px-6 py-16 md:gap-20 md:px-20 md:py-24 lg:px-[120px] lg:py-[100px]"
+      className="section-alt flex flex-col items-center gap-16 px-6 py-16 md:gap-20 md:px-20 md:py-24 lg:px-[120px] lg:py-[100px]"
     >
       <SectionHeader
         number="02"
@@ -88,7 +88,7 @@ export function PowerFeatures() {
       />
 
       {/* Feature 1: Command Blocks */}
-      <div className="flex w-full flex-col overflow-hidden border border-stroke-light md:flex-row">
+      <div className="feature-card flex w-full flex-col overflow-hidden border border-stroke-light md:flex-row">
         <div className="flex flex-1 flex-col justify-center p-8 md:p-12">
           <span className="mb-4 inline-block self-start font-mono text-[11px] font-semibold tracking-[0.2em] text-[#10B981]">
             COMMAND BLOCKS
@@ -108,7 +108,7 @@ export function PowerFeatures() {
       </div>
 
       {/* Feature 2: Session Sharing */}
-      <div className="flex w-full flex-col-reverse overflow-hidden border border-stroke-light md:flex-row">
+      <div className="feature-card flex w-full flex-col-reverse overflow-hidden border border-stroke-light md:flex-row">
         <div className="flex flex-1 items-center justify-center bg-[#0A0A0A] p-6 md:max-w-[440px]">
           <ShareMockup />
         </div>
@@ -129,7 +129,7 @@ export function PowerFeatures() {
 
       {/* Secondary cards: Workflows + Recording + Autocomplete */}
       <div className="grid w-full gap-5 md:grid-cols-3">
-        <div className="flex flex-col border border-stroke-light p-8">
+        <div className="feature-card flex flex-col border border-stroke-light p-8">
           <ListChecks size={24} className="mb-4 text-[#A855F7]" />
           <h4 className="mb-2 font-heading text-base font-bold text-text-white">Workflows</h4>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
@@ -137,7 +137,7 @@ export function PowerFeatures() {
             run them from the command palette.
           </p>
         </div>
-        <div className="flex flex-col border border-stroke-light p-8">
+        <div className="feature-card flex flex-col border border-stroke-light p-8">
           <Circle size={24} className="mb-4 text-red-400" />
           <h4 className="mb-2 font-heading text-base font-bold text-text-white">Session Recording</h4>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
@@ -145,7 +145,7 @@ export function PowerFeatures() {
             millisecond timing. Export as asciicast, play back anytime.
           </p>
         </div>
-        <div className="flex flex-col border border-stroke-light p-8">
+        <div className="feature-card flex flex-col border border-stroke-light p-8">
           <Sparkles size={24} className="mb-4 text-gold" />
           <h4 className="mb-2 font-heading text-base font-bold text-text-white">Autocompletions</h4>
           <p className="font-mono text-sm leading-relaxed text-text-gray">

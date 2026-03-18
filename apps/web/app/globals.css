@@ -59,7 +59,7 @@
   --color-stroke-light: #222222;
   --color-text-white: #FFFFFF;
   --color-text-gray: #999999;
-  --color-text-dark: #555555;
+  --color-text-dark: #888888;
   --font-heading: var(--font-space-grotesk);
   --font-mono: var(--font-ibm-plex-mono);
 }
@@ -188,6 +188,44 @@ body:not(:has(#nd-docs-layout)) {
   border: 1px solid #333333;
   border-radius: 8px;
   overflow: hidden;
+}
+
+/* Feature card hover */
+.feature-card {
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.feature-card:hover {
+  border-color: #444444;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* CTA button depth */
+.cta-primary {
+  box-shadow: 0 2px 12px rgba(201, 169, 98, 0.2), 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: opacity 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cta-primary:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(201, 169, 98, 0.3), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.cta-secondary {
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cta-secondary:hover {
+  border-color: #888888;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Section alternate bg */
+.section-alt {
+  background: #0E0E0E;
 }
 
 .terminal-chrome::before {

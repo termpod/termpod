@@ -18,14 +18,14 @@ export function FinalCTA() {
         <div className="mb-6 flex flex-col items-center gap-4 sm:flex-row">
           <a
             href="#download"
-            className="flex items-center gap-2.5 bg-gold px-6 py-3 font-mono text-sm font-semibold tracking-wider text-bg transition-opacity hover:opacity-90"
+            className="cta-primary flex items-center gap-2.5 bg-gold px-6 py-3 font-mono text-sm font-semibold tracking-wider text-bg"
           >
             <Monitor size={16} />
             DOWNLOAD FOR MAC
           </a>
           <a
             href="#download"
-            className="flex items-center gap-2.5 border border-[#555] bg-[#1A1A1A] px-6 py-3 font-mono text-sm font-semibold tracking-wider text-text-white transition-colors hover:border-text-gray"
+            className="cta-secondary flex items-center gap-2.5 border border-[#555] bg-[#1A1A1A] px-6 py-3 font-mono text-sm font-semibold tracking-wider text-text-white"
           >
             <Smartphone size={16} />
             DOWNLOAD FOR IPHONE
