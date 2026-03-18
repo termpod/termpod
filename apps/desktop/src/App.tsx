@@ -268,7 +268,8 @@ export function App() {
     [createSession, settings.shellPath, deviceWS.sendSessionCreated],
   );
 
-  const [showOnboarding, setShowOnboarding] = useState(() => !settings.onboardingComplete);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const showOnboarding = !onboardingDismissed && !settings.onboardingComplete;
   const [showSettings, setShowSettings] = useState(false);
   const [showKeybindings, setShowKeybindings] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -1581,7 +1582,7 @@ export function App() {
         <OnboardingScreen
           currentTheme={settings.theme}
           onUpdateSettings={updateSettings}
-          onComplete={() => setShowOnboarding(false)}
+          onComplete={() => setOnboardingDismissed(true)}
         />
       )}
     </div>
