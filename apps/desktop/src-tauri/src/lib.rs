@@ -427,12 +427,15 @@ pub fn run() {
                 .item(&theme_submenu)
                 .build()?;
 
-            let mut session_menu = SubmenuBuilder::new(app, "Session")
+            let file_menu = SubmenuBuilder::new(app, "File")
                 .item(&new_tab)
                 .item(&duplicate_tab)
-                .item(&rename_tab)
                 .item(&close_tab)
                 .item(&close_other_tabs)
+                .build()?;
+
+            let mut shell_menu = SubmenuBuilder::new(app, "Shell")
+                .item(&rename_tab)
                 .separator()
                 .item(&workflows)
                 .item(&termify)
@@ -444,10 +447,10 @@ pub fn run() {
                 .separator();
 
             for item in &tab_items {
-                session_menu = session_menu.item(item);
+                shell_menu = shell_menu.item(item);
             }
 
-            let session_menu = session_menu.build()?;
+            let shell_menu = shell_menu.build()?;
 
             let minimize = MenuItemBuilder::with_id("minimize", "Minimize")
                 .accelerator("CmdOrCtrl+M")
@@ -499,9 +502,10 @@ pub fn run() {
                     .separator()
                     .item(&PredefinedMenuItem::quit(app, Some("Quit TermPod"))?)
                     .build()?)
+                .item(&file_menu)
                 .item(&edit_menu)
                 .item(&view_menu)
-                .item(&session_menu)
+                .item(&shell_menu)
                 .item(&window_menu);
 
             #[cfg(debug_assertions)]

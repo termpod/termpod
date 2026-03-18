@@ -823,7 +823,7 @@ export function App() {
         break;
 
       case 'report_issue':
-        invoke('open_url', { url: 'https://github.com/anthropics/termpod/issues' });
+        invoke('open_url', { url: 'https://github.com/termpod/termpod/issues' });
         break;
 
       default:
