@@ -33,6 +33,7 @@ import { useWorkflows } from './hooks/useWorkflows';
 import { WorkflowsPanel } from './components/WorkflowsPanel';
 import { authFetch } from './hooks/useAuth';
 import { ShareDialog } from './components/ShareDialog';
+import { AboutModal } from './components/AboutModal';
 import {
   useRecording,
   startRecording,
@@ -258,6 +259,7 @@ export function App() {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showDevicesPanel, setShowDevicesPanel] = useState(false);
   const [showWorkflows, setShowWorkflows] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   const [shareMap, setShareMap] = useState<Map<string, { shareUrl: string; expiresAt: string }>>(
     new Map(),
   );
@@ -812,6 +814,10 @@ export function App() {
         updater.manualCheckForUpdate();
         break;
 
+      case 'about':
+        setShowAbout(true);
+        break;
+
       case 'termpod_help':
         invoke('open_url', { url: 'https://termpod.dev/docs' });
         break;
@@ -1164,6 +1170,14 @@ export function App() {
           }}
           onClose={() => {
             setShowWorkflows(false);
+            setTimeout(focusActive, 50);
+          }}
+        />
+      )}
+      {showAbout && (
+        <AboutModal
+          onClose={() => {
+            setShowAbout(false);
             setTimeout(focusActive, 50);
           }}
         />

@@ -2,7 +2,7 @@ mod local_server;
 mod pty;
 
 use std::ffi::CStr;
-use tauri::menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 
 unsafe extern "C" {
@@ -482,10 +482,13 @@ pub fn run() {
             let check_updates = MenuItemBuilder::with_id("check_updates", "Check for Updates\u{2026}")
                 .build(app)?;
 
+            let about = MenuItemBuilder::with_id("about", "About TermPod")
+                .build(app)?;
+
             #[allow(unused_mut)]
             let mut menu_builder = MenuBuilder::new(app)
                 .item(&SubmenuBuilder::new(app, "TermPod")
-                    .about(None)
+                    .item(&about)
                     .separator()
                     .item(&check_updates)
                     .separator()
@@ -494,7 +497,7 @@ pub fn run() {
                     .separator()
                     .item(&command_palette)
                     .separator()
-                    .quit()
+                    .item(&PredefinedMenuItem::quit(app, Some("Quit TermPod"))?)
                     .build()?)
                 .item(&edit_menu)
                 .item(&view_menu)
