@@ -9,7 +9,8 @@
     "preview": "opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "start": "next start",
-    "lint": "tsc --noEmit"
+    "lint": "fumadocs-mdx && tsc --noEmit",
+    "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.17.1",
