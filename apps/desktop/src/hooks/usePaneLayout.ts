@@ -21,12 +21,16 @@ const store: PaneLayoutStore = {
   listeners: new Set(),
 };
 
+// Cached snapshot — must be referentially stable for useSyncExternalStore
+let cachedSnapshot = { trees: store.trees, focusedPaneId: store.focusedPaneId };
+
 function notify() {
+  cachedSnapshot = { trees: store.trees, focusedPaneId: store.focusedPaneId };
   for (const l of store.listeners) l();
 }
 
 function getSnapshot() {
-  return { trees: store.trees, focusedPaneId: store.focusedPaneId };
+  return cachedSnapshot;
 }
 
 function subscribe(cb: () => void) {
