@@ -1,1 +1,5 @@
 apps/web/.source
+apps/web/.next
+apps/desktop/src-tauri/gen
+apps/desktop/src-tauri/target
+next-env.d.ts

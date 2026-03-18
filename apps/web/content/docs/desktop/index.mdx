@@ -72,6 +72,19 @@ apps/desktop/
 5. **E2E Encryption**: Encrypts all outgoing terminal data
 6. **Auto-Updates**: Self-updates via relay-proxied GitHub releases
 
+## Configuration
+
+All user settings are stored as JSON files in `~/.termpod/`:
+
+| File | Purpose |
+| --- | --- |
+| `config.json` | Appearance, terminal, and behavior settings |
+| `keybindings.json` | Custom keyboard shortcut overrides |
+| `workflows.json` | Saved command workflows |
+| `themes/*.json` | Custom terminal color themes |
+
+Files are watched for changes — edit in any text editor and the app updates live, no restart needed. See [Customization](/docs/desktop/customization) for the full reference.
+
 ## Important Implementation Notes
 
 - **Tab panels use `position:absolute + visibility:hidden`** — not `display:none`, which breaks xterm.js WebGL rendering in zero-dimension containers

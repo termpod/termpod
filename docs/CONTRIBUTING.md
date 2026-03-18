@@ -79,6 +79,24 @@ All sensitive or deployment-specific values come from `.env`. Never commit secre
 
 For iOS, run `pnpm ios:generate` to generate `Config.xcconfig` from your `.env` and regenerate the Xcode project.
 
+## User Configuration
+
+The desktop app stores all user settings as JSON files in `~/.termpod/`:
+
+```
+~/.termpod/
+├── config.json          # Appearance, terminal, behavior settings
+├── keybindings.json     # Custom keyboard shortcut overrides
+├── workflows.json       # Saved command workflows
+└── themes/              # Custom terminal color themes (.json files)
+```
+
+- Files are watched — external edits are picked up instantly (no restart)
+- On first launch, existing localStorage settings are migrated to these files automatically
+- Custom themes: drop a `.json` file in `~/.termpod/themes/` with all 20 ANSI color properties + `name`
+- Settings use a `ConfigStore` class (`apps/desktop/src/lib/configStore.ts`) that provides `useSyncExternalStore`-compatible subscriptions with debounced disk writes (500ms)
+- Auth tokens stay in localStorage (not in `~/.termpod/`) to avoid accidental dotfile commits
+
 ## Making Changes
 
 - Follow the protocol spec in [PROTOCOL.md](./PROTOCOL.md) for any WebSocket changes

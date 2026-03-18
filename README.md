@@ -53,6 +53,20 @@ Sessions survive disconnects — close the app, reopen it, and you're right wher
 - **Error tracking** — Sentry integration across desktop, relay, and iOS
 - **Works with everything** — Claude Code, Codex, npm, docker, any CLI
 
+## Configuration
+
+All user settings are stored as JSON in `~/.termpod/`:
+
+```
+~/.termpod/
+├── config.json          # Appearance, terminal, behavior settings
+├── keybindings.json     # Custom keyboard shortcut overrides
+├── workflows.json       # Saved command workflows
+└── themes/              # Drop custom theme .json files here
+```
+
+Edit these files in any text editor — changes are picked up live, no restart needed. Custom themes appear automatically in the theme picker. See the [Customization docs](https://termpod.dev/docs/desktop/customization) for the full reference.
+
 ## Tech Stack
 
 | Layer           | Technology                                                                  |

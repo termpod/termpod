@@ -13,21 +13,41 @@ No SSH. No tmux hacks. No VPN. Just open the app.
 
 ## How It Works
 
-```
-                    ┌────────────────┐
-                    │  TermPod Relay │
-                    │  (Cloudflare   │
-                    │   Durable Obj) │
-                    └───▲────────▲───┘
-                   ws   │        │  ws
-           ┌────────────┘        └────────────┐
-           │                                  │
-     ┌─────▼───┐  bonjour / webrtc (P2P)  ┌──▼──────┐
-     │   Mac   │◄────────────────────────►│  iPhone │
-     │ (PTY +  │                          │ (viewer │
-     │  viewer)│                          │ + input)│
-     └─────────┘                          └─────────┘
-```
+<svg viewBox="0 0 540 200" style={{ width: '100%', maxWidth: '580px', margin: '1.5rem auto', display: 'block', overflow: 'visible' }} xmlns="http://www.w3.org/2000/svg" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">
+  {/* Relay box — centered at top */}
+  <rect x="170" y="0" width="200" height="48" fill="none" stroke="#444" strokeWidth="1" rx="3" />
+  <text x="270" y="20" textAnchor="middle" fill="#ccc" fontSize="12">TermPod Relay</text>
+  <text x="270" y="38" textAnchor="middle" fill="#777" fontSize="11">(Cloudflare Durable Obj)</text>
+
+  {/* Left WS connector: relay bottom → bend → down to Mac */}
+  <path d="M 220 48 L 220 68 L 90 68 L 90 110" fill="none" stroke="#444" strokeWidth="1" />
+  <text x="78" y="93" fill="#777" fontSize="10">ws</text>
+  <polygon points="90,110 86,103 94,103" fill="#666" />
+
+  {/* Right WS connector: relay bottom → bend → down to iPhone */}
+  <path d="M 320 48 L 320 68 L 450 68 L 450 110" fill="none" stroke="#444" strokeWidth="1" />
+  <text x="455" y="93" fill="#777" fontSize="10">ws</text>
+  <polygon points="450,110 446,103 454,103" fill="#666" />
+
+  {/* Mac box — bottom left */}
+  <rect x="10" y="112" width="160" height="48" fill="none" stroke="#444" strokeWidth="1" rx="3" />
+  <text x="90" y="133" textAnchor="middle" fill="#ccc" fontSize="12" fontWeight="600">Mac</text>
+  <text x="90" y="150" textAnchor="middle" fill="#777" fontSize="11">(PTY + viewer)</text>
+
+  {/* iPhone box — bottom right */}
+  <rect x="370" y="112" width="160" height="48" fill="none" stroke="#444" strokeWidth="1" rx="3" />
+  <text x="450" y="133" textAnchor="middle" fill="#ccc" fontSize="12" fontWeight="600">iPhone</text>
+  <text x="450" y="150" textAnchor="middle" fill="#777" fontSize="11">(viewer + input)</text>
+
+  {/* P2P bidirectional arrow between Mac and iPhone */}
+  <line x1="180" y1="136" x2="360" y2="136" stroke="#444" strokeWidth="1" />
+  <polygon points="180,136 187,132 187,140" fill="#666" />
+  <polygon points="360,136 353,132 353,140" fill="#666" />
+  <text x="270" y="126" textAnchor="middle" fill="#777" fontSize="10">bonjour / webrtc (P2P)</text>
+
+  {/* Bottom caption */}
+  <text x="270" y="185" textAnchor="middle" fill="#555" fontSize="10">transport priority: local → P2P → relay</text>
+</svg>
 
 Your Mac runs the actual shell. Devices connect in the fastest way available:
 

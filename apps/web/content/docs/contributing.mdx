@@ -46,6 +46,14 @@ open apps/ios/TermPod.xcodeproj
 - **Rust**: Clippy (`cargo clippy`)
 - **Swift**: Standard Swift conventions
 
+## User Configuration
+
+The desktop app stores all user settings in `~/.termpod/` as JSON files (`config.json`, `keybindings.json`, `workflows.json`, and custom themes in `themes/`). See [Desktop → Customization](/docs/desktop/customization) for details.
+
+- Settings use `ConfigStore` (`apps/desktop/src/lib/configStore.ts`) — file I/O with debounced writes and live file watching
+- Auth tokens stay in localStorage, not in `~/.termpod/`
+- On first launch, existing localStorage settings are migrated automatically
+
 ## Making Changes
 
 - Follow the [Protocol Specification](/docs/protocol) for any WebSocket changes

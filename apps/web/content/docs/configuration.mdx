@@ -1,7 +1,28 @@
 ---
 title: Configuration
-description: Environment variables and configuration options for TermPod desktop, relay, and iOS.
+description: Environment variables, user settings, and configuration options for TermPod desktop, relay, and iOS.
 ---
+
+TermPod has two layers of configuration:
+
+1. **User settings** (`~/.termpod/`) — Appearance, keybindings, themes, workflows. See [Desktop → Customization](/docs/desktop/customization) for full details.
+2. **Environment variables** (`.env`) — Deployment-specific values for building and running the relay, desktop app, and iOS app.
+
+## User Settings
+
+The desktop app stores all user preferences as JSON files in `~/.termpod/`:
+
+```
+~/.termpod/
+├── config.json          # Appearance, terminal, and behavior settings
+├── keybindings.json     # Custom keyboard shortcut overrides
+├── workflows.json       # Saved command workflows
+└── themes/              # Custom terminal color themes (.json files)
+```
+
+Files are watched for changes — edit them in any text editor and the app updates live. See [Desktop → Customization](/docs/desktop/customization) for the full reference.
+
+## Environment Variables
 
 All sensitive and deployment-specific values are configured via environment variables in a `.env` file at the project root. Never commit secrets to the repository.
 
