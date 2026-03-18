@@ -101,13 +101,15 @@ export function AutocompletePopup({
           e.preventDefault();
           e.stopPropagation();
           enterSelectArmedRef.current = true;
-          onSelectedIndexChange((selectedIndex + 1) % suggestions.length);
+          onSelectedIndexChange(selectedIndex < 0 ? 0 : (selectedIndex + 1) % suggestions.length);
           break;
         case 'ArrowUp':
           e.preventDefault();
           e.stopPropagation();
           enterSelectArmedRef.current = true;
-          onSelectedIndexChange((selectedIndex - 1 + suggestions.length) % suggestions.length);
+          onSelectedIndexChange(
+            selectedIndex < 0 ? suggestions.length - 1 : (selectedIndex - 1 + suggestions.length) % suggestions.length,
+          );
           break;
         case 'Escape':
           e.stopPropagation();
@@ -126,14 +128,16 @@ export function AutocompletePopup({
             enterSelectArmedRef.current = false;
           }
           break;
-        case 'Tab':
-          if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
+        case 'Tab': {
+          const tabIndex = selectedIndex >= 0 ? selectedIndex : 0;
+          if (tabIndex < suggestions.length) {
             e.preventDefault();
             e.stopPropagation();
-            onSelect(suggestions[selectedIndex]);
+            onSelect(suggestions[tabIndex]);
             enterSelectArmedRef.current = false;
           }
           break;
+        }
       }
     };
 

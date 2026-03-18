@@ -240,7 +240,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
         const nonExact = allSugs.filter((s) => s.text.toLowerCase() !== prefix.toLowerCase());
         const sugs = nonExact.length > 0 ? nonExact : allSugs;
         setSuggestions(sugs);
-        setSelectedSuggestion(0);
+        setSelectedSuggestion(-1);
 
         if (sugs.length === 0) {
           previewAnchorPrefixRef.current = null;
