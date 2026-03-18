@@ -258,6 +258,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     const applyLocalAutocompleteInput = useCallback(
       (data: string) => {
         if (!autocompleteEnabledRef.current) return;
+        // Suppress in TUI apps (vim, claude, etc.) that use alternate screen
+        if (terminalRef.current?.buffer.active.type === 'alternate') return;
         const oscInputIsFresh = Date.now() - lastOsc134InputAtRef.current < 250;
         if (oscInputIsFresh) return;
 
