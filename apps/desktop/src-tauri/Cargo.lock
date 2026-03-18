@@ -4328,7 +4328,7 @@ dependencies = [
 
 [[package]]
 name = "termpod-desktop"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "futures-util",
  "libc",
