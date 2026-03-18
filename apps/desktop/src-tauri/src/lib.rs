@@ -408,6 +408,18 @@ pub fn run() {
                 .accelerator("CmdOrCtrl+Shift+E")
                 .build(app)?;
 
+            let split_right = MenuItemBuilder::with_id("split_right", "Split Right")
+                .accelerator("CmdOrCtrl+D")
+                .build(app)?;
+
+            let split_down = MenuItemBuilder::with_id("split_down", "Split Down")
+                .accelerator("CmdOrCtrl+Shift+D")
+                .build(app)?;
+
+            let close_pane = MenuItemBuilder::with_id("close_pane", "Close Pane")
+                .accelerator("CmdOrCtrl+Shift+W")
+                .build(app)?;
+
             let find = MenuItemBuilder::with_id("find", "Find...")
                 .accelerator("CmdOrCtrl+F")
                 .build(app)?;
@@ -531,6 +543,10 @@ pub fn run() {
 
             let mut shell_menu = SubmenuBuilder::new(app, "Shell")
                 .item(&rename_tab)
+                .separator()
+                .item(&split_right)
+                .item(&split_down)
+                .item(&close_pane)
                 .separator()
                 .item(&workflows)
                 .item(&termify)
