@@ -1,4 +1,5 @@
 import { useCallback, useSyncExternalStore } from 'react';
+import { ConfigStore } from '../lib/configStore';
 
 export interface Keybinding {
   id: string;
@@ -7,7 +8,7 @@ export interface Keybinding {
   category: string;
 }
 
-const STORAGE_KEY = 'termpod-keybindings';
+export type KeybindingsMap = Record<string, string>; // id → shortcut
 
 export const CATEGORIES = ['Tabs', 'Terminal', 'View', 'App'] as const;
 
@@ -50,42 +51,15 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
 
 // Tab shortcuts (Cmd+1 through Cmd+9) are not customizable
 
-export type KeybindingsMap = Record<string, string>; // id → shortcut
-
-function loadCustom(): KeybindingsMap {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {
-    // ignore
-  }
-  return {};
-}
-
-function saveCustom(map: KeybindingsMap) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
-}
-
-const listeners = new Set<() => void>();
-let current = loadCustom();
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-}
-
-function getSnapshot() {
-  return current;
-}
-
-function emit() {
-  for (const listener of listeners) listener();
-}
+const keybindingsStore = new ConfigStore<KeybindingsMap>(
+  'keybindings.json',
+  {} as KeybindingsMap,
+  'termpod-keybindings',
+);
 
 export function getResolvedBindings(): Keybinding[] {
-  const custom = current;
+  const custom = keybindingsStore.getSnapshot();
+
   return DEFAULT_KEYBINDINGS.map((kb) => ({
     ...kb,
     shortcut: custom[kb.id] || kb.shortcut,
@@ -187,7 +161,7 @@ export function eventToShortcut(e: KeyboardEvent): string | null {
 }
 
 export function useKeybindings() {
-  const custom = useSyncExternalStore(subscribe, getSnapshot);
+  const custom = useSyncExternalStore(keybindingsStore.subscribe, keybindingsStore.getSnapshot);
 
   const resolved = DEFAULT_KEYBINDINGS.map((kb) => ({
     ...kb,
@@ -196,22 +170,16 @@ export function useKeybindings() {
   }));
 
   const updateBinding = useCallback((id: string, shortcut: string) => {
-    current = { ...current, [id]: shortcut };
-    saveCustom(current);
-    emit();
+    keybindingsStore.update({ [id]: shortcut });
   }, []);
 
   const resetBinding = useCallback((id: string) => {
-    const { [id]: _, ...rest } = current;
-    current = rest;
-    saveCustom(current);
-    emit();
+    const { [id]: _, ...rest } = keybindingsStore.getSnapshot();
+    keybindingsStore.replace(rest as KeybindingsMap);
   }, []);
 
   const resetAll = useCallback(() => {
-    current = {};
-    saveCustom(current);
-    emit();
+    keybindingsStore.replace({} as KeybindingsMap);
   }, []);
 
   return { bindings: resolved, updateBinding, resetBinding, resetAll };

@@ -1,4 +1,5 @@
 import { useCallback, useSyncExternalStore } from 'react';
+import { ConfigStore } from '../lib/configStore';
 
 export interface Workflow {
   id: string;
@@ -8,56 +9,22 @@ export interface Workflow {
   createdAt: number;
 }
 
-const STORAGE_KEY = 'termpod-workflows';
+interface WorkflowsConfig {
+  workflows: Workflow[];
+}
 
 function generateId(): string {
   return `wf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function load(): Workflow[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-
-    if (raw) {
-      return JSON.parse(raw);
-    }
-  } catch {
-    // ignore
-  }
-
-  return [];
-}
-
-function save(workflows: Workflow[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(workflows));
-}
-
-const listeners = new Set<() => void>();
-let current = load();
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-
-  return () => {
-    listeners.delete(listener);
-  };
-}
-
-function getSnapshot(): Workflow[] {
-  return current;
-}
-
-function emit(): void {
-  for (const listener of listeners) {
-    listener();
-  }
-}
-
-function update(next: Workflow[]): void {
-  current = next;
-  save(current);
-  emit();
-}
+const workflowsStore = new ConfigStore<WorkflowsConfig>(
+  'workflows.json',
+  { workflows: [] },
+  'termpod-workflows',
+  {
+    migrateLegacy: (raw) => JSON.stringify({ workflows: JSON.parse(raw) }),
+  },
+);
 
 export function addWorkflow(name: string, command: string, category?: string): Workflow {
   const workflow: Workflow = {
@@ -68,28 +35,33 @@ export function addWorkflow(name: string, command: string, category?: string): W
     createdAt: Date.now(),
   };
 
-  update([...current, workflow]);
+  const current = workflowsStore.getSnapshot();
+  workflowsStore.update({ workflows: [...current.workflows, workflow] });
 
   return workflow;
 }
 
 export function removeWorkflow(id: string): void {
-  update(current.filter((w) => w.id !== id));
+  const current = workflowsStore.getSnapshot();
+  workflowsStore.update({ workflows: current.workflows.filter((w) => w.id !== id) });
 }
 
 export function updateWorkflow(
   id: string,
   patch: Partial<Pick<Workflow, 'name' | 'command' | 'category'>>,
 ): void {
-  update(current.map((w) => (w.id === id ? { ...w, ...patch } : w)));
+  const current = workflowsStore.getSnapshot();
+  workflowsStore.update({
+    workflows: current.workflows.map((w) => (w.id === id ? { ...w, ...patch } : w)),
+  });
 }
 
 export function getWorkflows(): Workflow[] {
-  return current;
+  return workflowsStore.getSnapshot().workflows;
 }
 
 export function useWorkflows() {
-  const workflows = useSyncExternalStore(subscribe, getSnapshot);
+  const { workflows } = useSyncExternalStore(workflowsStore.subscribe, workflowsStore.getSnapshot);
 
   const add = useCallback((name: string, command: string, category?: string) => {
     return addWorkflow(name, command, category);

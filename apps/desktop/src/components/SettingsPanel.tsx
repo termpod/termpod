@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type {
   Settings,
@@ -9,7 +9,8 @@ import type {
   ScrollbarVisibility,
 } from '../hooks/useSettings';
 import { THEMES } from '../hooks/useSettings';
-import { ThemePicker } from './ThemePicker';
+import { ThemePicker, resolveTheme } from './ThemePicker';
+import { getCustomThemesSnapshot, subscribeCustomThemes } from '../lib/configStore';
 import { resolveRelayUrl } from '../hooks/useAuth';
 
 type SettingsTab = 'appearance' | 'terminal' | 'behavior' | 'connection' | 'account';
@@ -836,7 +837,8 @@ function ThemeSelector({
   onSelect: (key: string) => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
-  const theme = THEMES[selected] ?? THEMES['tokyo-night'];
+  const customThemes = useSyncExternalStore(subscribeCustomThemes, getCustomThemesSnapshot);
+  const theme = resolveTheme(selected, customThemes);
   const swatches = [theme.red, theme.green, theme.yellow, theme.blue, theme.magenta, theme.cyan];
 
   return (
@@ -1049,7 +1051,8 @@ function FontPicker({
 }
 
 function FontPreview({ settings }: { settings: Settings }) {
-  const theme = THEMES[settings.theme] ?? THEMES['tokyo-night'];
+  const customThemes = useSyncExternalStore(subscribeCustomThemes, getCustomThemesSnapshot);
+  const theme = resolveTheme(settings.theme, customThemes);
   const fg = theme.foreground;
   const smoothingMap: Record<string, string> = {
     auto: 'auto',

@@ -1,4 +1,5 @@
 import { useCallback, useSyncExternalStore } from 'react';
+import { ConfigStore } from '../lib/configStore';
 
 export type CursorStyle = 'block' | 'underline' | 'bar';
 export type NewTabCwd = 'home' | 'current' | 'custom';
@@ -1080,8 +1081,6 @@ export interface Settings {
   autocompleteEnabled: boolean;
 }
 
-const STORAGE_KEY = 'termpod-settings';
-
 const DEFAULTS: Settings = {
   theme: 'termpod-dark',
   cursorStyle: 'block',
@@ -1120,62 +1119,21 @@ const DEFAULTS: Settings = {
   autocompleteEnabled: true,
 };
 
+const settingsStore = new ConfigStore<Settings>('config.json', DEFAULTS, 'termpod-settings');
+
 export function getSettingsSnapshot(): Settings {
-  return current;
-}
-
-function loadSettings(): Settings {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-
-    if (raw) {
-      return { ...DEFAULTS, ...JSON.parse(raw) };
-    }
-  } catch {
-    // ignore
-  }
-
-  return { ...DEFAULTS };
-}
-
-function saveSettings(settings: Settings) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-}
-
-const listeners = new Set<() => void>();
-let current = loadSettings();
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-
-  return () => {
-    listeners.delete(listener);
-  };
-}
-
-function getSnapshot() {
-  return current;
-}
-
-function emit() {
-  for (const listener of listeners) {
-    listener();
-  }
+  return settingsStore.getSnapshot();
 }
 
 export function useSettings() {
-  const settings = useSyncExternalStore(subscribe, getSnapshot);
+  const settings = useSyncExternalStore(settingsStore.subscribe, settingsStore.getSnapshot);
 
   const update = useCallback((patch: Partial<Settings>) => {
-    current = { ...current, ...patch };
-    saveSettings(current);
-    emit();
+    settingsStore.update(patch);
   }, []);
 
   const reset = useCallback(() => {
-    current = { ...DEFAULTS };
-    saveSettings(current);
-    emit();
+    settingsStore.reset();
   }, []);
 
   return { settings, update, reset, defaults: DEFAULTS };

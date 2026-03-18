@@ -1,6 +1,8 @@
-import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import type { TerminalTheme } from '../hooks/useSettings';
 import { THEMES } from '../hooks/useSettings';
+import { getCustomThemesSnapshot, subscribeCustomThemes } from '../lib/configStore';
 
 interface ThemePickerProps {
   selected: string;
@@ -34,28 +36,47 @@ interface ThemeEntry {
   theme: TerminalTheme;
 }
 
-function groupThemes(filter: string): { dark: ThemeEntry[]; light: ThemeEntry[] } {
+function groupThemes(
+  allThemes: Record<string, TerminalTheme>,
+  filter: string,
+): { dark: ThemeEntry[]; light: ThemeEntry[]; custom: ThemeEntry[] } {
   const q = filter.toLowerCase();
   const dark: ThemeEntry[] = [];
   const light: ThemeEntry[] = [];
+  const custom: ThemeEntry[] = [];
 
-  for (const [key, theme] of Object.entries(THEMES)) {
+  for (const [key, theme] of Object.entries(allThemes)) {
     if (q && !theme.name.toLowerCase().includes(q)) {
       continue;
     }
+
     const entry = { key, theme };
-    if (LIGHT_THEMES.has(key)) {
+
+    if (key.startsWith('custom:')) {
+      custom.push(entry);
+    } else if (LIGHT_THEMES.has(key)) {
       light.push(entry);
     } else {
       dark.push(entry);
     }
   }
 
-  return { dark, light };
+  return { dark, light, custom };
 }
 
-function flatList(groups: { dark: ThemeEntry[]; light: ThemeEntry[] }): ThemeEntry[] {
-  return [...groups.dark, ...groups.light];
+function flatList(groups: {
+  dark: ThemeEntry[];
+  light: ThemeEntry[];
+  custom: ThemeEntry[];
+}): ThemeEntry[] {
+  return [...groups.dark, ...groups.light, ...groups.custom];
+}
+
+export function resolveTheme(
+  key: string,
+  customThemes: Record<string, TerminalTheme>,
+): TerminalTheme {
+  return THEMES[key] ?? customThemes[key] ?? THEMES['tokyo-night'];
 }
 
 export function ThemePicker({ selected, onSelect, onClose }: ThemePickerProps) {
@@ -66,9 +87,12 @@ export function ThemePicker({ selected, onSelect, onClose }: ThemePickerProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
-  const groups = groupThemes(query);
+  const customThemeMap = useSyncExternalStore(subscribeCustomThemes, getCustomThemesSnapshot);
+  const allThemes = useMemo(() => ({ ...THEMES, ...customThemeMap }), [customThemeMap]);
+
+  const groups = groupThemes(allThemes, query);
   const flat = flatList(groups);
-  const previewTheme = THEMES[hoveredKey] ?? THEMES[selected];
+  const previewTheme = allThemes[hoveredKey] ?? allThemes[selected] ?? THEMES['tokyo-night'];
 
   useEffect(() => {
     searchRef.current?.focus();
@@ -141,7 +165,7 @@ export function ThemePicker({ selected, onSelect, onClose }: ThemePickerProps) {
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
-                const g = groupThemes(e.target.value);
+                const g = groupThemes(allThemes, e.target.value);
                 const f = flatList(g);
                 if (f.length > 0 && !f.some((t) => t.key === hoveredKey)) {
                   setHoveredKey(f[0].key);
@@ -182,6 +206,31 @@ export function ThemePicker({ selected, onSelect, onClose }: ThemePickerProps) {
               <>
                 <div className="tp-group-label">Light</div>
                 {groups.light.map((entry) => (
+                  <ThemeListItem
+                    key={entry.key}
+                    entry={entry}
+                    isSelected={selected === entry.key}
+                    isHovered={hoveredKey === entry.key}
+                    onHover={() => setHoveredKey(entry.key)}
+                    onClick={() => {
+                      onSelect(entry.key);
+                      onClose();
+                    }}
+                    ref={(el) => {
+                      if (el) {
+                        itemRefs.current.set(entry.key, el);
+                      } else {
+                        itemRefs.current.delete(entry.key);
+                      }
+                    }}
+                  />
+                ))}
+              </>
+            )}
+            {groups.custom.length > 0 && (
+              <>
+                <div className="tp-group-label">Custom</div>
+                {groups.custom.map((entry) => (
                   <ThemeListItem
                     key={entry.key}
                     entry={entry}

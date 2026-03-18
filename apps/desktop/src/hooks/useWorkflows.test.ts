@@ -1,5 +1,19 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { addWorkflow, removeWorkflow, updateWorkflow, getWorkflows } from './useWorkflows';
+
+// Mock Tauri FS and path modules (ConfigStore init will fail gracefully)
+vi.mock('@tauri-apps/api/path', () => ({
+  homeDir: vi.fn().mockRejectedValue(new Error('not in tauri')),
+  join: vi.fn().mockRejectedValue(new Error('not in tauri')),
+}));
+
+vi.mock('@tauri-apps/plugin-fs', () => ({
+  readTextFile: vi.fn().mockRejectedValue(new Error('not in tauri')),
+  writeTextFile: vi.fn().mockRejectedValue(new Error('not in tauri')),
+  mkdir: vi.fn().mockRejectedValue(new Error('not in tauri')),
+  exists: vi.fn().mockResolvedValue(false),
+  readDir: vi.fn().mockResolvedValue([]),
+  watch: vi.fn().mockResolvedValue(() => {}),
+}));
 
 // Mock localStorage
 const store: Record<string, string> = {};
@@ -14,11 +28,11 @@ vi.stubGlobal('localStorage', {
   },
 });
 
+import { addWorkflow, removeWorkflow, updateWorkflow, getWorkflows } from './useWorkflows';
+
 describe('useWorkflows store', () => {
   beforeEach(() => {
-    // Clear stored workflows
-    delete store['termpod-workflows'];
-    // Reset internal state by re-importing — instead, remove all workflows
+    // Reset internal state by removing all workflows
     for (const w of getWorkflows()) {
       removeWorkflow(w.id);
     }
@@ -58,17 +72,6 @@ describe('useWorkflows store', () => {
     const updated = getWorkflows().find((w) => w.id === wf.id);
     expect(updated!.name).toBe('Lint All');
     expect(updated!.command).toBe('eslint . --fix');
-  });
-
-  it('persists to localStorage', () => {
-    addWorkflow('Save test', 'echo hello');
-
-    const raw = store['termpod-workflows'];
-    expect(raw).toBeDefined();
-
-    const parsed = JSON.parse(raw);
-    expect(parsed).toHaveLength(1);
-    expect(parsed[0].name).toBe('Save test');
   });
 
   it('generates unique ids', () => {

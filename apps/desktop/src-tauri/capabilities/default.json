@@ -15,6 +15,30 @@
     "autostart:allow-is-enabled",
     "dialog:default",
     "fs:default",
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [{ "path": "$HOME/.termpod" }, { "path": "$HOME/.termpod/**" }]
+    },
+    {
+      "identifier": "fs:allow-read-text-file",
+      "allow": [{ "path": "$HOME/.termpod/**" }]
+    },
+    {
+      "identifier": "fs:allow-write-text-file",
+      "allow": [{ "path": "$HOME/.termpod/**" }]
+    },
+    {
+      "identifier": "fs:allow-mkdir",
+      "allow": [{ "path": "$HOME/.termpod" }, { "path": "$HOME/.termpod/**" }]
+    },
+    {
+      "identifier": "fs:allow-read-dir",
+      "allow": [{ "path": "$HOME/.termpod" }, { "path": "$HOME/.termpod/**" }]
+    },
+    {
+      "identifier": "fs:allow-watch",
+      "allow": [{ "path": "$HOME/.termpod/**" }]
+    },
     "updater:default",
     "process:default",
     "process:allow-restart"

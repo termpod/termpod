@@ -1,0 +1,226 @@
+---
+title: Customization
+description: Customize TermPod with config files, custom themes, keybindings, and workflows.
+---
+
+TermPod stores all user configuration as JSON files in `~/.termpod/`. You can edit these files directly in any text editor — changes are picked up automatically.
+
+## Config Directory
+
+```
+~/.termpod/
+├── config.json          # Settings (appearance, terminal, behavior)
+├── keybindings.json     # Custom keyboard shortcut overrides
+├── workflows.json       # Saved command workflows
+└── themes/              # Custom terminal themes
+    └── my-theme.json
+```
+
+The directory and default files are created automatically on first launch. If you're migrating from an older version, your existing settings are migrated from localStorage to these files automatically.
+
+## Settings (`config.json`)
+
+The main configuration file. All fields are optional — missing fields use sensible defaults.
+
+```json
+{
+  "theme": "termpod-dark",
+  "fontSize": 14,
+  "fontFamily": "Menlo, monospace",
+  "fontWeight": "normal",
+  "fontSmoothing": "antialiased",
+  "fontLigatures": false,
+  "cursorStyle": "block",
+  "cursorBlink": true,
+  "lineHeight": 1.0,
+  "windowPadding": 0,
+  "backgroundOpacity": 1.0,
+  "blurRadius": 0,
+  "scrollbarVisibility": "always",
+  "scrollbackLines": 5000,
+  "shellPath": "/bin/zsh",
+  "bellEnabled": false,
+  "drawBoldInBold": true,
+  "newTabCwd": "home",
+  "customTabCwdPath": "",
+  "closeWindowOnLastTab": true,
+  "promptAtBottom": false,
+  "copyOnSelect": false,
+  "macOptionIsMeta": false,
+  "altClickMoveCursor": true,
+  "wordSeparators": " ()[]{}':;\"",
+  "confirmCloseRunningProcess": true,
+  "launchAtLogin": false,
+  "notifyOnBell": false,
+  "notifyOnProcessExit": true,
+  "relayUrl": "",
+  "autocompleteEnabled": true
+}
+```
+
+### Appearance
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `theme` | `string` | `"termpod-dark"` | Theme name — built-in or `custom:<filename>` |
+| `cursorStyle` | `"block" \| "underline" \| "bar"` | `"block"` | Cursor shape |
+| `cursorBlink` | `boolean` | `true` | Blinking cursor |
+| `lineHeight` | `number` | `1.0` | Line height multiplier (0.8–1.6) |
+| `windowPadding` | `number` | `0` | Padding around terminal in pixels (0–32) |
+| `backgroundOpacity` | `number` | `1.0` | Window opacity (0.3–1.0) |
+| `blurRadius` | `number` | `0` | macOS vibrancy blur (0–20) |
+| `scrollbarVisibility` | `"always" \| "when-scrolling" \| "never"` | `"always"` | Scrollbar display |
+
+### Terminal
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `fontSize` | `number` | `14` | Font size in pixels (10–24) |
+| `fontFamily` | `string` | `"Menlo, monospace"` | Font stack |
+| `fontWeight` | `string` | `"normal"` | Font weight (`"normal"`, `"100"`–`"900"`) |
+| `fontSmoothing` | `"auto" \| "antialiased" \| "none"` | `"antialiased"` | Font smoothing |
+| `fontLigatures` | `boolean` | `false` | Enable ligatures (e.g., Fira Code) |
+| `drawBoldInBold` | `boolean` | `true` | Render bold text with bold font weight |
+| `shellPath` | `string` | `"/bin/zsh"` | Default shell |
+| `scrollbackLines` | `number` | `5000` | Scrollback buffer size (1,000–50,000) |
+| `bellEnabled` | `boolean` | `false` | Terminal bell sound |
+
+### Behavior
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `newTabCwd` | `"home" \| "current" \| "custom"` | `"home"` | Working directory for new tabs |
+| `customTabCwdPath` | `string` | `""` | Custom path (when `newTabCwd` is `"custom"`) |
+| `closeWindowOnLastTab` | `boolean` | `true` | Close window when last tab closes |
+| `copyOnSelect` | `boolean` | `false` | Copy to clipboard on text selection |
+| `macOptionIsMeta` | `boolean` | `false` | Treat Option as Meta key |
+| `altClickMoveCursor` | `boolean` | `true` | Alt+click to move cursor |
+| `confirmCloseRunningProcess` | `boolean` | `true` | Confirm before closing running process |
+| `launchAtLogin` | `boolean` | `false` | Start TermPod at login |
+| `autocompleteEnabled` | `boolean` | `true` | Shell history autocomplete |
+
+## Keybindings (`keybindings.json`)
+
+Override default keyboard shortcuts. Only include the bindings you want to change — everything else keeps its default.
+
+```json
+{
+  "new_tab": "Cmd+T",
+  "close_tab": "Cmd+W",
+  "find": "Cmd+F"
+}
+```
+
+### Available Bindings
+
+| ID | Default | Description |
+| --- | --- | --- |
+| `new_tab` | `Cmd+T` | New tab |
+| `close_tab` | `Cmd+W` | Close tab |
+| `duplicate_tab` | `Cmd+Shift+T` | Duplicate tab |
+| `next_tab` | `Cmd+Shift+]` | Next tab |
+| `prev_tab` | `Cmd+Shift+[` | Previous tab |
+| `close_other_tabs` | `Cmd+Alt+W` | Close other tabs |
+| `find` | `Cmd+F` | Find |
+| `find_next` | `Cmd+G` | Find next |
+| `find_prev` | `Cmd+Shift+G` | Find previous |
+| `clear` | `Cmd+K` | Clear scrollback |
+| `clear_screen` | `Cmd+L` | Clear screen |
+| `select_all` | `Cmd+A` | Select all |
+| `zoom_in` | `Cmd+=` | Zoom in |
+| `zoom_out` | `Cmd+-` | Zoom out |
+| `zoom_reset` | `Cmd+0` | Reset zoom |
+| `scroll_top` | `Cmd+Up` | Scroll to top |
+| `scroll_bottom` | `Cmd+Down` | Scroll to bottom |
+| `toggle_fullscreen` | `Ctrl+Cmd+F` | Toggle fullscreen |
+| `command_palette` | `Cmd+Shift+P` | Command palette |
+| `settings` | `Cmd+,` | Settings |
+| `keybindings` | `Cmd+Shift+,` | Keyboard shortcuts |
+
+Modifier format: `Cmd`, `Ctrl`, `Alt`, `Shift` joined with `+`. Tab shortcuts (`Cmd+1` through `Cmd+9`) are not customizable.
+
+## Workflows (`workflows.json`)
+
+Saved command shortcuts accessible from the command palette.
+
+```json
+{
+  "workflows": [
+    {
+      "id": "wf-1710000000000-abc123",
+      "name": "Deploy to Production",
+      "command": "git push origin main",
+      "category": "deploy",
+      "createdAt": 1710000000000
+    }
+  ]
+}
+```
+
+You can add workflows via the UI (Command Palette → Workflows) or by editing this file directly.
+
+## Custom Themes
+
+Create custom terminal color themes by placing `.json` files in `~/.termpod/themes/`. They appear automatically in the theme picker under a **Custom** section.
+
+### Theme File Format
+
+Each theme file must include all 20 color properties plus a `name`:
+
+```json
+{
+  "name": "My Custom Theme",
+  "background": "#1a1b26",
+  "foreground": "#c0caf5",
+  "cursor": "#c0caf5",
+  "selectionBackground": "#33467c",
+  "black": "#15161e",
+  "red": "#f7768e",
+  "green": "#9ece6a",
+  "yellow": "#e0af68",
+  "blue": "#7aa2f7",
+  "magenta": "#bb9af7",
+  "cyan": "#7dcfff",
+  "white": "#a9b1d6",
+  "brightBlack": "#414868",
+  "brightRed": "#f7768e",
+  "brightGreen": "#9ece6a",
+  "brightYellow": "#e0af68",
+  "brightBlue": "#7aa2f7",
+  "brightMagenta": "#bb9af7",
+  "brightCyan": "#7dcfff",
+  "brightWhite": "#c0caf5"
+}
+```
+
+Save it as `~/.termpod/themes/my-custom-theme.json`. The theme appears in the picker as "My Custom Theme" and is selectable in `config.json` as `"theme": "custom:my-custom-theme"`.
+
+### Tips
+
+- File name becomes the theme key: `my-theme.json` → `custom:my-theme`
+- All 20 color fields are required — invalid files are silently skipped
+- Changes are picked up live — no restart needed
+- You can export themes from other terminals (iTerm2, Alacritty, Kitty) and convert them to this format
+
+## Live Reload
+
+All config files are watched for changes. Edit `~/.termpod/config.json` in vim, and the app updates instantly — no restart required. This also means you can script your config:
+
+```bash
+# Quick theme switch from the command line
+jq '.theme = "dracula"' ~/.termpod/config.json > /tmp/tp.json && mv /tmp/tp.json ~/.termpod/config.json
+```
+
+## Dotfile Management
+
+Since all config lives in `~/.termpod/`, you can easily back it up or sync across machines:
+
+```bash
+# Symlink from your dotfiles repo
+ln -s ~/dotfiles/termpod ~/.termpod
+
+# Or copy individual files
+cp ~/.termpod/config.json ~/dotfiles/termpod/
+cp ~/.termpod/keybindings.json ~/dotfiles/termpod/
+cp -r ~/.termpod/themes/ ~/dotfiles/termpod/themes/
+```

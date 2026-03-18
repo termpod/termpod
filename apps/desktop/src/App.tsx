@@ -1,9 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow, Effect, EffectState } from '@tauri-apps/api/window';
 import { useSessionManager, nameFromCwd } from './hooks/useSessionManager';
 import { useSettings, THEMES, themeToAppStyles, isLightColor } from './hooks/useSettings';
+import {
+  initCustomThemes,
+  getCustomThemesSnapshot,
+  subscribeCustomThemes,
+} from './lib/configStore';
+import { resolveTheme } from './components/ThemePicker';
+
+initCustomThemes();
 import { useAuth, useSubscription } from './hooks/useAuth';
 import { useDevice } from './hooks/useDevice';
 import { TabBar } from './components/TabBar';
@@ -66,6 +74,7 @@ export function App() {
     defaults: settingsDefaults,
   } = useSettings();
   const updater = useUpdater();
+  const customThemes = useSyncExternalStore(subscribeCustomThemes, getCustomThemesSnapshot);
 
   // Wire up remote session creation callback (legacy polling fallback)
   createSessionRef.current = () => {
@@ -814,7 +823,7 @@ export function App() {
       default:
         if (menuId.startsWith('theme_')) {
           const themeKey = menuId.slice(6);
-          if (THEMES[themeKey]) {
+          if (THEMES[themeKey] || getCustomThemesSnapshot()[themeKey]) {
             updateSettings({ theme: themeKey });
           }
         } else if (menuId.startsWith('tab_')) {
@@ -885,10 +894,10 @@ export function App() {
   }, []);
 
   const opacity = settings.backgroundOpacity;
-  const baseTheme = THEMES[settings.theme] ?? THEMES['tokyo-night'];
+  const baseTheme = resolveTheme(settings.theme, customThemes);
   const appThemeStyles = useMemo(
     () => themeToAppStyles(baseTheme, opacity),
-    [settings.theme, opacity],
+    [settings.theme, customThemes, opacity],
   );
 
   const terminalTheme = useMemo(() => {
@@ -900,7 +909,7 @@ export function App() {
       scrollbarSliderHoverBackground: `rgba(${c}, 0.25)`,
       scrollbarSliderActiveBackground: `rgba(${c}, 0.35)`,
     };
-  }, [settings.theme]);
+  }, [settings.theme, customThemes]);
 
   // Apply/remove macOS vibrancy effect
   useEffect(() => {
