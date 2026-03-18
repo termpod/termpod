@@ -269,7 +269,14 @@ export function App() {
   );
 
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
-  const showOnboarding = !onboardingDismissed && !settings.onboardingComplete;
+  // Delay onboarding check to avoid flash — ConfigStore loads from file async,
+  // so onboardingComplete may be false initially then become true after load.
+  const [onboardingReady, setOnboardingReady] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setOnboardingReady(true), 300);
+    return () => clearTimeout(timer);
+  }, []);
+  const showOnboarding = onboardingReady && !onboardingDismissed && !settings.onboardingComplete;
   const [showSettings, setShowSettings] = useState(false);
   const [showKeybindings, setShowKeybindings] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
