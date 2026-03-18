@@ -101,6 +101,20 @@ export interface TerminalProps {
   autocompleteEngine?: AutocompleteEngine;
 }
 
+/** Parse a #RRGGBB or #RGB hex color into an [R, G, B] tuple. */
+function hexToRgbTuple(hex: string): [number, number, number] | null {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  const raw = m[1].length === 3
+    ? m[1].split('').map((c) => c + c).join('')
+    : m[1];
+  return [
+    parseInt(raw.slice(0, 2), 16),
+    parseInt(raw.slice(2, 4), 16),
+    parseInt(raw.slice(4, 6), 16),
+  ];
+}
+
 const SEARCH_DECORATIONS = {
   matchBackground: '#3d59a1',
   matchBorder: '#3d59a1',
@@ -996,12 +1010,24 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       );
 
       if (el) {
-        // Only apply padding to left/top/bottom, keep right flush for scrollbar
         el.style.paddingLeft = padding ? `${padding}px` : '';
         el.style.paddingTop = padding ? `${padding}px` : '';
         el.style.paddingBottom = padding ? `${padding}px` : '';
         el.style.paddingRight = '0';
         el.style.boxSizing = 'border-box';
+
+        // Use sRGB color space to match WebGL canvas rendering. On wide-gamut
+        // displays (P3), CSS hex colors are rendered in the display color space
+        // while WebGL renders in sRGB, causing a visible mismatch.
+        const bg = theme?.background;
+        if (bg) {
+          const rgb = hexToRgbTuple(bg);
+          el.style.backgroundColor = rgb
+            ? `color(srgb ${rgb[0] / 255} ${rgb[1] / 255} ${rgb[2] / 255})`
+            : bg;
+        } else {
+          el.style.backgroundColor = '';
+        }
       }
 
       // Control scrollbar visibility based on promptAtBottom and scrollbarVisibility settings
@@ -1040,9 +1066,11 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       // Retry after a delay since xterm creates the scrollbar dynamically
       const retryTimer = setTimeout(applyScrollbarVisibility, 500);
 
-      // Apply background to viewport to fill padding area
-      if (viewportEl && theme?.background) {
-        viewportEl.style.backgroundColor = theme.background;
+      // Force viewport transparent so only the .xterm CSS background and
+      // the WebGL canvas render backgrounds — no third layer that could
+      // show a color space mismatch seam.
+      if (viewportEl) {
+        viewportEl.style.setProperty('background-color', 'transparent', 'important');
       }
 
       if (fitAddonRef.current && terminalRef.current && !sizeLockedRef.current) {
