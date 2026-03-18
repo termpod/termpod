@@ -171,6 +171,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     const ghostTextRef = useRef<string | null>(null);
     const autocompleteEnabledRef = useRef(autocompleteEnabled);
     const lastOsc134InputAtRef = useRef(0);
+    const commandRunningRef = useRef(false);
     ghostTextRef.current = ghostText;
     autocompleteEnabledRef.current = autocompleteEnabled;
 
@@ -258,7 +259,9 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     const applyLocalAutocompleteInput = useCallback(
       (data: string) => {
         if (!autocompleteEnabledRef.current) return;
-        // Suppress in TUI apps (vim, claude, etc.) that use alternate screen
+        // Suppress while a command is running (TUI apps, long-running processes)
+        if (commandRunningRef.current) return;
+        // Suppress in TUI apps that use alternate screen
         if (terminalRef.current?.buffer.active.type === 'alternate') return;
         const oscInputIsFresh = Date.now() - lastOsc134InputAtRef.current < 250;
         if (oscInputIsFresh) return;
@@ -821,6 +824,15 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           blockDecorations.handleMarker(marker as 'A' | 'B' | 'C' | 'D', cleanExitCode);
         }
 
+        // Track command execution state for autocomplete suppression.
+        // C = command started, A = back at prompt (next prompt cycle).
+        if (marker === 'C') {
+          commandRunningRef.current = true;
+          clearAutocompleteUi();
+        } else if (marker === 'A') {
+          commandRunningRef.current = false;
+        }
+
         onBlockBoundaryRef.current?.({
           marker: marker as 'A' | 'B' | 'C' | 'D',
           line,
@@ -834,7 +846,9 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       // Format: input;<base64_buffer>;<cursor_pos> or execute
       term.parser.registerOscHandler(134, (data) => {
         if (!autocompleteEnabledRef.current) return false;
-        // Suppress autocomplete in TUI apps (vim, claude, etc.) that use alternate screen
+        // Suppress while a command is running
+        if (commandRunningRef.current) return false;
+        // Suppress in TUI apps that use alternate screen
         if (term.buffer.active.type === 'alternate') return false;
 
         const parts = data.split(';');
