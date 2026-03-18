@@ -1070,6 +1070,7 @@ export interface Settings {
   altClickMoveCursor: boolean;
   wordSeparators: string;
   confirmCloseRunningProcess: boolean;
+  restoreSessions: boolean;
   launchAtLogin: boolean;
   notifyOnBell: boolean;
   notifyOnProcessExit: boolean;
@@ -1110,6 +1111,7 @@ const DEFAULTS: Settings = {
   altClickMoveCursor: true,
   wordSeparators: ' ()[]{}\',:;"',
   confirmCloseRunningProcess: true,
+  restoreSessions: true,
   launchAtLogin: false,
   notifyOnBell: false,
   notifyOnProcessExit: true,

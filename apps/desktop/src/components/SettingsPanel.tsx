@@ -552,6 +552,13 @@ export function SettingsPanel({
                     </>
                   )}
                   <div className="sp-separator" />
+                  <SettingRow label="Restore Tabs on Restart">
+                    <NativeToggle
+                      value={settings.restoreSessions}
+                      onChange={(v) => onUpdate({ restoreSessions: v })}
+                    />
+                  </SettingRow>
+                  <div className="sp-separator" />
                   <SettingRow label="Close Window on Last Tab">
                     <NativeToggle
                       value={settings.closeWindowOnLastTab}

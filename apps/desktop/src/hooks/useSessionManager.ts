@@ -5,6 +5,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { DEFAULT_SHELL, DEFAULT_PTY_SIZE, getIconForProcess, BlockTracker } from '@termpod/shared';
 import type { TabIcon, BlockBoundary } from '@termpod/shared';
 import type { TerminalHandle } from '@termpod/ui';
+import type { SavedSessionState } from '../lib/sessionState';
 
 export type PtyDataListener = (data: Uint8Array | number[]) => void;
 
@@ -360,6 +361,19 @@ export function useSessionManager() {
 
   const activeSession = store.sessions.find((s) => s.id === store.activeId) ?? null;
 
+  const getSessionState = useCallback((): SavedSessionState => {
+    const { sessions: s, activeId: id } = storeRef.current;
+    const liveSessions = s.filter((sess) => !sess.exited && !sess.closing);
+
+    return {
+      tabs: liveSessions.map((sess) => ({ cwd: sess.cwd })),
+      activeIndex: Math.max(
+        0,
+        liveSessions.findIndex((sess) => sess.id === id),
+      ),
+    };
+  }, []);
+
   return {
     sessions: store.sessions,
     activeId: store.activeId,
@@ -373,5 +387,6 @@ export function useSessionManager() {
     reorderSessions,
     updateSessionCwd,
     onSessionExitRef,
+    getSessionState,
   };
 }

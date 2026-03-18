@@ -46,6 +46,7 @@ import {
   enable as enableAutostart,
   disable as disableAutostart,
 } from '@tauri-apps/plugin-autostart';
+import { loadSessionState, saveSessionState, saveSessionStateSync } from './lib/sessionState';
 
 export function App() {
   const auth = useAuth();
@@ -66,6 +67,7 @@ export function App() {
     reorderSessions,
     updateSessionCwd,
     onSessionExitRef,
+    getSessionState,
   } = useSessionManager();
 
   const {
@@ -554,15 +556,65 @@ export function App() {
     });
   }, []);
 
-  // Create initial session on mount (only when authenticated)
+  // Create initial session (or restore previous sessions) on mount
   useEffect(() => {
     if (!auth.isAuthenticated || initializedRef.current) {
       return;
     }
 
     initializedRef.current = true;
-    createSession({ shell: settings.shellPath });
+
+    (async () => {
+      if (settings.restoreSessions) {
+        const saved = await loadSessionState();
+
+        if (saved && saved.tabs.length > 0) {
+          const created: string[] = [];
+
+          for (const tab of saved.tabs) {
+            const session = await createSession({ shell: settings.shellPath, cwd: tab.cwd });
+            created.push(session.id);
+          }
+
+          // Switch to the previously active tab
+          if (saved.activeIndex >= 0 && saved.activeIndex < created.length) {
+            switchSession(created[saved.activeIndex]);
+          }
+
+          return;
+        }
+      }
+
+      createSession({ shell: settings.shellPath });
+    })();
   }, [auth.isAuthenticated]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persist session state (tabs + cwds) for restore on next launch
+  const getSessionStateRef = useRef(getSessionState);
+  getSessionStateRef.current = getSessionState;
+  const restoreEnabledRef = useRef(settings.restoreSessions);
+  restoreEnabledRef.current = settings.restoreSessions;
+
+  useEffect(() => {
+    if (!settings.restoreSessions) {
+      return;
+    }
+
+    saveSessionState(getSessionState());
+  }, [sessions, activeId, settings.restoreSessions]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Save session state before window closes
+  useEffect(() => {
+    const unlisten = getCurrentWindow().onCloseRequested(async () => {
+      if (restoreEnabledRef.current) {
+        await saveSessionStateSync(getSessionStateRef.current());
+      }
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
 
   // Clean up relay info for closed sessions
   useEffect(() => {
