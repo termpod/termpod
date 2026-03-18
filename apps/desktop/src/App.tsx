@@ -992,6 +992,7 @@ export function App() {
         createSession({
           shell: settings.shellPath,
           cwd: focusedSession?.cwd,
+          activate: false,
         }).then((newSession) => {
           if (newSession) {
             paneLayout.splitPane(focusedId, 'horizontal', newSession.id);
@@ -1007,6 +1008,7 @@ export function App() {
         createSession({
           shell: settings.shellPath,
           cwd: focusedSession?.cwd,
+          activate: false,
         }).then((newSession) => {
           if (newSession) {
             paneLayout.splitPane(focusedId, 'vertical', newSession.id);
@@ -1360,10 +1362,10 @@ export function App() {
               {activeId && activeHasSplits ? (
                 <PaneContainer
                   node={paneLayout.getTree(activeId)}
-                  renderPane={(sessionId, isFocused) => {
+                  renderPane={(sessionId) => {
                     const session = sessions.find((s) => s.id === sessionId);
                     if (!session) return null;
-                    return renderTerminalPanel(session, isFocused, true);
+                    return renderTerminalPanel(session, true, true);
                   }}
                   focusedPaneId={paneLayout.focusedPaneId}
                   onFocusPane={paneLayout.setFocusedPane}

@@ -176,7 +176,12 @@ export function useSessionManager() {
   }, [updateStore]);
 
   const createSession = useCallback(
-    async (options?: { cwd?: string; shell?: string; env?: Record<string, string> }) => {
+    async (options?: {
+      cwd?: string;
+      shell?: string;
+      env?: Record<string, string>;
+      activate?: boolean;
+    }) => {
       const id = generateSessionId();
       const sessionCwd = options?.cwd || cachedHomeDir || (await homeDirPromise) || '/Users';
       const shell = options?.shell || DEFAULT_SHELL;
@@ -239,9 +244,11 @@ export function useSessionManager() {
         onSessionExitRef.current?.(id);
       });
 
+      const shouldActivate = options?.activate !== false;
+
       updateStore((prev) => ({
         sessions: [...prev.sessions, session],
-        activeId: id,
+        activeId: shouldActivate ? id : prev.activeId,
       }));
 
       return session;
