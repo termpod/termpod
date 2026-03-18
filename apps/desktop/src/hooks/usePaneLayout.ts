@@ -199,6 +199,22 @@ export function usePaneLayout() {
     [state.trees],
   );
 
+  // Returns a Set of all session IDs that are split children (not tab roots).
+  // Used to hide them from the tab bar.
+  const getSplitChildIds = useCallback((): Set<string> => {
+    const childIds = new Set<string>();
+    for (const [tabRootId, tree] of state.trees) {
+      if (tree.type === 'split') {
+        for (const id of collectLeafIds(tree)) {
+          if (id !== tabRootId) {
+            childIds.add(id);
+          }
+        }
+      }
+    }
+    return childIds;
+  }, [state.trees]);
+
   return {
     getTree,
     focusedPaneId: state.focusedPaneId,
@@ -209,6 +225,7 @@ export function usePaneLayout() {
     hasSplits,
     removeTabTree,
     getLeafIdsForTab,
+    getSplitChildIds,
   };
 }
 

@@ -88,6 +88,7 @@ export function App() {
   const paneLayout = usePaneLayout();
   const paneLayoutRef = useRef(paneLayout);
   paneLayoutRef.current = paneLayout;
+  const splitChildIds = paneLayout.getSplitChildIds();
   const updater = useUpdater();
   const customThemes = useSyncExternalStore(subscribeCustomThemes, getCustomThemesSnapshot);
 
@@ -1027,10 +1028,13 @@ export function App() {
         }
         const result = paneLayout.closePane(focusedId);
         if (result.removedFromTree) {
-          handleCloseSession(focusedId);
+          // Only kill the PTY session — don't run full handleCloseSession
+          // which would also remove the tab tree and trigger tab-level logic
+          closeSession(focusedId);
           if (result.promotedSessionId) {
             paneLayout.setFocusedPane(result.promotedSessionId);
             const promoted = sessions.find((s) => s.id === result.promotedSessionId);
+            promoted?.termRef.current?.fit();
             promoted?.termRef.current?.focus();
           }
         }
@@ -1183,7 +1187,7 @@ export function App() {
   return (
     <div className="app" style={appThemeStyles as React.CSSProperties}>
       <TabBar
-        sessions={sessions}
+        sessions={sessions.filter((s) => !splitChildIds.has(s.id))}
         activeId={activeId}
         onSelect={switchSession}
         onClose={handleCloseSession}
