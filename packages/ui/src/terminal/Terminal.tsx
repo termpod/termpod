@@ -101,20 +101,6 @@ export interface TerminalProps {
   autocompleteEngine?: AutocompleteEngine;
 }
 
-/** Parse a #RRGGBB or #RGB hex color into an [R, G, B] tuple. */
-function hexToRgbTuple(hex: string): [number, number, number] | null {
-  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return null;
-  const raw = m[1].length === 3
-    ? m[1].split('').map((c) => c + c).join('')
-    : m[1];
-  return [
-    parseInt(raw.slice(0, 2), 16),
-    parseInt(raw.slice(2, 4), 16),
-    parseInt(raw.slice(4, 6), 16),
-  ];
-}
-
 const SEARCH_DECORATIONS = {
   matchBackground: '#3d59a1',
   matchBorder: '#3d59a1',
@@ -1010,24 +996,45 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       );
 
       if (el) {
+        // Only apply padding to left/top/bottom, keep right flush for scrollbar
         el.style.paddingLeft = padding ? `${padding}px` : '';
         el.style.paddingTop = padding ? `${padding}px` : '';
         el.style.paddingBottom = padding ? `${padding}px` : '';
         el.style.paddingRight = '0';
         el.style.boxSizing = 'border-box';
+      }
 
-        // Use sRGB color space to match WebGL canvas rendering. On wide-gamut
-        // displays (P3), CSS hex colors are rendered in the display color space
-        // while WebGL renders in sRGB, causing a visible mismatch.
-        const bg = theme?.background;
-        if (bg) {
-          const rgb = hexToRgbTuple(bg);
-          el.style.backgroundColor = rgb
-            ? `color(srgb ${rgb[0] / 255} ${rgb[1] / 255} ${rgb[2] / 255})`
-            : bg;
-        } else {
-          el.style.backgroundColor = '';
+      // Use a 2D canvas as the padding background instead of CSS background-color.
+      // On wide-gamut displays (P3 Macs), CSS backgrounds and WebGL canvases
+      // render the same hex color slightly differently due to color management.
+      // A 2D canvas goes through the same GPU compositing pipeline as the WebGL
+      // canvas, so their backgrounds match exactly.
+      const container = containerRef.current;
+      const existingBgCanvas = container?.querySelector<HTMLCanvasElement>('.xterm-bg-canvas');
+      if (container && padding && theme?.background) {
+        const dpr = window.devicePixelRatio || 1;
+        const bgCanvas = existingBgCanvas || document.createElement('canvas');
+        if (!existingBgCanvas) {
+          bgCanvas.className = 'xterm-bg-canvas';
+          bgCanvas.style.position = 'absolute';
+          bgCanvas.style.inset = '0';
+          bgCanvas.style.width = '100%';
+          bgCanvas.style.height = '100%';
+          bgCanvas.style.zIndex = '0';
+          bgCanvas.style.pointerEvents = 'none';
+          container.insertBefore(bgCanvas, container.firstChild);
         }
+        const rect = container.getBoundingClientRect();
+        bgCanvas.width = Math.round(rect.width * dpr);
+        bgCanvas.height = Math.round(rect.height * dpr);
+        const ctx = bgCanvas.getContext('2d');
+        if (ctx) {
+          ctx.scale(dpr, dpr);
+          ctx.fillStyle = theme.background;
+          ctx.fillRect(0, 0, rect.width, rect.height);
+        }
+      } else if (existingBgCanvas) {
+        existingBgCanvas.remove();
       }
 
       // Control scrollbar visibility based on promptAtBottom and scrollbarVisibility settings
@@ -1066,11 +1073,16 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       // Retry after a delay since xterm creates the scrollbar dynamically
       const retryTimer = setTimeout(applyScrollbarVisibility, 500);
 
-      // Force viewport transparent so only the .xterm CSS background and
-      // the WebGL canvas render backgrounds — no third layer that could
-      // show a color space mismatch seam.
+      // Make viewport and scrollable element transparent so the 2D background
+      // canvas shows through in the padding area (matches WebGL color exactly).
       if (viewportEl) {
         viewportEl.style.setProperty('background-color', 'transparent', 'important');
+      }
+      const scrollableEl = containerRef.current?.querySelector<HTMLElement>(
+        '.xterm-scrollable-element',
+      );
+      if (scrollableEl) {
+        scrollableEl.style.setProperty('background-color', 'transparent', 'important');
       }
 
       if (fitAddonRef.current && terminalRef.current && !sizeLockedRef.current) {

@@ -2099,13 +2099,6 @@ body,
   inset: 0;
 }
 
-/* Force viewport transparent so the .xterm CSS background (padding area)
-   and WebGL canvas background (content area) don't have a visible color
-   space mismatch. xterm sets viewport bg inline, so !important is needed. */
-.terminal-panel .xterm-viewport {
-  background-color: transparent !important;
-}
-
 .terminal-panel.transparent .xterm {
   opacity: var(--terminal-opacity, 1);
 }
