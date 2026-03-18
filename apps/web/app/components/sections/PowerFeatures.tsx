@@ -23,24 +23,31 @@ function CommandBlockMockup() {
             <span className="rounded bg-green-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-green-500">
               0
             </span>
-            <span className="text-[9px] text-text-dark hover:text-text-gray cursor-pointer">Copy</span>
-            <span className="text-[9px] text-text-dark hover:text-text-gray cursor-pointer">Re-run</span>
+            <span className="text-[9px] text-text-dark hover:text-text-gray cursor-pointer">
+              Copy
+            </span>
+            <span className="text-[9px] text-text-dark hover:text-text-gray cursor-pointer">
+              Re-run
+            </span>
           </div>
         </div>
         {/* Block 2 — error */}
         <div className="border-l-2 border-red-400/40 px-4 py-3">
           <p>
-            <span className="text-text-dark">~ $</span>{' '}
-            <span className="text-gold">npm test</span>
+            <span className="text-text-dark">~ $</span> <span className="text-gold">npm test</span>
           </p>
           <p className="text-text-gray">FAIL src/auth.test.ts</p>
-          <p className="text-red-400/80">  Expected: 200, Received: 401</p>
+          <p className="text-red-400/80"> Expected: 200, Received: 401</p>
           <div className="mt-2 flex items-center gap-2">
             <span className="rounded bg-red-400/10 px-1.5 py-0.5 text-[9px] font-semibold text-red-400">
               1
             </span>
-            <span className="text-[9px] text-text-dark hover:text-text-gray cursor-pointer">Copy</span>
-            <span className="text-[9px] text-text-dark hover:text-text-gray cursor-pointer">Re-run</span>
+            <span className="text-[9px] text-text-dark hover:text-text-gray cursor-pointer">
+              Copy
+            </span>
+            <span className="text-[9px] text-text-dark hover:text-text-gray cursor-pointer">
+              Re-run
+            </span>
           </div>
         </div>
       </div>
@@ -54,7 +61,9 @@ function ShareMockup() {
       <div className="w-full max-w-[280px] border border-stroke-light bg-[#161B22] p-4">
         <div className="mb-3 flex items-center gap-2">
           <Share2 size={14} className="text-gold" />
-          <span className="font-mono text-[11px] font-semibold text-text-white">Session Shared</span>
+          <span className="font-mono text-[11px] font-semibold text-text-white">
+            Session Shared
+          </span>
         </div>
         <div className="mb-3 flex items-center gap-1 rounded border border-stroke-light bg-[#0D1117] px-2 py-1.5">
           <span className="flex-1 truncate font-mono text-[10px] text-text-dark">
@@ -139,10 +148,12 @@ export function PowerFeatures() {
         </div>
         <div className="feature-card flex flex-col border border-stroke-light p-8">
           <Circle size={24} className="mb-4 text-red-400" />
-          <h4 className="mb-2 font-heading text-base font-bold text-text-white">Session Recording</h4>
+          <h4 className="mb-2 font-heading text-base font-bold text-text-white">
+            Session Recording
+          </h4>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
-            Hit <code className="text-text-dark">Cmd+Shift+R</code> and every keystroke gets captured with
-            millisecond timing. Export as asciicast, play back anytime.
+            Hit <code className="text-text-dark">Cmd+Shift+R</code> and every keystroke gets
+            captured with millisecond timing. Export as asciicast, play back anytime.
           </p>
         </div>
         <div className="feature-card flex flex-col border border-stroke-light p-8">
@@ -150,8 +161,8 @@ export function PowerFeatures() {
           <h4 className="mb-2 font-heading text-base font-bold text-text-white">Autocompletions</h4>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
             TermPod indexes your shell history and suggests commands as you type. It knows which
-            commands take files, which take directories, and ranks by frequency and recency.
-            Works over SSH too. Press Tab to accept.
+            commands take files, which take directories, and ranks by frequency and recency. Works
+            over SSH too. Press Tab to accept.
           </p>
         </div>
       </div>

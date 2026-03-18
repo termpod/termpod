@@ -20,7 +20,8 @@ export function Hero() {
       <div
         className="pointer-events-none absolute top-[-200px] left-1/2 h-[600px] w-[800px] -translate-x-1/2"
         style={{
-          background: 'radial-gradient(ellipse at center, rgba(201,169,98,0.08) 0%, rgba(201,169,98,0.03) 30%, transparent 70%)',
+          background:
+            'radial-gradient(ellipse at center, rgba(201,169,98,0.08) 0%, rgba(201,169,98,0.03) 30%, transparent 70%)',
         }}
       />
       {/* Badge */}
@@ -40,8 +41,9 @@ export function Hero() {
 
       {/* Subline */}
       <p className="animate-fade-in-up delay-200 mb-10 max-w-[720px] text-center font-mono text-sm leading-[1.6] text-text-gray md:text-base">
-        Start a session on your Mac. Pick it up on your iPhone. Approve a deploy from the couch, monitor a build from the
-        coffee shop. Full shell access, real-time I/O, end-to-end encrypted. Open source.
+        Start a session on your Mac. Pick it up on your iPhone. Approve a deploy from the couch,
+        monitor a build from the coffee shop. Full shell access, real-time I/O, end-to-end
+        encrypted. Open source.
       </p>
 
       {/* CTA Row */}

@@ -1,4 +1,13 @@
 {
   "title": "Desktop App",
-  "pages": ["index", "customization", "hooks", "shell-integration", "autocomplete", "session-sharing", "session-recording", "auto-updates"]
+  "pages": [
+    "index",
+    "customization",
+    "hooks",
+    "shell-integration",
+    "autocomplete",
+    "session-sharing",
+    "session-recording",
+    "auto-updates"
+  ]
 }

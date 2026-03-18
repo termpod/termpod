@@ -36,7 +36,10 @@ export function AboutModal({ onClose }: AboutModalProps) {
         {/* App icon */}
         <div className="about-icon">
           <svg viewBox="0 0 256 256" fill="none">
-            <path d="M145.712 128L84.08 173.827L75 161.647L120.25 128L75 94.353L84.08 82.173L145.712 128Z" fill="white" />
+            <path
+              d="M145.712 128L84.08 173.827L75 161.647L120.25 128L75 94.353L84.08 82.173L145.712 128Z"
+              fill="white"
+            />
             <path d="M190 156.99H138.856V172.176H190V156.99Z" fill="white" />
           </svg>
         </div>
@@ -66,7 +69,14 @@ export function AboutModal({ onClose }: AboutModalProps) {
             className="about-link"
             onClick={() => handleOpenLink('https://termpod.dev')}
           >
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <circle cx="8" cy="8" r="6.5" />
               <path d="M1.5 8h13M8 1.5c-2 2-3 4-3 6.5s1 4.5 3 6.5c2-2 3-4 3-6.5s-1-4.5-3-6.5" />
             </svg>
@@ -87,7 +97,14 @@ export function AboutModal({ onClose }: AboutModalProps) {
             className="about-link"
             onClick={() => handleOpenLink('https://github.com/termpod/termpod/releases')}
           >
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M8 2v8M5 7l3 3 3-3M3 12v1.5h10V12" />
             </svg>
             Releases
