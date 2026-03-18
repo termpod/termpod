@@ -1078,6 +1078,11 @@ export interface Settings {
   notifyLongRunningCommand: boolean;
   longRunningThreshold: number;
 
+  // Dropdown terminal
+  dropdownEnabled: boolean;
+  dropdownHotkey: string;
+  dropdownHeight: number;
+
   // Connection
   relayUrl: string;
 
@@ -1127,6 +1132,10 @@ const DEFAULTS: Settings = {
   notifyOnProcessExit: true,
   notifyLongRunningCommand: true,
   longRunningThreshold: 30,
+
+  dropdownEnabled: false,
+  dropdownHotkey: 'Ctrl+`',
+  dropdownHeight: 40,
 
   relayUrl: '',
 

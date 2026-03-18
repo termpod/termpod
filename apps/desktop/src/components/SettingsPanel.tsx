@@ -656,6 +656,44 @@ export function SettingsPanel({
                   )}
                 </div>
 
+                <div className="sp-group-label">Dropdown Terminal</div>
+                <div className="sp-group">
+                  <SettingRow label="Enable Dropdown Mode">
+                    <NativeToggle
+                      value={settings.dropdownEnabled}
+                      onChange={(v) => onUpdate({ dropdownEnabled: v })}
+                    />
+                  </SettingRow>
+                  {settings.dropdownEnabled && (
+                    <>
+                      <div className="sp-separator" />
+                      <SettingRow label="Hotkey">
+                        <HotkeyInput
+                          value={settings.dropdownHotkey}
+                          onChange={(v) => onUpdate({ dropdownHotkey: v })}
+                        />
+                      </SettingRow>
+                      <div className="sp-separator" />
+                      <SettingRow label="Height">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <input
+                            type="range"
+                            min={20}
+                            max={80}
+                            step={5}
+                            value={settings.dropdownHeight}
+                            onChange={(e) =>
+                              onUpdate({ dropdownHeight: parseInt(e.target.value, 10) })
+                            }
+                            style={{ flex: 1 }}
+                          />
+                          <span className="sp-value-label">{settings.dropdownHeight}%</span>
+                        </div>
+                      </SettingRow>
+                    </>
+                  )}
+                </div>
+
                 <div className="sp-group-label">System</div>
                 <div className="sp-group">
                   <SettingRow label="Launch at Login">
@@ -873,6 +911,54 @@ function NativeToggle({ value, onChange }: { value: boolean; onChange: (v: boole
       aria-checked={value}
     >
       <span className="sp-toggle-thumb" />
+    </button>
+  );
+}
+
+function HotkeyInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [recording, setRecording] = useState(false);
+  const ref = useRef<HTMLButtonElement>(null);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLButtonElement>) => {
+      if (!recording) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (e.key === 'Escape') {
+        setRecording(false);
+        return;
+      }
+
+      const parts: string[] = [];
+      if (e.ctrlKey) parts.push('Ctrl');
+      if (e.altKey) parts.push('Alt');
+      if (e.shiftKey) parts.push('Shift');
+      if (e.metaKey) parts.push('Super');
+
+      const ignore = new Set(['Control', 'Alt', 'Shift', 'Meta']);
+      if (!ignore.has(e.key) && e.key.length > 0) {
+        const keyLabel = e.key === '`' ? '`' : e.key.length === 1 ? e.key.toUpperCase() : e.key;
+        parts.push(keyLabel);
+        onChange(parts.join('+'));
+        setRecording(false);
+      }
+    },
+    [recording, onChange],
+  );
+
+  return (
+    <button
+      ref={ref}
+      className={`sp-hotkey-input ${recording ? 'sp-hotkey-input-recording' : ''}`}
+      onClick={() => {
+        setRecording(true);
+        ref.current?.focus();
+      }}
+      onBlur={() => setRecording(false)}
+      onKeyDown={handleKeyDown}
+    >
+      {recording ? 'Press keys…' : value || 'Click to set'}
     </button>
   );
 }

@@ -47,6 +47,10 @@ import {
   enable as enableAutostart,
   disable as disableAutostart,
 } from '@tauri-apps/plugin-autostart';
+import {
+  register as registerShortcut,
+  unregister as unregisterShortcut,
+} from '@tauri-apps/plugin-global-shortcut';
 import { loadSessionState, saveSessionState, saveSessionStateSync } from './lib/sessionState';
 import { useProfiles } from './hooks/useProfiles';
 import type { TerminalProfile } from './hooks/useProfiles';
@@ -465,6 +469,28 @@ export function App() {
       disableAutostart().catch(() => {});
     }
   }, [settings.launchAtLogin]);
+
+  // Register/unregister global dropdown shortcut
+  useEffect(() => {
+    if (!settings.dropdownEnabled || !settings.dropdownHotkey) return;
+
+    const hotkey = settings.dropdownHotkey;
+    let registered = false;
+
+    registerShortcut(hotkey, () => {
+      invoke('toggle_dropdown').catch(console.error);
+    })
+      .then(() => {
+        registered = true;
+      })
+      .catch(console.error);
+
+    return () => {
+      if (registered) {
+        unregisterShortcut(hotkey).catch(console.error);
+      }
+    };
+  }, [settings.dropdownEnabled, settings.dropdownHotkey]);
 
   // Sync processName changes instantly via device WS (no SQL write, just forwarded to viewers)
   const prevProcessRef = useRef<Map<string, string | null>>(new Map());

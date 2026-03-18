@@ -223,6 +223,30 @@ fn open_file_in_editor(
 }
 
 #[tauri::command]
+async fn toggle_dropdown(window: tauri::WebviewWindow) -> Result<(), String> {
+    if window.is_visible().map_err(|e| e.to_string())? {
+        window.hide().map_err(|e| e.to_string())?;
+    } else {
+        let monitor = window.current_monitor().map_err(|e| e.to_string())?;
+        if let Some(monitor) = monitor {
+            let size = monitor.size();
+            let scale = monitor.scale_factor();
+            let width = size.width as f64 / scale;
+            let height = (size.height as f64 / scale) * 0.4;
+            window
+                .set_position(tauri::Position::Logical(tauri::LogicalPosition::new(0.0, 0.0)))
+                .map_err(|e| e.to_string())?;
+            window
+                .set_size(tauri::Size::Logical(tauri::LogicalSize::new(width, height)))
+                .map_err(|e| e.to_string())?;
+        }
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 async fn read_file(path: String) -> Result<String, String> {
     // Read file as bytes first to handle non-UTF-8 content (e.g., shell history with binary data)
     let bytes = tokio::fs::read(&path)
@@ -293,6 +317,7 @@ pub fn run() {
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
@@ -304,6 +329,7 @@ pub fn run() {
             copy_to_clipboard,
             open_url,
             open_file_in_editor,
+            toggle_dropdown,
             read_file,
             list_directory_entries,
             pty::pty_spawn,
