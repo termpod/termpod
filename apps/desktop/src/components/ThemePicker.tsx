@@ -26,6 +26,7 @@ const LIGHT_THEMES = new Set([
   'winter-light',
   'horizon-light',
   'vitesse-light',
+  'termpod-light',
 ]);
 
 interface ThemeEntry {
