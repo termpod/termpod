@@ -196,6 +196,33 @@ async fn list_directory_entries(path: String) -> Result<Vec<String>, String> {
     Ok(entries)
 }
 
+/// Positions the macOS traffic light buttons (close, minimize, zoom) at the given coordinates.
+/// The config-based `trafficLightPosition` is unreliable in release builds, so we set it
+/// programmatically via the NSWindow API and re-apply on window events that can reset it.
+#[cfg(target_os = "macos")]
+fn position_traffic_lights_raw(ns_window_ptr: *mut std::ffi::c_void, x: f64, y: f64) {
+    use objc2_app_kit::NSWindowButton;
+    use objc2_foundation::NSPoint;
+
+    let ns_window = ns_window_ptr as *mut objc2_app_kit::NSWindow;
+
+    let buttons = [
+        NSWindowButton::CloseButton,
+        NSWindowButton::MiniaturizeButton,
+        NSWindowButton::ZoomButton,
+    ];
+
+    unsafe {
+        for (i, button_type) in buttons.iter().enumerate() {
+            let button = (*ns_window).standardWindowButton(*button_type);
+            if let Some(button) = button {
+                let origin = NSPoint::new(x + (i as f64 * 20.0), y);
+                button.setFrameOrigin(origin);
+            }
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -540,12 +567,30 @@ pub fn run() {
                 }
             });
 
+            // Programmatically set traffic light position (config value alone is unreliable in release builds)
+            #[cfg(target_os = "macos")]
+            if let Some(window) = app.get_webview_window("main") {
+                if let Ok(ns_window) = window.ns_window() {
+                    position_traffic_lights_raw(ns_window, 16.0, 10.0);
+                }
+            }
+
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window.hide();
+            match event {
+                WindowEvent::CloseRequested { api, .. } => {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+                // Re-apply traffic light position on events that can reset it
+                #[cfg(target_os = "macos")]
+                WindowEvent::Resized(_) | WindowEvent::ThemeChanged(_) | WindowEvent::Focused(true) => {
+                    if let Ok(ns_window) = window.ns_window() {
+                        position_traffic_lights_raw(ns_window, 16.0, 10.0);
+                    }
+                }
+                _ => {}
             }
         })
         .build(tauri::generate_context!())
