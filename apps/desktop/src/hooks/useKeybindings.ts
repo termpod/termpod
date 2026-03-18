@@ -27,6 +27,28 @@ export const DEFAULT_KEYBINDINGS: Keybinding[] = [
   { id: 'prev_tab', label: 'Previous Tab', shortcut: 'Cmd+Shift+[', category: 'Tabs' },
   { id: 'close_other_tabs', label: 'Close Other Tabs', shortcut: 'Cmd+Alt+W', category: 'Tabs' },
   { id: 'rename_tab', label: 'Rename Tab', shortcut: '', category: 'Tabs' },
+  { id: 'split_right', label: 'Split Right', shortcut: 'Cmd+D', category: 'Tabs' },
+  { id: 'split_down', label: 'Split Down', shortcut: 'Cmd+Shift+D', category: 'Tabs' },
+  { id: 'close_pane', label: 'Close Pane', shortcut: 'Cmd+Shift+W', category: 'Tabs' },
+  {
+    id: 'focus_pane_left',
+    label: 'Focus Pane Left',
+    shortcut: 'Cmd+Alt+Left',
+    category: 'Tabs',
+  },
+  {
+    id: 'focus_pane_right',
+    label: 'Focus Pane Right',
+    shortcut: 'Cmd+Alt+Right',
+    category: 'Tabs',
+  },
+  { id: 'focus_pane_up', label: 'Focus Pane Up', shortcut: 'Cmd+Alt+Up', category: 'Tabs' },
+  {
+    id: 'focus_pane_down',
+    label: 'Focus Pane Down',
+    shortcut: 'Cmd+Alt+Down',
+    category: 'Tabs',
+  },
 
   // Terminal
   { id: 'find', label: 'Find', shortcut: 'Cmd+F', category: 'Terminal' },

@@ -50,6 +50,8 @@ import {
 import { loadSessionState, saveSessionState, saveSessionStateSync } from './lib/sessionState';
 import { useProfiles } from './hooks/useProfiles';
 import type { TerminalProfile } from './hooks/useProfiles';
+import { usePaneLayout, findNeighborPane } from './hooks/usePaneLayout';
+import { PaneContainer } from './components/PaneContainer';
 
 export function App() {
   const auth = useAuth();
@@ -79,6 +81,9 @@ export function App() {
     reset: resetSettings,
     defaults: settingsDefaults,
   } = useSettings();
+  const paneLayout = usePaneLayout();
+  const paneLayoutRef = useRef(paneLayout);
+  paneLayoutRef.current = paneLayout;
   const updater = useUpdater();
   const customThemes = useSyncExternalStore(subscribeCustomThemes, getCustomThemesSnapshot);
 
@@ -390,6 +395,9 @@ export function App() {
         stopRecording(id);
       }
 
+      // Clean up pane tree entry if this was a tab root
+      paneLayoutRef.current.removeTabTree(id);
+
       const { wasLast } = closeSession(id);
 
       if (wasLast && settings.closeWindowOnLastTab) {
@@ -415,6 +423,13 @@ export function App() {
         body: session?.processName || session?.name || 'Terminal',
       });
     }
+
+    // If this session is a pane in a split, remove it from the tree first
+    const result = paneLayoutRef.current.closePane(id);
+    if (result.removedFromTree && result.promotedSessionId) {
+      paneLayoutRef.current.setFocusedPane(result.promotedSessionId);
+    }
+
     handleCloseSession(id);
   };
 
@@ -936,6 +951,73 @@ export function App() {
         invoke('open_url', { url: 'https://github.com/termpod/termpod/issues' });
         break;
 
+      case 'split_right': {
+        if (!activeId) break;
+        const focusedId = paneLayout.focusedPaneId || activeId;
+        const focusedSession = sessions.find((s) => s.id === focusedId);
+        createSession({
+          shell: settings.shellPath,
+          cwd: focusedSession?.cwd,
+        }).then((newSession) => {
+          if (newSession) {
+            paneLayout.splitPane(focusedId, 'horizontal', newSession.id);
+          }
+        });
+        break;
+      }
+
+      case 'split_down': {
+        if (!activeId) break;
+        const focusedId = paneLayout.focusedPaneId || activeId;
+        const focusedSession = sessions.find((s) => s.id === focusedId);
+        createSession({
+          shell: settings.shellPath,
+          cwd: focusedSession?.cwd,
+        }).then((newSession) => {
+          if (newSession) {
+            paneLayout.splitPane(focusedId, 'vertical', newSession.id);
+          }
+        });
+        break;
+      }
+
+      case 'close_pane': {
+        const focusedId = paneLayout.focusedPaneId;
+        if (!focusedId || !activeId) break;
+        if (!paneLayout.hasSplits(activeId)) {
+          // No splits — close the whole tab
+          handleCloseSession(activeId);
+          break;
+        }
+        const result = paneLayout.closePane(focusedId);
+        if (result.removedFromTree) {
+          handleCloseSession(focusedId);
+          if (result.promotedSessionId) {
+            paneLayout.setFocusedPane(result.promotedSessionId);
+            const promoted = sessions.find((s) => s.id === result.promotedSessionId);
+            promoted?.termRef.current?.focus();
+          }
+        }
+        break;
+      }
+
+      case 'focus_pane_left':
+      case 'focus_pane_right':
+      case 'focus_pane_up':
+      case 'focus_pane_down': {
+        if (!activeId) break;
+        const direction = menuId.replace('focus_pane_', '') as 'left' | 'right' | 'up' | 'down';
+        const currentFocus = paneLayout.focusedPaneId || activeId;
+        const tree = paneLayout.getTree(activeId);
+        const neighbor = findNeighborPane(tree, currentFocus, direction);
+        if (neighbor) {
+          paneLayout.setFocusedPane(neighbor);
+          const neighborSession = sessions.find((s) => s.id === neighbor);
+          neighborSession?.termRef.current?.focus();
+        }
+        break;
+      }
+
       default:
         if (menuId.startsWith('theme_')) {
           const themeKey = menuId.slice(6);
@@ -984,6 +1066,13 @@ export function App() {
     'zoom_out',
     'zoom_reset',
     'find',
+    'split_right',
+    'split_down',
+    'close_pane',
+    'focus_pane_left',
+    'focus_pane_right',
+    'focus_pane_up',
+    'focus_pane_down',
   ]);
 
   useEffect(() => {
@@ -1122,100 +1211,146 @@ export function App() {
         </div>
       )}
       <div className="terminal-area">
-        {sessions.map((session) => (
-          <TerminalPanel
-            key={session.id}
-            session={session}
-            visible={session.id === activeId}
-            onTermReady={markTermReady}
-            fontSize={settings.fontSize}
-            fontFamily={settings.fontFamily}
-            fontWeight={settings.fontWeight}
-            fontSmoothing={settings.fontSmoothing}
-            fontLigatures={settings.fontLigatures}
-            drawBoldInBold={settings.drawBoldInBold}
-            windowPadding={settings.windowPadding}
-            cursorStyle={settings.cursorStyle}
-            cursorBlink={settings.cursorBlink}
-            lineHeight={settings.lineHeight}
-            promptAtBottom={settings.promptAtBottom}
-            copyOnSelect={settings.copyOnSelect}
-            macOptionIsMeta={settings.macOptionIsMeta}
-            altClickMoveCursor={settings.altClickMoveCursor}
-            wordSeparators={settings.wordSeparators}
-            theme={terminalTheme}
-            bellEnabled={settings.bellEnabled}
-            notifyOnBell={settings.notifyOnBell}
-            notifyLongRunningCommand={settings.notifyLongRunningCommand}
-            longRunningThreshold={settings.longRunningThreshold}
-            backgroundOpacity={settings.backgroundOpacity}
-            scrollbarVisibility={settings.scrollbarVisibility}
-            autocompleteEnabled={settings.autocompleteEnabled}
-            defaultEditor={settings.defaultEditor}
-            customEditorCommand={settings.customEditorCommand}
-            onRelayChange={(info) => handleRelayChange(session.id, info)}
-            onSessionRegistered={(relaySessionId) => {
-              const term = session.termRef.current;
-              device.registerSession(
-                relaySessionId,
-                session.name,
-                session.cwd,
-                term?.cols ?? 120,
-                term?.rows ?? 40,
-              );
-            }}
-            getSessionsList={() => {
-              const list: Record<string, unknown>[] = [];
-              for (const s of sessions) {
-                if (s.exited || s.closing) continue;
-                const info = relayMapRef.current.get(s.id);
-                if (!info?.sessionId) continue;
-                list.push({
-                  id: info.sessionId,
-                  name: s.name,
-                  cwd: s.cwd,
-                  processName: s.processName ?? null,
-                  ptyCols: s.pty.cols ?? 120,
-                  ptyRows: s.pty.rows ?? 40,
-                });
-              }
-              return list;
-            }}
-            onCreateSessionRequest={handleCreateSessionRequest}
-            onDeleteSession={(relaySessionId) => {
-              // Find local session by relay session ID and close it
-              for (const [localId, info] of relayMapRef.current.entries()) {
-                if (info.sessionId === relaySessionId) {
-                  handleCloseSession(localId);
-                  break;
-                }
-              }
-            }}
-            onSessionClosed={() => handleCloseSession(session.id)}
-            deviceSendSignaling={deviceWS.sendSignaling}
-            deviceClientId={deviceWS.clientId}
-            onWebRTCMuxInput={handleWebRTCMuxInput}
-            onWebRTCMuxResize={handleWebRTCMuxResize}
-            getSharedWebRTC={getSharedWebRTC}
-            isRelayAllowed={isPro || selfHosted}
-            onCwdChange={(cwd) => {
-              updateSessionCwd(session.id, cwd);
-              const relayInfo = relayMapRef.current.get(session.id);
+        {(() => {
+          // Sessions in the active tab's pane tree (may be multiple when split)
+          const activeLeafIds = activeId
+            ? new Set(paneLayout.getLeafIdsForTab(activeId))
+            : new Set<string>();
+          const activeHasSplits = activeId ? paneLayout.hasSplits(activeId) : false;
 
-              if (relayInfo?.sessionId) {
-                // Instant WS push to viewers (sessions_updated bulk sync handles DB persistence)
-                deviceWS.sendSessionPropertyChanged(relayInfo.sessionId, {
-                  name: nameFromCwd(cwd),
-                  cwd,
-                });
-              }
-            }}
-            onSaveWorkflow={(command) => {
-              addWorkflow(command.split('\n')[0].trim().slice(0, 40), command);
-              setShowWorkflows(true);
-            }}
-          />
-        ))}
+          const renderTerminalPanel = (
+            session: (typeof sessions)[number],
+            visible: boolean,
+            inSplit: boolean,
+          ) => (
+            <TerminalPanel
+              key={session.id}
+              session={session}
+              visible={visible}
+              splitMode={inSplit}
+              onTermReady={markTermReady}
+              fontSize={settings.fontSize}
+              fontFamily={settings.fontFamily}
+              fontWeight={settings.fontWeight}
+              fontSmoothing={settings.fontSmoothing}
+              fontLigatures={settings.fontLigatures}
+              drawBoldInBold={settings.drawBoldInBold}
+              windowPadding={settings.windowPadding}
+              cursorStyle={settings.cursorStyle}
+              cursorBlink={settings.cursorBlink}
+              lineHeight={settings.lineHeight}
+              promptAtBottom={settings.promptAtBottom}
+              copyOnSelect={settings.copyOnSelect}
+              macOptionIsMeta={settings.macOptionIsMeta}
+              altClickMoveCursor={settings.altClickMoveCursor}
+              wordSeparators={settings.wordSeparators}
+              theme={terminalTheme}
+              bellEnabled={settings.bellEnabled}
+              notifyOnBell={settings.notifyOnBell}
+              notifyLongRunningCommand={settings.notifyLongRunningCommand}
+              longRunningThreshold={settings.longRunningThreshold}
+              backgroundOpacity={settings.backgroundOpacity}
+              scrollbarVisibility={settings.scrollbarVisibility}
+              autocompleteEnabled={settings.autocompleteEnabled}
+              defaultEditor={settings.defaultEditor}
+              customEditorCommand={settings.customEditorCommand}
+              onRelayChange={(info) => handleRelayChange(session.id, info)}
+              onSessionRegistered={(relaySessionId) => {
+                const term = session.termRef.current;
+                device.registerSession(
+                  relaySessionId,
+                  session.name,
+                  session.cwd,
+                  term?.cols ?? 120,
+                  term?.rows ?? 40,
+                );
+              }}
+              getSessionsList={() => {
+                const list: Record<string, unknown>[] = [];
+                for (const s of sessions) {
+                  if (s.exited || s.closing) continue;
+                  const info = relayMapRef.current.get(s.id);
+                  if (!info?.sessionId) continue;
+                  list.push({
+                    id: info.sessionId,
+                    name: s.name,
+                    cwd: s.cwd,
+                    processName: s.processName ?? null,
+                    ptyCols: s.pty.cols ?? 120,
+                    ptyRows: s.pty.rows ?? 40,
+                  });
+                }
+                return list;
+              }}
+              onCreateSessionRequest={handleCreateSessionRequest}
+              onDeleteSession={(relaySessionId) => {
+                for (const [localId, info] of relayMapRef.current.entries()) {
+                  if (info.sessionId === relaySessionId) {
+                    handleCloseSession(localId);
+                    break;
+                  }
+                }
+              }}
+              onSessionClosed={() => handleCloseSession(session.id)}
+              deviceSendSignaling={deviceWS.sendSignaling}
+              deviceClientId={deviceWS.clientId}
+              onWebRTCMuxInput={handleWebRTCMuxInput}
+              onWebRTCMuxResize={handleWebRTCMuxResize}
+              getSharedWebRTC={getSharedWebRTC}
+              isRelayAllowed={isPro || selfHosted}
+              onCwdChange={(cwd) => {
+                updateSessionCwd(session.id, cwd);
+                const relayInfo = relayMapRef.current.get(session.id);
+                if (relayInfo?.sessionId) {
+                  deviceWS.sendSessionPropertyChanged(relayInfo.sessionId, {
+                    name: nameFromCwd(cwd),
+                    cwd,
+                  });
+                }
+              }}
+              onSaveWorkflow={(command) => {
+                addWorkflow(command.split('\n')[0].trim().slice(0, 40), command);
+                setShowWorkflows(true);
+              }}
+            />
+          );
+
+          return (
+            <>
+              {/* Non-active sessions: keep mounted but hidden (preserves xterm/WebGL state) */}
+              {sessions
+                .filter((s) => !activeLeafIds.has(s.id))
+                .map((session) => renderTerminalPanel(session, false, false))}
+
+              {/* Active tab: split pane tree or single pane */}
+              {activeId && activeHasSplits ? (
+                <PaneContainer
+                  node={paneLayout.getTree(activeId)}
+                  renderPane={(sessionId, isFocused) => {
+                    const session = sessions.find((s) => s.id === sessionId);
+                    if (!session) return null;
+                    return renderTerminalPanel(session, isFocused, true);
+                  }}
+                  focusedPaneId={paneLayout.focusedPaneId}
+                  onFocusPane={paneLayout.setFocusedPane}
+                  onUpdateRatio={paneLayout.updateRatio}
+                  onDragEnd={() => {
+                    // Fit all terminals in the active tree after drag resize
+                    if (!activeId) return;
+                    for (const id of paneLayout.getLeafIdsForTab(activeId)) {
+                      const s = sessions.find((x) => x.id === id);
+                      s?.termRef.current?.fit();
+                    }
+                  }}
+                />
+              ) : (
+                sessions
+                  .filter((s) => activeLeafIds.has(s.id))
+                  .map((session) => renderTerminalPanel(session, session.id === activeId, false))
+              )}
+            </>
+          );
+        })()}
         {showDevicesPanel && (
           <ConnectedDevicesPanel
             sessionDevices={sessionDevices}

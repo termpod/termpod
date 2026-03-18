@@ -98,6 +98,8 @@ interface TerminalPanelProps {
   } | null;
   /** Whether the user is allowed to send terminal data via relay (Pro/trial/self-hosted). */
   isRelayAllowed?: boolean;
+  /** In split mode, use position:relative instead of absolute so flex container controls sizing. */
+  splitMode?: boolean;
 }
 
 export function TerminalPanel({
@@ -143,6 +145,7 @@ export function TerminalPanel({
   onWebRTCMuxResize,
   getSharedWebRTC,
   isRelayAllowed,
+  splitMode,
 }: TerminalPanelProps) {
   const isSshSession = (session.processName ?? '').toLowerCase() === 'ssh';
   const commandStartTimeRef = useRef<number | null>(null);
@@ -610,7 +613,7 @@ export function TerminalPanel({
 
   return (
     <div
-      className={`terminal-panel${backgroundOpacity !== undefined && backgroundOpacity < 1 ? ' transparent' : ''}`}
+      className={`terminal-panel${backgroundOpacity !== undefined && backgroundOpacity < 1 ? ' transparent' : ''}${splitMode ? ' terminal-panel-split' : ''}`}
       style={{
         visibility: active ? 'visible' : 'hidden',
         pointerEvents: active ? 'auto' : 'none',
