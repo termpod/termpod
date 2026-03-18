@@ -7,11 +7,13 @@ import type {
   FontSmoothing,
   FontWeight,
   ScrollbarVisibility,
+  DefaultEditor,
 } from '../hooks/useSettings';
 import { THEMES } from '../hooks/useSettings';
 import { ThemePicker, resolveTheme } from './ThemePicker';
 import { getCustomThemesSnapshot, subscribeCustomThemes } from '../lib/configStore';
 import { resolveRelayUrl } from '../hooks/useAuth';
+import type { TerminalProfile } from '../hooks/useProfiles';
 
 type SettingsTab = 'appearance' | 'terminal' | 'behavior' | 'account';
 
@@ -33,6 +35,12 @@ interface SettingsPanelProps {
   email?: string | null;
   onLogout?: () => void;
   subscription?: SubscriptionInfo | null;
+  profiles?: TerminalProfile[];
+  defaultProfileId?: string | null;
+  onAddProfile?: (profile: Omit<TerminalProfile, 'id'>) => void;
+  onUpdateProfile?: (id: string, patch: Partial<Omit<TerminalProfile, 'id'>>) => void;
+  onRemoveProfile?: (id: string) => void;
+  onSetDefaultProfile?: (id: string | null) => void;
 }
 
 const FONT_OPTIONS = [
@@ -161,6 +169,12 @@ export function SettingsPanel({
   email,
   onLogout,
   subscription,
+  profiles = [],
+  defaultProfileId = null,
+  onAddProfile,
+  onUpdateProfile,
+  onRemoveProfile,
+  onSetDefaultProfile,
 }: SettingsPanelProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
   const [shellInput, setShellInput] = useState(settings.shellPath);
@@ -610,6 +624,38 @@ export function SettingsPanel({
                   )}
                 </div>
 
+                <div className="sp-group-label">Editor</div>
+                <div className="sp-group">
+                  <SettingRow label="Open Files With">
+                    <SegmentedControl
+                      options={[
+                        { value: 'auto' as DefaultEditor, label: 'Auto' },
+                        { value: 'cursor' as DefaultEditor, label: 'Cursor' },
+                        { value: 'vscode' as DefaultEditor, label: 'VS Code' },
+                        { value: 'sublime' as DefaultEditor, label: 'Sublime' },
+                        { value: 'custom' as DefaultEditor, label: 'Custom' },
+                      ]}
+                      value={settings.defaultEditor}
+                      onChange={(v) => onUpdate({ defaultEditor: v })}
+                    />
+                  </SettingRow>
+                  {settings.defaultEditor === 'custom' && (
+                    <>
+                      <div className="sp-separator" />
+                      <SettingRow label="Command">
+                        <input
+                          className="sp-input"
+                          type="text"
+                          value={settings.customEditorCommand}
+                          onChange={(e) => onUpdate({ customEditorCommand: e.target.value })}
+                          placeholder="e.g. zed, nano, emacs"
+                          spellCheck={false}
+                        />
+                      </SettingRow>
+                    </>
+                  )}
+                </div>
+
                 <div className="sp-group-label">System</div>
                 <div className="sp-group">
                   <SettingRow label="Launch at Login">
@@ -649,6 +695,17 @@ export function SettingsPanel({
                     </div>
                   </>
                 )}
+
+                <div className="sp-group-label">Profiles</div>
+                <ProfilesSection
+                  profiles={profiles}
+                  defaultProfileId={defaultProfileId}
+                  settings={settings}
+                  onAdd={onAddProfile}
+                  onUpdate={onUpdateProfile}
+                  onRemove={onRemoveProfile}
+                  onSetDefault={onSetDefaultProfile}
+                />
               </>
             )}
 
@@ -1060,6 +1117,218 @@ function FontPicker({
             )}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function ProfileRow({
+  profile,
+  isDefault,
+  onUpdate,
+  onRemove,
+  onSetDefault,
+}: {
+  profile: TerminalProfile;
+  isDefault: boolean;
+  onUpdate: (patch: Partial<Omit<TerminalProfile, 'id'>>) => void;
+  onRemove: () => void;
+  onSetDefault: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [nameInput, setNameInput] = useState(profile.name);
+  const [shellInput, setShellInput] = useState(profile.shell);
+  const [cwdInput, setCwdInput] = useState(profile.cwd);
+  const [envText, setEnvText] = useState(
+    Object.entries(profile.env)
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n'),
+  );
+
+  const commitName = () => {
+    const v = nameInput.trim();
+    if (v) onUpdate({ name: v });
+    else setNameInput(profile.name);
+  };
+
+  const commitShell = () => {
+    onUpdate({ shell: shellInput.trim() });
+  };
+
+  const commitCwd = () => {
+    onUpdate({ cwd: cwdInput.trim() });
+  };
+
+  const commitEnv = () => {
+    const env: Record<string, string> = {};
+    for (const line of envText.split('\n')) {
+      const eq = line.indexOf('=');
+      if (eq > 0) {
+        const k = line.slice(0, eq).trim();
+        const v = line.slice(eq + 1).trim();
+        if (k) env[k] = v;
+      }
+    }
+    onUpdate({ env });
+  };
+
+  return (
+    <div className="sp-profile-row">
+      <div className="sp-profile-header">
+        <button
+          type="button"
+          className="sp-profile-expand"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+        >
+          <svg
+            width="7"
+            height="12"
+            viewBox="0 0 7 12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{
+              transform: expanded ? 'rotate(90deg)' : undefined,
+              transition: 'transform 0.15s',
+            }}
+          >
+            <path d="M1 1l5 5-5 5" />
+          </svg>
+          <span className="sp-profile-name">{profile.name}</span>
+          {isDefault && <span className="sp-profile-default-badge">default</span>}
+        </button>
+        <div className="sp-profile-actions">
+          {!isDefault && (
+            <button type="button" className="sp-profile-btn" onClick={onSetDefault}>
+              Set Default
+            </button>
+          )}
+          <button type="button" className="sp-profile-btn sp-profile-btn-danger" onClick={onRemove}>
+            Delete
+          </button>
+        </div>
+      </div>
+      {expanded && (
+        <div className="sp-profile-fields">
+          <div className="sp-profile-field">
+            <label className="sp-profile-field-label">Name</label>
+            <input
+              className="sp-input"
+              type="text"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              onBlur={commitName}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+              }}
+              spellCheck={false}
+            />
+          </div>
+          <div className="sp-profile-field">
+            <label className="sp-profile-field-label">Shell</label>
+            <input
+              className="sp-input"
+              type="text"
+              value={shellInput}
+              onChange={(e) => setShellInput(e.target.value)}
+              onBlur={commitShell}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+              }}
+              spellCheck={false}
+              placeholder="/bin/zsh"
+            />
+          </div>
+          <div className="sp-profile-field">
+            <label className="sp-profile-field-label">Working Directory</label>
+            <input
+              className="sp-input"
+              type="text"
+              value={cwdInput}
+              onChange={(e) => setCwdInput(e.target.value)}
+              onBlur={commitCwd}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+              }}
+              spellCheck={false}
+              placeholder="~/projects/myapp"
+            />
+          </div>
+          <div className="sp-profile-field">
+            <label className="sp-profile-field-label">
+              Environment Variables
+              <span className="sp-profile-field-hint"> (KEY=VALUE, one per line)</span>
+            </label>
+            <textarea
+              className="sp-input sp-profile-env-textarea"
+              value={envText}
+              onChange={(e) => setEnvText(e.target.value)}
+              onBlur={commitEnv}
+              spellCheck={false}
+              rows={3}
+              placeholder={'NODE_ENV=development\nAPI_URL=http://localhost:3000'}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProfilesSection({
+  profiles,
+  defaultProfileId,
+  settings,
+  onAdd,
+  onUpdate,
+  onRemove,
+  onSetDefault,
+}: {
+  profiles: TerminalProfile[];
+  defaultProfileId: string | null;
+  settings: Settings;
+  onAdd?: (profile: Omit<TerminalProfile, 'id'>) => void;
+  onUpdate?: (id: string, patch: Partial<Omit<TerminalProfile, 'id'>>) => void;
+  onRemove?: (id: string) => void;
+  onSetDefault?: (id: string | null) => void;
+}) {
+  return (
+    <div className="sp-profiles-group">
+      {profiles.length === 0 ? (
+        <div className="sp-profiles-empty">
+          No profiles yet. Profiles let you open tabs with custom shells, directories, and
+          environment variables.
+        </div>
+      ) : (
+        profiles.map((p) => (
+          <ProfileRow
+            key={p.id}
+            profile={p}
+            isDefault={p.id === defaultProfileId}
+            onUpdate={(patch) => onUpdate?.(p.id, patch)}
+            onRemove={() => onRemove?.(p.id)}
+            onSetDefault={() => onSetDefault?.(p.id)}
+          />
+        ))
+      )}
+      {onAdd && (
+        <button
+          type="button"
+          className="sp-profiles-add-btn"
+          onClick={() =>
+            onAdd({
+              name: `Profile ${profiles.length + 1}`,
+              shell: settings.shellPath,
+              cwd: '',
+              env: {},
+            })
+          }
+        >
+          + Add Profile
+        </button>
       )}
     </div>
   );

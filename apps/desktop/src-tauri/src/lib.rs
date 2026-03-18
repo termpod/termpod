@@ -159,6 +159,70 @@ fn open_url(url: String) {
 }
 
 #[tauri::command]
+fn open_file_in_editor(
+    path: String,
+    line: Option<u32>,
+    col: Option<u32>,
+    editor: Option<String>,
+    custom_command: Option<String>,
+) -> Result<(), String> {
+    fn goto_arg(path: &str, line: Option<u32>, col: Option<u32>) -> String {
+        match (line, col) {
+            (Some(l), Some(c)) => format!("{path}:{l}:{c}"),
+            (Some(l), None) => format!("{path}:{l}"),
+            _ => path.to_string(),
+        }
+    }
+
+    let goto = goto_arg(&path, line, col);
+
+    let try_editor = |bin: &str, use_goto_flag: bool| -> bool {
+        let mut cmd = std::process::Command::new(bin);
+        if use_goto_flag {
+            cmd.arg("--goto");
+        }
+        cmd.arg(&goto);
+        cmd.spawn().is_ok()
+    };
+
+    match editor.as_deref() {
+        Some("cursor") => {
+            if try_editor("cursor", true) {
+                return Ok(());
+            }
+        }
+        Some("vscode") => {
+            if try_editor("code", true) {
+                return Ok(());
+            }
+        }
+        Some("sublime") => {
+            if try_editor("subl", false) {
+                return Ok(());
+            }
+        }
+        Some("custom") => {
+            if let Some(ref bin) = custom_command {
+                if !bin.is_empty() && try_editor(bin, false) {
+                    return Ok(());
+                }
+            }
+        }
+        _ => {
+            for (bin, use_goto_flag) in [("cursor", true), ("code", true), ("subl", false)] {
+                if try_editor(bin, use_goto_flag) {
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    let _ = std::process::Command::new("open").arg(&path).spawn();
+
+    Ok(())
+}
+
+#[tauri::command]
 async fn read_file(path: String) -> Result<String, String> {
     // Read file as bytes first to handle non-UTF-8 content (e.g., shell history with binary data)
     let bytes = tokio::fs::read(&path)
@@ -239,6 +303,7 @@ pub fn run() {
             check_full_disk_access,
             copy_to_clipboard,
             open_url,
+            open_file_in_editor,
             read_file,
             list_directory_entries,
             pty::pty_spawn,

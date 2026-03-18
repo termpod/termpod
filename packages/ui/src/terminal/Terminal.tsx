@@ -8,6 +8,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
+import type { ILinkProvider, ILink, IBufferRange } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { WebLinksAddon } from '@xterm/addon-web-links';
@@ -96,10 +97,74 @@ export interface TerminalProps {
   theme?: TerminalThemeColors;
   scrollbarVisibility?: 'always' | 'when-scrolling' | 'never';
   onOpenUrl?: (url: string) => void;
+  onOpenFile?: (path: string, line?: number, col?: number) => void;
   blockDecorationsMode?: 'full' | 'minimal' | 'off';
   // Autocomplete options
   autocompleteEnabled?: boolean;
   autocompleteEngine?: AutocompleteEngine;
+}
+
+// Matches absolute paths (/foo/bar.ts), relative paths (./foo, ../foo),
+// project-relative paths (src/foo.tsx), with optional :line or :line:col suffix.
+const FILE_PATH_RE =
+  /(?:^|[\s'"`(,[])((\.{0,2}\/[\w./\-@]+|[\w][\w./\-@]*\/[\w./\-@]+)\.[a-zA-Z0-9]{1,10}(?::(\d+)(?::(\d+))?)?)/g;
+
+class FilePathLinkProvider implements ILinkProvider {
+  constructor(
+    private terminal: XTerm,
+    private onOpenFile: (path: string, line?: number, col?: number) => void,
+  ) {}
+
+  provideLinks(bufferLineNumber: number, callback: (links: ILink[] | undefined) => void): void {
+    const buf = this.terminal.buffer.active;
+    const line = buf.getLine(bufferLineNumber - 1);
+
+    if (!line) {
+      callback(undefined);
+      return;
+    }
+
+    const lineText = line.translateToString(false);
+    const links: ILink[] = [];
+
+    FILE_PATH_RE.lastIndex = 0;
+
+    let match: RegExpExecArray | null;
+
+    while ((match = FILE_PATH_RE.exec(lineText)) !== null) {
+      const fullMatch = match[0];
+      const pathWithLineCol = match[1];
+      const pathOnly = match[2];
+      const lineNum = match[3] ? parseInt(match[3], 10) : undefined;
+      const colNum = match[4] ? parseInt(match[4], 10) : undefined;
+
+      // Offset accounts for leading whitespace/punctuation captured in group 0
+      const startCol = match.index + (fullMatch.length - pathWithLineCol.length);
+      const endCol = match.index + fullMatch.length;
+
+      const range: IBufferRange = {
+        start: { x: startCol + 1, y: bufferLineNumber },
+        end: { x: endCol + 1, y: bufferLineNumber },
+      };
+
+      const capturedPath = pathOnly;
+      const capturedLine = lineNum;
+      const capturedCol = colNum;
+      const openFile = this.onOpenFile.bind(this);
+
+      links.push({
+        range,
+        text: pathWithLineCol,
+        activate(event: MouseEvent) {
+          if (event.metaKey) {
+            openFile(capturedPath, capturedLine, capturedCol);
+          }
+        },
+      });
+    }
+
+    callback(links.length > 0 ? links : undefined);
+  }
 }
 
 const SEARCH_DECORATIONS = {
@@ -141,6 +206,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
       theme,
       scrollbarVisibility = 'auto',
       onOpenUrl,
+      onOpenFile,
       blockDecorationsMode = 'full',
       autocompleteEnabled = true,
       autocompleteEngine,
@@ -196,6 +262,8 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
     onReadyRef.current = onReady;
     const onOpenUrlRef = useRef(onOpenUrl);
     onOpenUrlRef.current = onOpenUrl;
+    const onOpenFileRef = useRef(onOpenFile);
+    onOpenFileRef.current = onOpenFile;
     const promptAtBottomRef = useRef(promptAtBottom);
     promptAtBottomRef.current = promptAtBottom;
     const copyOnSelectRef = useRef(copyOnSelect);
@@ -633,6 +701,12 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(
           if (event.metaKey) {
             onOpenUrlRef.current?.(uri);
           }
+        }),
+      );
+
+      term.registerLinkProvider(
+        new FilePathLinkProvider(term, (path, line, col) => {
+          onOpenFileRef.current?.(path, line, col);
         }),
       );
 

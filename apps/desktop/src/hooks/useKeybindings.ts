@@ -15,6 +15,12 @@ export const CATEGORIES = ['Tabs', 'Terminal', 'View', 'App'] as const;
 export const DEFAULT_KEYBINDINGS: Keybinding[] = [
   // Tabs
   { id: 'new_tab', label: 'New Tab', shortcut: 'Cmd+T', category: 'Tabs' },
+  {
+    id: 'new_tab_with_profile',
+    label: 'New Tab with Profile',
+    shortcut: 'Cmd+Shift+N',
+    category: 'Tabs',
+  },
   { id: 'close_tab', label: 'Close Tab', shortcut: 'Cmd+W', category: 'Tabs' },
   { id: 'duplicate_tab', label: 'Duplicate Tab', shortcut: 'Cmd+Shift+T', category: 'Tabs' },
   { id: 'next_tab', label: 'Next Tab', shortcut: 'Cmd+Shift+]', category: 'Tabs' },

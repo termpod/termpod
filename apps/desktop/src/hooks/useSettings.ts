@@ -3,6 +3,7 @@ import { ConfigStore } from '../lib/configStore';
 
 export type CursorStyle = 'block' | 'underline' | 'bar';
 export type NewTabCwd = 'home' | 'current' | 'custom';
+export type DefaultEditor = 'auto' | 'cursor' | 'vscode' | 'sublime' | 'custom';
 export type FontSmoothing = 'auto' | 'antialiased' | 'none';
 export type FontWeight =
   | 'normal'
@@ -1082,6 +1083,13 @@ export interface Settings {
 
   // Autocomplete
   autocompleteEnabled: boolean;
+
+  // Editor
+  defaultEditor: DefaultEditor;
+  customEditorCommand: string;
+
+  // Onboarding
+  onboardingComplete: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -1123,6 +1131,11 @@ const DEFAULTS: Settings = {
   relayUrl: '',
 
   autocompleteEnabled: true,
+
+  defaultEditor: 'auto',
+  customEditorCommand: '',
+
+  onboardingComplete: false,
 };
 
 const settingsStore = new ConfigStore<Settings>('config.json', DEFAULTS, 'termpod-settings');

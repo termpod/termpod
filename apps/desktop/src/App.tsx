@@ -34,6 +34,7 @@ import { WorkflowsPanel } from './components/WorkflowsPanel';
 import { authFetch } from './hooks/useAuth';
 import { ShareDialog } from './components/ShareDialog';
 import { AboutModal } from './components/AboutModal';
+import { OnboardingScreen } from './components/OnboardingScreen';
 import {
   useRecording,
   startRecording,
@@ -47,6 +48,8 @@ import {
   disable as disableAutostart,
 } from '@tauri-apps/plugin-autostart';
 import { loadSessionState, saveSessionState, saveSessionStateSync } from './lib/sessionState';
+import { useProfiles } from './hooks/useProfiles';
+import type { TerminalProfile } from './hooks/useProfiles';
 
 export function App() {
   const auth = useAuth();
@@ -256,6 +259,7 @@ export function App() {
     [createSession, settings.shellPath, deviceWS.sendSessionCreated],
   );
 
+  const [showOnboarding, setShowOnboarding] = useState(() => !settings.onboardingComplete);
   const [showSettings, setShowSettings] = useState(false);
   const [showKeybindings, setShowKeybindings] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -279,6 +283,9 @@ export function App() {
     edit: editWorkflow,
   } = useWorkflows();
   const recording = useRecording();
+  const { profiles, defaultProfileId, addProfile, updateProfile, removeProfile, setDefault } =
+    useProfiles();
+  const [showProfilePicker, setShowProfilePicker] = useState(false);
   const initializedRef = useRef(false);
   const [relayMap, setRelayMap] = useState<Map<string, RelayInfo>>(new Map());
   const relayMapRef = useRef(relayMap);
@@ -667,6 +674,19 @@ export function App() {
     return undefined; // home (default in createSession)
   }, [settings.newTabCwd, settings.customTabCwdPath, activeSession?.cwd]);
 
+  const createSessionFromProfile = useCallback(
+    (profileId: string) => {
+      const profile = profiles.find((p) => p.id === profileId);
+      if (!profile) return;
+      createSession({
+        shell: profile.shell || settings.shellPath,
+        cwd: profile.cwd || undefined,
+        env: Object.keys(profile.env).length > 0 ? profile.env : undefined,
+      });
+    },
+    [profiles, createSession, settings.shellPath],
+  );
+
   // Global listener for local (Bonjour) session creation requests when no sessions exist.
   // When sessions exist, the per-panel useLocalServer listener handles these instead.
   useEffect(() => {
@@ -690,10 +710,25 @@ export function App() {
   menuHandlerRef.current = (menuId: string) => {
     switch (menuId) {
       case 'new_tab':
-        createSession({
-          shell: settings.shellPath,
-          cwd: resolveNewTabCwd(),
-        });
+        if (defaultProfileId) {
+          createSessionFromProfile(defaultProfileId);
+        } else {
+          createSession({
+            shell: settings.shellPath,
+            cwd: resolveNewTabCwd(),
+          });
+        }
+        break;
+
+      case 'new_tab_with_profile':
+        if (profiles.length > 0) {
+          setShowProfilePicker(true);
+        } else {
+          createSession({
+            shell: settings.shellPath,
+            cwd: resolveNewTabCwd(),
+          });
+        }
         break;
 
       case 'close_tab':
@@ -936,6 +971,7 @@ export function App() {
   // Shortcuts that should fire even when a text input is focused
   const GLOBAL_SHORTCUT_IDS = new Set([
     'new_tab',
+    'new_tab_with_profile',
     'close_tab',
     'duplicate_tab',
     'next_tab',
@@ -1115,6 +1151,8 @@ export function App() {
             backgroundOpacity={settings.backgroundOpacity}
             scrollbarVisibility={settings.scrollbarVisibility}
             autocompleteEnabled={settings.autocompleteEnabled}
+            defaultEditor={settings.defaultEditor}
+            customEditorCommand={settings.customEditorCommand}
             onRelayChange={(info) => handleRelayChange(session.id, info)}
             onSessionRegistered={(relaySessionId) => {
               const term = session.termRef.current;
@@ -1212,6 +1250,12 @@ export function App() {
                 }
               : null
           }
+          profiles={profiles}
+          defaultProfileId={defaultProfileId}
+          onAddProfile={addProfile}
+          onUpdateProfile={updateProfile}
+          onRemoveProfile={removeProfile}
+          onSetDefaultProfile={setDefault}
         />
       )}
       {showKeybindings && (
@@ -1255,6 +1299,21 @@ export function App() {
         <AboutModal
           onClose={() => {
             setShowAbout(false);
+            setTimeout(focusActive, 50);
+          }}
+        />
+      )}
+      {showProfilePicker && (
+        <ProfilePickerDialog
+          profiles={profiles}
+          defaultProfileId={defaultProfileId}
+          onSelect={(profileId) => {
+            setShowProfilePicker(false);
+            createSessionFromProfile(profileId);
+            setTimeout(focusActive, 50);
+          }}
+          onClose={() => {
+            setShowProfilePicker(false);
             setTimeout(focusActive, 50);
           }}
         />
@@ -1357,6 +1416,81 @@ export function App() {
           }}
         />
       )}
+      {showOnboarding && (
+        <OnboardingScreen
+          currentTheme={settings.theme}
+          onUpdateSettings={updateSettings}
+          onComplete={() => setShowOnboarding(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function ProfilePickerDialog({
+  profiles,
+  defaultProfileId,
+  onSelect,
+  onClose,
+}: {
+  profiles: TerminalProfile[];
+  defaultProfileId: string | null;
+  onSelect: (profileId: string) => void;
+  onClose: () => void;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    dialogRef.current?.focus();
+
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [onClose]);
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        ref={dialogRef}
+        className="confirm-dialog"
+        onClick={(e) => e.stopPropagation()}
+        tabIndex={-1}
+        style={{ minWidth: 280 }}
+      >
+        <div className="confirm-title">New Tab with Profile</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
+          {profiles.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className="confirm-btn"
+              style={{
+                textAlign: 'left',
+                justifyContent: 'space-between',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+              onClick={() => onSelect(p.id)}
+            >
+              <span>{p.name}</span>
+              {p.id === defaultProfileId && (
+                <span style={{ fontSize: 10, opacity: 0.6 }}>default</span>
+              )}
+            </button>
+          ))}
+        </div>
+        <div className="confirm-actions" style={{ marginTop: 12 }}>
+          <button type="button" className="confirm-btn confirm-btn-cancel" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

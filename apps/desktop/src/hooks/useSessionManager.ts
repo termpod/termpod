@@ -176,7 +176,7 @@ export function useSessionManager() {
   }, [updateStore]);
 
   const createSession = useCallback(
-    async (options?: { cwd?: string; shell?: string }) => {
+    async (options?: { cwd?: string; shell?: string; env?: Record<string, string> }) => {
       const id = generateSessionId();
       const sessionCwd = options?.cwd || cachedHomeDir || (await homeDirPromise) || '/Users';
       const shell = options?.shell || DEFAULT_SHELL;
@@ -185,7 +185,7 @@ export function useSessionManager() {
         cols: DEFAULT_PTY_SIZE.cols,
         rows: DEFAULT_PTY_SIZE.rows,
         cwd: sessionCwd,
-        env: { TERM: 'xterm-256color' },
+        env: { TERM: 'xterm-256color', ...options?.env },
       });
 
       const termRef = { current: null } as React.RefObject<TerminalHandle | null>;

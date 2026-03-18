@@ -69,6 +69,9 @@ interface TerminalPanelProps {
   scrollbarVisibility?: 'always' | 'when-scrolling' | 'never';
   // Autocomplete settings
   autocompleteEnabled?: boolean;
+  // Editor settings
+  defaultEditor?: string;
+  customEditorCommand?: string;
   onRelayChange?: (info: RelayInfo) => void;
   onSessionRegistered?: (relaySessionId: string) => void;
   onCreateSessionRequest?: (
@@ -124,6 +127,8 @@ export function TerminalPanel({
   backgroundOpacity,
   scrollbarVisibility,
   autocompleteEnabled = true,
+  defaultEditor,
+  customEditorCommand,
   onRelayChange,
   onSessionRegistered,
   onCreateSessionRequest,
@@ -636,6 +641,15 @@ export function TerminalPanel({
         theme={adjustedTheme}
         scrollbarVisibility={scrollbarVisibility}
         onOpenUrl={(url) => invoke('open_url', { url })}
+        onOpenFile={(path, line, col) =>
+          invoke('open_file_in_editor', {
+            path,
+            line: line ?? null,
+            col: col ?? null,
+            editor: defaultEditor ?? null,
+            customCommand: customEditorCommand ?? null,
+          })
+        }
         blockDecorationsMode={isSshSession ? 'off' : 'full'}
         autocompleteEnabled={autocompleteEnabled}
         autocompleteEngine={autocompleteEngine}
