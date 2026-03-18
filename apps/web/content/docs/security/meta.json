@@ -1,8 +1,4 @@
 {
   "title": "Security",
-  "pages": [
-    "index",
-    "e2e-encryption",
-    "transport-security"
-  ]
+  "pages": ["index", "e2e-encryption", "transport-security"]
 }

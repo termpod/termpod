@@ -1,19 +1,19 @@
-import { Check, Zap, Github, Server, Heart } from "lucide-react";
-import { SectionHeader } from "../SectionHeader";
+import { Check, Zap, Github, Server, Heart } from 'lucide-react';
+import { SectionHeader } from '../SectionHeader';
 
 const freeFeatures = [
-  "Local WiFi and P2P, no limits",
-  "Unlimited sessions and full PTY",
-  "E2E encryption on all transports",
-  "Self-host relay for full access",
+  'Local WiFi and P2P, no limits',
+  'Unlimited sessions and full PTY',
+  'E2E encryption on all transports',
+  'Self-host relay for full access',
 ];
 
 const proFeatures = [
-  "Everything in Free",
-  "Managed cloud relay, zero setup",
-  "Unlimited devices on managed relay",
-  "Share links and TURN fallback",
-  "Priority support",
+  'Everything in Free',
+  'Managed cloud relay, zero setup',
+  'Unlimited devices on managed relay',
+  'Share links and TURN fallback',
+  'Priority support',
 ];
 
 export function Pricing() {
@@ -37,26 +37,22 @@ export function Pricing() {
             FREE
           </p>
           <div className="mb-6 flex items-baseline gap-1">
-            <span className="font-heading text-5xl font-bold text-text-white">
-              $0
-            </span>
+            <span className="font-heading text-5xl font-bold text-text-white">$0</span>
             <span className="font-mono text-sm text-text-dark">/ forever</span>
           </div>
           <ul className="mb-8 flex flex-1 flex-col gap-3">
             {freeFeatures.map((item) => (
               <li key={item} className="flex items-start gap-3">
                 <Check size={16} className="mt-0.5 shrink-0 text-gold" />
-                <span className="font-mono text-sm text-text-gray">
-                  {item}
-                </span>
+                <span className="font-mono text-sm text-text-gray">{item}</span>
               </li>
             ))}
           </ul>
           <div className="mb-6 border border-stroke-light bg-bg-inset p-4">
             <p className="font-mono text-[11px] leading-relaxed text-text-dark">
-              <span className="text-text-gray">Self-host tip:</span> Deploy your
-              own relay on Cloudflare Workers free tier — unlimited devices,
-              share links, everything. No subscription needed.
+              <span className="text-text-gray">Self-host tip:</span> Deploy your own relay on
+              Cloudflare Workers free tier — unlimited devices, share links, everything. No
+              subscription needed.
             </p>
           </div>
           <a
@@ -75,37 +71,30 @@ export function Pricing() {
               7-DAY FREE TRIAL
             </span>
           </div>
-          <p className="mb-1 font-mono text-xs font-semibold tracking-[0.2em] text-gold">
-            PRO
-          </p>
+          <p className="mb-1 font-mono text-xs font-semibold tracking-[0.2em] text-gold">PRO</p>
           <div className="mb-6 flex items-baseline gap-1">
-            <span className="font-heading text-5xl font-bold text-text-white">
-              $5
-            </span>
+            <span className="font-heading text-5xl font-bold text-text-white">$5</span>
             <span className="font-mono text-sm text-text-dark">/ month</span>
           </div>
           <ul className="mb-8 flex flex-1 flex-col gap-3">
             {proFeatures.map((item) => (
               <li key={item} className="flex items-start gap-3">
                 <Check size={16} className="mt-0.5 shrink-0 text-gold" />
-                <span className="font-mono text-sm text-text-gray">
-                  {item}
-                </span>
+                <span className="font-mono text-sm text-text-gray">{item}</span>
               </li>
             ))}
           </ul>
           <div className="mb-6 border border-stroke-light bg-bg-inset p-4">
             <p className="font-mono text-[11px] leading-relaxed text-text-dark">
-              <span className="text-text-gray">Support note:</span> Your
-              subscription directly funds open-source development and relay
-              infrastructure.
+              <span className="text-text-gray">Support note:</span> Your subscription directly funds
+              open-source development and relay infrastructure.
             </p>
           </div>
           <p className="mb-3 text-center font-mono text-[11px] text-text-dark">
             7 days free &middot; no credit card required
           </p>
           <a
-            href={process.env.NEXT_PUBLIC_POLAR_CHECKOUT_URL ?? "#"}
+            href={process.env.NEXT_PUBLIC_POLAR_CHECKOUT_URL ?? '#'}
             className="flex items-center justify-center gap-2 bg-gold px-6 py-3 font-mono text-xs font-semibold tracking-wider text-bg transition-opacity hover:opacity-90"
           >
             START PRO TRIAL
@@ -123,15 +112,11 @@ export function Pricing() {
         </div>
         <div className="flex items-center gap-3">
           <Server size={18} className="text-cyan-400" />
-          <span className="font-mono text-sm text-text-gray">
-            Self-host for free forever
-          </span>
+          <span className="font-mono text-sm text-text-gray">Self-host for free forever</span>
         </div>
         <div className="flex items-center gap-3">
           <Heart size={18} className="text-orange-400" />
-          <span className="font-mono text-sm text-text-gray">
-            Pro supports development
-          </span>
+          <span className="font-mono text-sm text-text-gray">Pro supports development</span>
         </div>
       </div>
     </section>

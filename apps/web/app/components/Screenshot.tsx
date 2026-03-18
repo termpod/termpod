@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import Image from "next/image";
-import { useState } from "react";
+import Image from 'next/image';
+import { useState } from 'react';
 
 /**
  * Renders a screenshot if the image loads, otherwise renders fallback children.
@@ -45,7 +45,7 @@ export function Screenshot({
           alt={alt}
           width={width}
           height={height}
-          className={`${loaded ? "" : "hidden"} ${className ?? ""}`}
+          className={`${loaded ? '' : 'hidden'} ${className ?? ''}`}
           onLoad={() => setLoaded(true)}
           onError={() => setErrored(true)}
           unoptimized

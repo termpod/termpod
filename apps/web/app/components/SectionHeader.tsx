@@ -17,9 +17,7 @@ export function SectionHeader({
       <h2 className="max-w-3xl font-heading text-3xl font-bold tracking-tight text-text-white md:text-[48px] md:leading-[1.1]">
         {title}
       </h2>
-      <p className="max-w-[600px] font-mono text-sm leading-relaxed text-text-gray">
-        {subtitle}
-      </p>
+      <p className="max-w-[600px] font-mono text-sm leading-relaxed text-text-gray">{subtitle}</p>
     </div>
   );
 }

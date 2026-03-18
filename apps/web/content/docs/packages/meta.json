@@ -1,8 +1,4 @@
 {
   "title": "Shared Packages",
-  "pages": [
-    "protocol",
-    "shared",
-    "ui"
-  ]
+  "pages": ["protocol", "shared", "ui"]
 }

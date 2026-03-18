@@ -1,9 +1,4 @@
 {
   "title": "Protocol",
-  "pages": [
-    "index",
-    "binary-frames",
-    "control-messages",
-    "rest-api"
-  ]
+  "pages": ["index", "binary-frames", "control-messages", "rest-api"]
 }

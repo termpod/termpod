@@ -1,13 +1,11 @@
-import { Github } from "lucide-react";
+import { Github } from 'lucide-react';
 
 export function Header() {
   return (
     <header className="flex w-full items-center justify-between px-6 py-5 md:px-20">
       {/* Logo */}
       <a href="/" className="flex items-center gap-2.5">
-        <span className="font-heading text-2xl font-bold text-gold">
-          {">_"}
-        </span>
+        <span className="font-heading text-2xl font-bold text-gold">{'>_'}</span>
         <span className="font-heading text-xl font-bold tracking-[0.15em] text-text-white">
           TERMPOD
         </span>
@@ -16,11 +14,11 @@ export function Header() {
       {/* Center nav — hidden on mobile */}
       <nav className="hidden items-center gap-8 lg:flex">
         {[
-          ["FEATURES", "#features"],
-          ["HOW IT WORKS", "#use-cases"],
-          ["PRICING", "/pricing"],
-          ["DOCS", "/docs"],
-          ["GITHUB", "https://github.com/termpod/termpod"],
+          ['FEATURES', '#features'],
+          ['HOW IT WORKS', '#use-cases'],
+          ['PRICING', '/pricing'],
+          ['DOCS', '/docs'],
+          ['GITHUB', 'https://github.com/termpod/termpod'],
         ].map(([label, href]) => (
           <a
             key={label}

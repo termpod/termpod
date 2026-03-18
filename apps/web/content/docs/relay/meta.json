@@ -1,8 +1,4 @@
 {
   "title": "Relay Server",
-  "pages": [
-    "index",
-    "durable-objects",
-    "subscription-gating"
-  ]
+  "pages": ["index", "durable-objects", "subscription-gating"]
 }

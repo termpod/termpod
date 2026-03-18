@@ -1,19 +1,19 @@
-import type { Metadata } from "next";
-import { Check } from "lucide-react";
-import { Header } from "../../components/Header";
-import { Footer } from "../../components/Footer";
+import type { Metadata } from 'next';
+import { Check } from 'lucide-react';
+import { Header } from '../../components/Header';
+import { Footer } from '../../components/Footer';
 
 export const metadata: Metadata = {
-  title: "Welcome to Pro — TermPod",
-  description: "Your TermPod Pro subscription is active.",
+  title: 'Welcome to Pro — TermPod',
+  description: 'Your TermPod Pro subscription is active.',
 };
 
 const included = [
-  "Relay access for remote viewing",
-  "Unlimited devices",
-  "Session sharing via links",
-  "TURN relay for P2P fallback",
-  "Priority support",
+  'Relay access for remote viewing',
+  'Unlimited devices',
+  'Session sharing via links',
+  'TURN relay for P2P fallback',
+  'Priority support',
 ];
 
 export default function SuccessPage() {
@@ -32,8 +32,8 @@ export default function SuccessPage() {
             You&apos;re on Pro
           </h1>
           <p className="mb-10 font-mono text-sm leading-relaxed text-text-gray">
-            Your subscription is active. Open the TermPod desktop app —
-            relay access and all Pro features are now unlocked.
+            Your subscription is active. Open the TermPod desktop app — relay access and all Pro
+            features are now unlocked.
           </p>
 
           {/* What's included */}
@@ -44,13 +44,8 @@ export default function SuccessPage() {
             <ul className="space-y-3">
               {included.map((item) => (
                 <li key={item} className="flex items-start gap-3">
-                  <Check
-                    size={14}
-                    className="mt-0.5 shrink-0 text-gold"
-                  />
-                  <span className="font-mono text-sm text-text-gray">
-                    {item}
-                  </span>
+                  <Check size={14} className="mt-0.5 shrink-0 text-gold" />
+                  <span className="font-mono text-sm text-text-gray">{item}</span>
                 </li>
               ))}
             </ul>
@@ -59,7 +54,7 @@ export default function SuccessPage() {
           {/* Actions */}
           <div className="flex flex-col items-center gap-3">
             <a
-              href={process.env.NEXT_PUBLIC_POLAR_PORTAL_URL ?? "#"}
+              href={process.env.NEXT_PUBLIC_POLAR_PORTAL_URL ?? '#'}
               className="font-mono text-xs text-text-dark transition-colors hover:text-text-white"
             >
               Manage subscription

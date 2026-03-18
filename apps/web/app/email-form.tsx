@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useActionState } from "react";
-import { subscribeEmail } from "./actions";
+import { useActionState } from 'react';
+import { subscribeEmail } from './actions';
 
 export function EmailForm() {
   const [state, action, isPending] = useActionState(subscribeEmail, null);
@@ -32,7 +32,7 @@ export function EmailForm() {
           disabled={isPending}
           className="shrink-0 bg-gold px-7 py-3.5 font-mono text-sm font-semibold tracking-wider text-bg transition-all hover:brightness-110 disabled:opacity-60"
         >
-          {isPending ? "..." : "NOTIFY ME"}
+          {isPending ? '...' : 'NOTIFY ME'}
         </button>
       </form>
       {state?.message && !state.success && (

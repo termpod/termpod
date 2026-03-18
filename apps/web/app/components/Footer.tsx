@@ -1,4 +1,4 @@
-import { Twitter, Github, Mail } from "lucide-react";
+import { Twitter, Github, Mail } from 'lucide-react';
 
 export function Footer() {
   return (
@@ -8,16 +8,14 @@ export function Footer() {
         {/* Logo + tagline */}
         <div className="max-w-[300px]">
           <div className="mb-3 flex items-center gap-2.5">
-            <span className="font-heading text-2xl font-bold text-gold">
-              {">_"}
-            </span>
+            <span className="font-heading text-2xl font-bold text-gold">{'>_'}</span>
             <span className="font-heading text-xl font-bold tracking-[0.15em] text-text-white">
               TERMPOD
             </span>
           </div>
           <p className="font-mono text-sm leading-relaxed text-text-dark">
-            Your Mac terminal, in your pocket. Open source, end-to-end
-            encrypted, built for developers.
+            Your Mac terminal, in your pocket. Open source, end-to-end encrypted, built for
+            developers.
           </p>
         </div>
 
@@ -28,10 +26,30 @@ export function Footer() {
               PRODUCT
             </p>
             <div className="flex flex-col gap-3">
-              <a href="#features" className="font-mono text-sm text-text-dark transition-colors hover:text-text-white">Features</a>
-              <a href="/pricing" className="font-mono text-sm text-text-dark transition-colors hover:text-text-white">Pricing</a>
-              <a href="#download" className="font-mono text-sm text-text-dark transition-colors hover:text-text-white">Download</a>
-              <a href="#use-cases" className="font-mono text-sm text-text-dark transition-colors hover:text-text-white">Use Cases</a>
+              <a
+                href="#features"
+                className="font-mono text-sm text-text-dark transition-colors hover:text-text-white"
+              >
+                Features
+              </a>
+              <a
+                href="/pricing"
+                className="font-mono text-sm text-text-dark transition-colors hover:text-text-white"
+              >
+                Pricing
+              </a>
+              <a
+                href="#download"
+                className="font-mono text-sm text-text-dark transition-colors hover:text-text-white"
+              >
+                Download
+              </a>
+              <a
+                href="#use-cases"
+                className="font-mono text-sm text-text-dark transition-colors hover:text-text-white"
+              >
+                Use Cases
+              </a>
             </div>
           </div>
           <div>
@@ -39,10 +57,30 @@ export function Footer() {
               RESOURCES
             </p>
             <div className="flex flex-col gap-3">
-              <a href="/docs" className="font-mono text-sm text-text-dark transition-colors hover:text-text-white">Documentation</a>
-              <a href="https://github.com/termpod/termpod" className="font-mono text-sm text-text-dark transition-colors hover:text-text-white">GitHub</a>
-              <a href="/docs/self-hosting" className="font-mono text-sm text-text-dark transition-colors hover:text-text-white">Self-Hosting Guide</a>
-              <a href="/docs/contributing" className="font-mono text-sm text-text-dark transition-colors hover:text-text-white">Contributing</a>
+              <a
+                href="/docs"
+                className="font-mono text-sm text-text-dark transition-colors hover:text-text-white"
+              >
+                Documentation
+              </a>
+              <a
+                href="https://github.com/termpod/termpod"
+                className="font-mono text-sm text-text-dark transition-colors hover:text-text-white"
+              >
+                GitHub
+              </a>
+              <a
+                href="/docs/self-hosting"
+                className="font-mono text-sm text-text-dark transition-colors hover:text-text-white"
+              >
+                Self-Hosting Guide
+              </a>
+              <a
+                href="/docs/contributing"
+                className="font-mono text-sm text-text-dark transition-colors hover:text-text-white"
+              >
+                Contributing
+              </a>
             </div>
           </div>
           <div>
@@ -50,8 +88,18 @@ export function Footer() {
               LEGAL
             </p>
             <div className="flex flex-col gap-3">
-              <a href="/privacy" className="font-mono text-sm text-text-dark transition-colors hover:text-text-white">Privacy Policy</a>
-              <a href="https://github.com/termpod/termpod/blob/main/LICENSE" className="font-mono text-sm text-text-dark transition-colors hover:text-text-white">MIT License</a>
+              <a
+                href="/privacy"
+                className="font-mono text-sm text-text-dark transition-colors hover:text-text-white"
+              >
+                Privacy Policy
+              </a>
+              <a
+                href="https://github.com/termpod/termpod/blob/main/LICENSE"
+                className="font-mono text-sm text-text-dark transition-colors hover:text-text-white"
+              >
+                MIT License
+              </a>
             </div>
           </div>
         </div>
@@ -66,9 +114,24 @@ export function Footer() {
           &copy; 2026 TERMPOD. ALL RIGHTS RESERVED.
         </span>
         <div className="flex items-center gap-4">
-          <a href="https://x.com/termpod" className="text-text-dark transition-colors hover:text-text-white"><Twitter size={16} /></a>
-          <a href="https://github.com/termpod/termpod" className="text-text-dark transition-colors hover:text-text-white"><Github size={16} /></a>
-          <a href="mailto:hello@termpod.dev" className="text-text-dark transition-colors hover:text-text-white"><Mail size={16} /></a>
+          <a
+            href="https://x.com/termpod"
+            className="text-text-dark transition-colors hover:text-text-white"
+          >
+            <Twitter size={16} />
+          </a>
+          <a
+            href="https://github.com/termpod/termpod"
+            className="text-text-dark transition-colors hover:text-text-white"
+          >
+            <Github size={16} />
+          </a>
+          <a
+            href="mailto:hello@termpod.dev"
+            className="text-text-dark transition-colors hover:text-text-white"
+          >
+            <Mail size={16} />
+          </a>
         </div>
       </div>
     </footer>

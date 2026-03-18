@@ -1,26 +1,16 @@
-import type { Metadata } from "next";
-import Link from "next/link";
+import type { Metadata } from 'next';
+import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — TermPod",
-  description: "TermPod privacy policy. How we handle your data.",
+  title: 'Privacy Policy — TermPod',
+  description: 'TermPod privacy policy. How we handle your data.',
 };
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-3">
-      <h2 className="font-heading text-lg font-semibold text-text-white">
-        {title}
-      </h2>
-      <div className="space-y-2 font-mono text-sm leading-relaxed text-text-gray">
-        {children}
-      </div>
+      <h2 className="font-heading text-lg font-semibold text-text-white">{title}</h2>
+      <div className="space-y-2 font-mono text-sm leading-relaxed text-text-gray">{children}</div>
     </section>
   );
 }
@@ -36,9 +26,7 @@ export default function PrivacyPage() {
         &larr; BACK
       </Link>
 
-      <h1 className="mb-2 font-heading text-3xl font-bold text-text-white">
-        Privacy Policy
-      </h1>
+      <h1 className="mb-2 font-heading text-3xl font-bold text-text-white">Privacy Policy</h1>
       <p className="mb-12 font-mono text-xs tracking-wider text-text-dark">
         Last updated: March 17, 2026
       </p>
@@ -46,19 +34,18 @@ export default function PrivacyPage() {
       <div className="space-y-10">
         <Section title="Overview">
           <p>
-            TermPod is a shared terminal app. Your privacy and the security of
-            your terminal data are fundamental to how we built it. The relay
-            server is zero-knowledge — it cannot read your terminal content.
+            TermPod is a shared terminal app. Your privacy and the security of your terminal data
+            are fundamental to how we built it. The relay server is zero-knowledge — it cannot read
+            your terminal content.
           </p>
         </Section>
 
         <Section title="End-to-End Encryption">
           <p>
-            All terminal data is end-to-end encrypted before leaving your
-            device. The relay server forwards encrypted frames it cannot
-            decrypt. We use ECDH P-256 key exchange with AES-256-GCM encryption.
-            WebRTC connections use inherent DTLS encryption. Local connections
-            use the same ECDH + AES-256-GCM scheme.
+            All terminal data is end-to-end encrypted before leaving your device. The relay server
+            forwards encrypted frames it cannot decrypt. We use ECDH P-256 key exchange with
+            AES-256-GCM encryption. WebRTC connections use inherent DTLS encryption. Local
+            connections use the same ECDH + AES-256-GCM scheme.
           </p>
         </Section>
 
@@ -80,65 +67,62 @@ export default function PrivacyPage() {
 
         <Section title="Relay Server">
           <p>
-            The relay server (Cloudflare Workers + Durable Objects) handles
-            WebSocket routing and device presence. It processes only encrypted
-            binary frames and JSON control messages (connection metadata, not
-            terminal data). The relay is open source and can be self-hosted.
+            The relay server (Cloudflare Workers + Durable Objects) handles WebSocket routing and
+            device presence. It processes only encrypted binary frames and JSON control messages
+            (connection metadata, not terminal data). The relay is open source and can be
+            self-hosted.
           </p>
         </Section>
 
         <Section title="Local & P2P Connections">
           <p>
-            When your devices are on the same network, TermPod connects directly
-            via Bonjour (local WiFi) or WebRTC peer-to-peer. These connections
-            do not route through our servers. Local network discovery uses mDNS
-            and requires your explicit permission on iOS.
+            When your devices are on the same network, TermPod connects directly via Bonjour (local
+            WiFi) or WebRTC peer-to-peer. These connections do not route through our servers. Local
+            network discovery uses mDNS and requires your explicit permission on iOS.
           </p>
         </Section>
 
         <Section title="Third-Party Services">
           <p>
-            We use Cloudflare for relay hosting and TURN relay (when direct P2P
-            fails). Cloudflare&apos;s privacy policy applies to infrastructure-level
-            data (IP addresses, connection metadata). No third-party analytics,
-            advertising, or tracking services are used.
+            We use Cloudflare for relay hosting and TURN relay (when direct P2P fails).
+            Cloudflare&apos;s privacy policy applies to infrastructure-level data (IP addresses,
+            connection metadata). No third-party analytics, advertising, or tracking services are
+            used.
           </p>
         </Section>
 
         <Section title="Data Retention">
           <p>
-            Account data is retained while your account is active. Terminal data
-            is never stored on the relay — it is forwarded in real-time and
-            discarded. You can delete your account at any time, which removes
-            all associated data.
+            Account data is retained while your account is active. Terminal data is never stored on
+            the relay — it is forwarded in real-time and discarded. You can delete your account at
+            any time, which removes all associated data.
           </p>
         </Section>
 
         <Section title="Open Source">
           <p>
-            TermPod is open source under the MIT license. You can audit the
-            encryption implementation, relay server, and all client code on{" "}
+            TermPod is open source under the MIT license. You can audit the encryption
+            implementation, relay server, and all client code on{' '}
             <a
               href="https://github.com/termpod/termpod"
               className="text-gold transition-colors hover:text-text-white"
             >
               GitHub
             </a>
-            . You can also self-host the relay server for complete control over
-            your data.
+            . You can also self-host the relay server for complete control over your data.
           </p>
         </Section>
 
         <Section title="Changes">
           <p>
-            We may update this policy as the product evolves. Significant
-            changes will be communicated via the app or our website.
+            We may update this policy as the product evolves. Significant changes will be
+            communicated via the app or our website.
           </p>
         </Section>
 
         <Section title="Contact">
           <p>
-            Questions about privacy? Email{" "}
+            Questions about privacy? Email{' '}
             <a
               href="mailto:hello@termpod.dev"
               className="text-gold transition-colors hover:text-text-white"

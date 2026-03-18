@@ -1,14 +1,6 @@
-import {
-  Monitor,
-  Smartphone,
-  Shield,
-  Zap,
-  Terminal,
-  ArrowRight,
-  Wifi,
-} from "lucide-react";
-import { SectionHeader } from "../SectionHeader";
-import { Screenshot } from "../Screenshot";
+import { Monitor, Smartphone, Shield, Zap, Terminal, ArrowRight, Wifi } from 'lucide-react';
+import { SectionHeader } from '../SectionHeader';
+import { Screenshot } from '../Screenshot';
 
 function FeatureTag({ color, label }: { color: string; label: string }) {
   return (
@@ -28,13 +20,11 @@ function StreamingTerminal() {
         <span className="h-2.5 w-2.5 rounded-full bg-gold" />
         <span className="h-2.5 w-2.5 rounded-full bg-[#A0A0A0]" />
         <span className="h-2.5 w-2.5 rounded-full bg-[#8A8A8A]" />
-        <span className="ml-3 font-mono text-[10px] text-text-dark">
-          BUILD
-        </span>
+        <span className="ml-3 font-mono text-[10px] text-text-dark">BUILD</span>
       </div>
       <div className="flex flex-col gap-0.5 p-4 font-mono text-[12px] leading-relaxed">
         <p>
-          <span className="text-text-dark">~/app $</span>{" "}
+          <span className="text-text-dark">~/app $</span>{' '}
           <span className="text-gold">npm run build</span>
         </p>
         <p className="text-text-gray">Building for production...</p>
@@ -42,12 +32,11 @@ function StreamingTerminal() {
           <span className="text-green-500">&#10003;</span> Compiled 247 modules
         </p>
         <p className="text-text-gray">
-          <span className="text-green-500">&#10003;</span> Bundle size: 142kb
-          (gzipped)
+          <span className="text-green-500">&#10003;</span> Bundle size: 142kb (gzipped)
         </p>
         <p className="text-text-gray">&nbsp;</p>
         <p>
-          <span className="text-text-dark">~/app $</span>{" "}
+          <span className="text-text-dark">~/app $</span>{' '}
           <span className="text-gold">npm run deploy</span>
         </p>
         <p className="text-text-gray">Deploying to production...</p>
@@ -67,9 +56,7 @@ function LocalFirstVisual() {
         <div className="flex h-16 w-20 items-center justify-center border border-stroke-light bg-[#161B22] md:h-20 md:w-24">
           <Monitor size={28} className="text-text-gray" />
         </div>
-        <span className="font-mono text-[10px] tracking-wider text-text-dark">
-          MAC
-        </span>
+        <span className="font-mono text-[10px] tracking-wider text-text-dark">MAC</span>
       </div>
 
       {/* Arrows */}
@@ -78,12 +65,8 @@ function LocalFirstVisual() {
           <div className="h-px w-6 bg-gold md:w-12" />
           <ArrowRight size={12} className="text-gold" />
         </div>
-        <span className="font-mono text-[9px] tracking-wider text-gold">
-          LOCAL
-        </span>
-        <span className="font-mono text-[8px] text-text-dark">
-          &lt;5ms
-        </span>
+        <span className="font-mono text-[9px] tracking-wider text-gold">LOCAL</span>
+        <span className="font-mono text-[8px] text-text-dark">&lt;5ms</span>
       </div>
 
       {/* Phone */}
@@ -91,9 +74,7 @@ function LocalFirstVisual() {
         <div className="flex h-16 w-12 items-center justify-center border border-stroke-light bg-[#161B22] md:h-20 md:w-14">
           <Smartphone size={24} className="text-text-gray" />
         </div>
-        <span className="font-mono text-[10px] tracking-wider text-text-dark">
-          IPHONE
-        </span>
+        <span className="font-mono text-[10px] tracking-wider text-text-dark">IPHONE</span>
       </div>
     </div>
   );
@@ -101,19 +82,17 @@ function LocalFirstVisual() {
 
 function SessionListMockup() {
   const sessions = [
-    { name: "prod-server", status: "live", color: "bg-gold" },
-    { name: "dev-backend", status: "live", color: "bg-green-500" },
-    { name: "staging-api", status: "idle", color: "bg-text-dark" },
-    { name: "db-migration", status: "running", color: "bg-gold" },
+    { name: 'prod-server', status: 'live', color: 'bg-gold' },
+    { name: 'dev-backend', status: 'live', color: 'bg-green-500' },
+    { name: 'staging-api', status: 'idle', color: 'bg-text-dark' },
+    { name: 'db-migration', status: 'running', color: 'bg-gold' },
   ];
 
   return (
     <div className="flex w-full max-w-[320px] flex-col border-2 border-stroke-light bg-[#0D1117]">
       {/* Status bar */}
       <div className="flex items-center justify-between px-4 py-1.5">
-        <span className="font-mono text-[11px] font-semibold text-text-gray">
-          9:41
-        </span>
+        <span className="font-mono text-[11px] font-semibold text-text-gray">9:41</span>
         <div className="flex items-center gap-1.5">
           <Wifi size={12} className="text-text-gray" />
           <div className="h-2.5 w-5 rounded-sm border border-text-gray px-px py-px">
@@ -125,9 +104,7 @@ function SessionListMockup() {
         <span className="font-heading text-sm font-bold tracking-[0.1em] text-text-white">
           SESSIONS
         </span>
-        <span className="font-mono text-[10px] text-text-dark">
-          4 active
-        </span>
+        <span className="font-mono text-[10px] text-text-dark">4 active</span>
       </div>
       <div className="flex flex-col">
         {sessions.map((s) => (
@@ -136,12 +113,8 @@ function SessionListMockup() {
             className="flex items-center gap-3 border-b border-stroke-light/50 px-4 py-3"
           >
             <span className={`h-2 w-2 rounded-full ${s.color}`} />
-            <span className="flex-1 font-mono text-[12px] text-text-gray">
-              {s.name}
-            </span>
-            <span className="font-mono text-[10px] text-text-dark">
-              {s.status}
-            </span>
+            <span className="flex-1 font-mono text-[12px] text-text-gray">{s.name}</span>
+            <span className="font-mono text-[10px] text-text-dark">{s.status}</span>
           </div>
         ))}
       </div>
@@ -170,12 +143,17 @@ export function Features() {
             Every keystroke, in real time
           </h3>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
-            This is not a log viewer. Type commands, scroll output, interact
-            with prompts. Your phone becomes your terminal.
+            This is not a log viewer. Type commands, scroll output, interact with prompts. Your
+            phone becomes your terminal.
           </p>
         </div>
         <div className="flex flex-1 items-center justify-center bg-[#0A0A0A] p-6 md:max-w-[520px]">
-          <Screenshot src="/screenshots/feature-stream.png" alt="Real-time terminal streaming" width={520} height={340}>
+          <Screenshot
+            src="/screenshots/feature-stream.png"
+            alt="Real-time terminal streaming"
+            width={520}
+            height={340}
+          >
             <StreamingTerminal />
           </Screenshot>
         </div>
@@ -192,9 +170,8 @@ export function Features() {
             Your data takes the shortest path
           </h3>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
-            Same WiFi? TermPod connects directly via Bonjour. Different
-            network? It upgrades to peer-to-peer. Your terminal data always
-            takes the fastest, most private route.
+            Same WiFi? TermPod connects directly via Bonjour. Different network? It upgrades to
+            peer-to-peer. Your terminal data always takes the fastest, most private route.
           </p>
         </div>
       </div>
@@ -207,31 +184,27 @@ export function Features() {
             All your sessions, one screen
           </h3>
           <p className="mb-6 font-mono text-sm leading-relaxed text-text-gray">
-            Run as many terminal sessions as you need. Each tab is an
-            independent shell. Switch between them on your phone just like you
-            would on your Mac.
+            Run as many terminal sessions as you need. Each tab is an independent shell. Switch
+            between them on your phone just like you would on your Mac.
           </p>
           <div className="flex flex-wrap gap-6">
             <div>
-              <p className="font-heading text-3xl font-bold text-gold md:text-4xl">
-                &lt;5ms
-              </p>
-              <p className="font-mono text-[11px] tracking-wider text-text-dark">
-                LOCAL LATENCY
-              </p>
+              <p className="font-heading text-3xl font-bold text-gold md:text-4xl">&lt;5ms</p>
+              <p className="font-mono text-[11px] tracking-wider text-text-dark">LOCAL LATENCY</p>
             </div>
             <div>
-              <p className="font-heading text-3xl font-bold text-gold md:text-4xl">
-                &infin;
-              </p>
-              <p className="font-mono text-[11px] tracking-wider text-text-dark">
-                CONCURRENT TABS
-              </p>
+              <p className="font-heading text-3xl font-bold text-gold md:text-4xl">&infin;</p>
+              <p className="font-mono text-[11px] tracking-wider text-text-dark">CONCURRENT TABS</p>
             </div>
           </div>
         </div>
         <div className="flex flex-1 items-center justify-center bg-[#0A0A0A] p-6 md:max-w-[440px]">
-          <Screenshot src="/screenshots/feature-sessions.png" alt="Multiple terminal sessions on iPhone" width={320} height={400}>
+          <Screenshot
+            src="/screenshots/feature-sessions.png"
+            alt="Multiple terminal sessions on iPhone"
+            width={320}
+            height={400}
+          >
             <SessionListMockup />
           </Screenshot>
         </div>
@@ -241,22 +214,18 @@ export function Features() {
       <div className="grid w-full gap-5 md:grid-cols-3">
         <div className="flex flex-col border border-stroke-light p-8">
           <Shield size={24} className="mb-4 text-gold" />
-          <h4 className="mb-2 font-heading text-base font-bold text-text-white">
-            E2E Encrypted
-          </h4>
+          <h4 className="mb-2 font-heading text-base font-bold text-text-white">E2E Encrypted</h4>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
-            AES-256-GCM on every transport. The relay forwards ciphertext
-            it cannot read. Your terminal data stays yours.
+            AES-256-GCM on every transport. The relay forwards ciphertext it cannot read. Your
+            terminal data stays yours.
           </p>
         </div>
         <div className="flex flex-col border border-stroke-light p-8">
           <Zap size={24} className="mb-4 text-[#EC4899]" />
-          <h4 className="mb-2 font-heading text-base font-bold text-text-white">
-            Sub-5ms Latency
-          </h4>
+          <h4 className="mb-2 font-heading text-base font-bold text-text-white">Sub-5ms Latency</h4>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
-            Local connections are near-instant. Peer-to-peer adds minimal
-            overhead. It feels like typing at your desk.
+            Local connections are near-instant. Peer-to-peer adds minimal overhead. It feels like
+            typing at your desk.
           </p>
         </div>
         <div className="flex flex-col border border-stroke-light p-8">
@@ -265,8 +234,8 @@ export function Features() {
             Full PTY Support
           </h4>
           <p className="font-mono text-sm leading-relaxed text-text-gray">
-            Full pseudoterminal with shell integration and resize handling.
-            vim, htop, Claude Code. If it runs in a terminal, it works.
+            Full pseudoterminal with shell integration and resize handling. vim, htop, Claude Code.
+            If it runs in a terminal, it works.
           </p>
         </div>
       </div>

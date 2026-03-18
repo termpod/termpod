@@ -1,5 +1,5 @@
-import { Monitor, Smartphone, Wifi, Send } from "lucide-react";
-import { Screenshot } from "../Screenshot";
+import { Monitor, Smartphone, Wifi, Send } from 'lucide-react';
+import { Screenshot } from '../Screenshot';
 
 function ToolIcon({ color, children }: { color: string; children: React.ReactNode }) {
   return (
@@ -27,41 +27,27 @@ function MacTerminal() {
       {/* Terminal body */}
       <div className="flex flex-col gap-1 p-4 font-mono text-[13px] leading-relaxed md:p-6">
         <p>
-          <span className="text-text-dark">~/projects $</span>{" "}
+          <span className="text-text-dark">~/projects $</span>{' '}
           <span className="text-gold">ssh deploy@prod-server</span>
         </p>
         <p className="text-text-gray">Connected to prod-server (10.0.1.42)</p>
         <p className="text-text-gray">&nbsp;</p>
         <p>
-          <span className="text-text-dark">deploy@prod $</span>{" "}
+          <span className="text-text-dark">deploy@prod $</span>{' '}
           <span className="text-gold">docker compose up -d</span>
         </p>
-        <p className="text-text-gray">
-          [+] Running 4/4
-        </p>
-        <p className="text-text-gray">
-          {" "}Container api-server &nbsp;&nbsp;Started
-        </p>
-        <p className="text-text-gray">
-          {" "}Container postgres &nbsp;&nbsp;&nbsp;Started
-        </p>
-        <p className="text-text-gray">
-          {" "}Container redis &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Started
-        </p>
-        <p className="text-text-gray">
-          {" "}Container nginx &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Started
-        </p>
+        <p className="text-text-gray">[+] Running 4/4</p>
+        <p className="text-text-gray"> Container api-server &nbsp;&nbsp;Started</p>
+        <p className="text-text-gray"> Container postgres &nbsp;&nbsp;&nbsp;Started</p>
+        <p className="text-text-gray"> Container redis &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Started</p>
+        <p className="text-text-gray"> Container nginx &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Started</p>
         <p className="text-text-gray">&nbsp;</p>
         <p>
-          <span className="text-text-dark">deploy@prod $</span>{" "}
+          <span className="text-text-dark">deploy@prod $</span>{' '}
           <span className="text-gold">tail -f /var/log/api/access.log</span>
         </p>
-        <p className="text-text-gray">
-          [2026-03-17 10:23:41] GET /api/health 200 2ms
-        </p>
-        <p className="text-text-gray">
-          [2026-03-17 10:23:42] POST /api/deploy 201 847ms
-        </p>
+        <p className="text-text-gray">[2026-03-17 10:23:41] GET /api/health 200 2ms</p>
+        <p className="text-text-gray">[2026-03-17 10:23:42] POST /api/deploy 201 847ms</p>
         <p className="flex items-center text-text-gray">
           <span className="cursor-blink inline-block h-4 w-2 bg-gold/80" />
         </p>
@@ -75,9 +61,7 @@ function IPhoneMockup() {
     <div className="flex w-full max-w-[280px] shrink-0 flex-col border-2 border-stroke-light bg-[#0D1117]">
       {/* Status bar */}
       <div className="flex items-center justify-between px-4 py-1.5">
-        <span className="font-mono text-[11px] font-semibold text-text-gray">
-          9:41
-        </span>
+        <span className="font-mono text-[11px] font-semibold text-text-gray">9:41</span>
         <div className="flex items-center gap-1.5">
           <Wifi size={12} className="text-text-gray" />
           <div className="h-2.5 w-5 rounded-sm border border-text-gray px-px py-px">
@@ -93,30 +77,26 @@ function IPhoneMockup() {
         </span>
         <div className="flex items-center gap-1.5 rounded-full bg-gold-subtle px-2.5 py-1">
           <span className="h-1.5 w-1.5 rounded-full bg-gold" />
-          <span className="font-mono text-[9px] font-semibold tracking-wider text-gold">
-            LIVE
-          </span>
+          <span className="font-mono text-[9px] font-semibold tracking-wider text-gold">LIVE</span>
         </div>
       </div>
 
       {/* Session tab */}
       <div className="mx-3 mt-3 flex items-center gap-2 border border-stroke-light bg-[#161B22] px-3 py-2">
         <span className="h-2 w-2 rounded-full bg-gold" />
-        <span className="font-mono text-[11px] text-text-gray">
-          prod-server
-        </span>
+        <span className="font-mono text-[11px] text-text-gray">prod-server</span>
       </div>
 
       {/* Terminal body */}
       <div className="flex flex-1 flex-col gap-0.5 p-3 font-mono text-[11px] leading-relaxed">
         <p>
-          <span className="text-text-dark">~ $</span>{" "}
+          <span className="text-text-dark">~ $</span>{' '}
           <span className="text-gold">ssh deploy@prod-server</span>
         </p>
         <p className="text-text-gray">Connected to prod-server</p>
         <p className="text-text-gray">&nbsp;</p>
         <p>
-          <span className="text-text-dark">prod $</span>{" "}
+          <span className="text-text-dark">prod $</span>{' '}
           <span className="text-gold">docker compose up -d</span>
         </p>
         <p className="text-text-gray">[+] Running 4/4</p>
@@ -126,7 +106,7 @@ function IPhoneMockup() {
         <p className="text-text-gray"> Container nginx &nbsp;&nbsp;&nbsp;Started</p>
         <p className="text-text-gray">&nbsp;</p>
         <p>
-          <span className="text-text-dark">prod $</span>{" "}
+          <span className="text-text-dark">prod $</span>{' '}
           <span className="text-gold">tail -f /var/log/api/access.log</span>
         </p>
         <p className="text-text-gray">[10:23:41] GET /health 200</p>
@@ -135,9 +115,7 @@ function IPhoneMockup() {
       {/* Input bar */}
       <div className="flex items-center gap-2 border-t border-stroke-light p-3">
         <div className="flex flex-1 items-center border border-stroke-light bg-[#161B22] px-3 py-1.5">
-          <span className="font-mono text-[11px] text-text-dark">
-            Type command...
-          </span>
+          <span className="font-mono text-[11px] text-text-dark">Type command...</span>
         </div>
         <div className="flex h-8 w-8 items-center justify-center bg-gold">
           <Send size={12} className="text-bg" />
@@ -167,9 +145,9 @@ export function Hero() {
 
       {/* Subline */}
       <p className="animate-fade-in-up delay-200 mb-10 max-w-[720px] text-center font-mono text-sm leading-[1.6] text-text-gray md:text-base">
-        Start a terminal session on your Mac, pick it up on your iPhone.
-        Run Claude Code, monitor a deploy, tail logs. All from your pocket.
-        Full shell, real-time I/O, end-to-end encrypted. Open source.
+        Start a terminal session on your Mac, pick it up on your iPhone. Run Claude Code, monitor a
+        deploy, tail logs. All from your pocket. Full shell, real-time I/O, end-to-end encrypted.
+        Open source.
       </p>
 
       {/* CTA Row */}
@@ -194,14 +172,24 @@ export function Hero() {
       <div className="animate-fade-in-up delay-400 relative mb-10 flex w-full max-w-[900px] flex-col items-center gap-6 md:block">
         {/* Mac terminal — full width of container */}
         <div className="w-full border border-stroke-light p-4 md:p-8">
-          <Screenshot src="/screenshots/hero-mac.png" alt="TermPod desktop app showing a terminal session" width={680} height={500}>
+          <Screenshot
+            src="/screenshots/hero-mac.png"
+            alt="TermPod desktop app showing a terminal session"
+            width={680}
+            height={500}
+          >
             <MacTerminal />
           </Screenshot>
         </div>
         {/* iPhone — overlaps bottom-right on desktop, stacked on mobile */}
         <div className="md:absolute md:right-[-40px] md:bottom-[-40px] md:z-10">
           <div className="shadow-2xl shadow-black/40">
-            <Screenshot src="/screenshots/hero-iphone.png" alt="TermPod iOS app viewing the same session" width={280} height={500}>
+            <Screenshot
+              src="/screenshots/hero-iphone.png"
+              alt="TermPod iOS app viewing the same session"
+              width={280}
+              height={500}
+            >
               <IPhoneMockup />
             </Screenshot>
           </div>
@@ -214,16 +202,14 @@ export function Hero() {
           RUN ANYTHING:
         </span>
         {[
-          { name: "Claude Code", icon: <ToolIcon color="#D97757">✦</ToolIcon> },
-          { name: "Codex", icon: <ToolIcon color="#10A37F">◈</ToolIcon> },
-          { name: "vim", icon: <ToolIcon color="#019833">V</ToolIcon> },
-          { name: "htop", icon: <ToolIcon color="#E44D26">H</ToolIcon> },
-          { name: "any CLI", icon: <ToolIcon color="#C9A962">&gt;_</ToolIcon> },
+          { name: 'Claude Code', icon: <ToolIcon color="#D97757">✦</ToolIcon> },
+          { name: 'Codex', icon: <ToolIcon color="#10A37F">◈</ToolIcon> },
+          { name: 'vim', icon: <ToolIcon color="#019833">V</ToolIcon> },
+          { name: 'htop', icon: <ToolIcon color="#E44D26">H</ToolIcon> },
+          { name: 'any CLI', icon: <ToolIcon color="#C9A962">&gt;_</ToolIcon> },
         ].map((item, i) => (
           <span key={item.name} className="flex items-center gap-3">
-            {i > 0 && (
-              <span className="h-1 w-1 rounded-full bg-text-dark" />
-            )}
+            {i > 0 && <span className="h-1 w-1 rounded-full bg-text-dark" />}
             <span className="flex items-center gap-1.5 font-mono text-[11px] tracking-wider text-text-gray">
               {item.icon}
               {item.name}

@@ -1,8 +1,4 @@
 {
   "title": "iOS App",
-  "pages": [
-    "index",
-    "networking",
-    "terminal-rendering"
-  ]
+  "pages": ["index", "networking", "terminal-rendering"]
 }

@@ -1,9 +1,4 @@
 {
   "title": "Desktop App",
-  "pages": [
-    "index",
-    "hooks",
-    "shell-integration",
-    "auto-updates"
-  ]
+  "pages": ["index", "hooks", "shell-integration", "auto-updates"]
 }

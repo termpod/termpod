@@ -1,11 +1,8 @@
-import { Github, Heart, BookOpen } from "lucide-react";
+import { Github, Heart, BookOpen } from 'lucide-react';
 
 export function OpenSource() {
   return (
-    <section
-      id="open-source"
-      className="px-6 py-16 md:px-20 md:py-24 lg:px-[120px] lg:py-[100px]"
-    >
+    <section id="open-source" className="px-6 py-16 md:px-20 md:py-24 lg:px-[120px] lg:py-[100px]">
       <div className="flex flex-col overflow-hidden border border-stroke-light md:flex-row">
         {/* Left */}
         <div className="flex flex-1 flex-col justify-center p-8 md:p-[60px]">
@@ -19,9 +16,8 @@ export function OpenSource() {
             Read every line. Run your own.
           </h2>
           <p className="mb-8 font-mono text-sm leading-relaxed text-text-gray">
-            TermPod is MIT licensed. The desktop app, the iOS app, and the relay
-            server are all open source. Deploy the relay on Cloudflare Workers
-            free tier and own the entire stack.
+            TermPod is MIT licensed. The desktop app, the iOS app, and the relay server are all open
+            source. Deploy the relay on Cloudflare Workers free tier and own the entire stack.
           </p>
           <div className="flex flex-col gap-3 sm:flex-row">
             <a
@@ -48,34 +44,25 @@ export function OpenSource() {
               <span className="h-2 w-2 rounded-full bg-gold" />
               <span className="h-2 w-2 rounded-full bg-[#A0A0A0]" />
               <span className="h-2 w-2 rounded-full bg-[#8A8A8A]" />
-              <span className="ml-2 font-mono text-[10px] text-text-dark">
-                TERMINAL
-              </span>
+              <span className="ml-2 font-mono text-[10px] text-text-dark">TERMINAL</span>
             </div>
             <div className="flex flex-col gap-1 p-4 font-mono text-[12px] leading-relaxed">
               <p>
-                <span className="text-text-dark">$</span>{" "}
-                <span className="text-gold">git clone</span>{" "}
-                <span className="text-text-gray">
-                  termpod/termpod
-                </span>
+                <span className="text-text-dark">$</span>{' '}
+                <span className="text-gold">git clone</span>{' '}
+                <span className="text-text-gray">termpod/termpod</span>
               </p>
               <p>
-                <span className="text-text-dark">$</span>{" "}
-                <span className="text-gold">cd</span>{" "}
+                <span className="text-text-dark">$</span> <span className="text-gold">cd</span>{' '}
                 <span className="text-text-gray">relay</span>
               </p>
               <p>
-                <span className="text-text-dark">$</span>{" "}
+                <span className="text-text-dark">$</span>{' '}
                 <span className="text-gold">wrangler deploy</span>
               </p>
               <p className="text-text-gray">&nbsp;</p>
-              <p className="text-green-500">
-                &#10003; Deployed successfully
-              </p>
-              <p className="text-text-gray">
-                relay.your-domain.workers.dev
-              </p>
+              <p className="text-green-500">&#10003; Deployed successfully</p>
+              <p className="text-text-gray">relay.your-domain.workers.dev</p>
             </div>
           </div>
         </div>
