@@ -13,13 +13,19 @@
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,json,md}\"",
     "ios:config": "apps/ios/generate-config.sh",
-    "ios:generate": "pnpm ios:config && cd apps/ios && xcodegen generate"
+    "ios:generate": "pnpm ios:config && cd apps/ios && xcodegen generate",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "prettier": "^3.5.3",
     "turbo": "^2.8.13",
     "typescript": "^5.8.2",
     "vitest": "^4.0.18"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,json,md}": "prettier --write"
   },
   "packageManager": "pnpm@10.29.3",
   "pnpm": {
