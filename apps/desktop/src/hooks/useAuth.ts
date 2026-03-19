@@ -438,6 +438,16 @@ if (store.state.accessToken) {
   fetchSubscription();
 }
 
+// Re-fetch subscription periodically (e.g. pro status changes)
+setInterval(
+  () => {
+    if (store.state.accessToken) {
+      fetchSubscription();
+    }
+  },
+  30 * 60 * 1000,
+);
+
 // Re-fetch subscription when app regains focus (e.g. user upgraded in browser)
 const SUBSCRIPTION_DEBOUNCE = 10_000;
 
