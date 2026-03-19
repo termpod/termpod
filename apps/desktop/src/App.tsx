@@ -988,7 +988,12 @@ export function App() {
 
       case 'split_right': {
         if (!activeId) break;
-        const focusedId = paneLayout.focusedPaneId || activeId;
+        // Use focusedPaneId only if it belongs to the active tab
+        const activeLeafs = new Set(paneLayout.getLeafIdsForTab(activeId));
+        const focusedId =
+          paneLayout.focusedPaneId && activeLeafs.has(paneLayout.focusedPaneId)
+            ? paneLayout.focusedPaneId
+            : activeId;
         const focusedSession = sessions.find((s) => s.id === focusedId);
         createSession({
           shell: settings.shellPath,
@@ -1004,7 +1009,11 @@ export function App() {
 
       case 'split_down': {
         if (!activeId) break;
-        const focusedId = paneLayout.focusedPaneId || activeId;
+        const activeLeafs2 = new Set(paneLayout.getLeafIdsForTab(activeId));
+        const focusedId =
+          paneLayout.focusedPaneId && activeLeafs2.has(paneLayout.focusedPaneId)
+            ? paneLayout.focusedPaneId
+            : activeId;
         const focusedSession = sessions.find((s) => s.id === focusedId);
         createSession({
           shell: settings.shellPath,
