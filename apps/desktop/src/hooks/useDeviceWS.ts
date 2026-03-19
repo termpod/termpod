@@ -12,7 +12,7 @@ import {
   type E2ESession,
 } from '@termpod/protocol';
 
-const PING_INTERVAL = 30_000;
+const PING_INTERVAL = 120_000; // 2 minutes — just enough to keep WS alive
 
 // Module-level refs for sendLocalAuthSecretToRelay
 let _deviceWS: WebSocket | null = null;

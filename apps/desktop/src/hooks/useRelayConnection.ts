@@ -55,6 +55,7 @@ interface UseRelayConnectionOptions {
 }
 
 const PING_INTERVAL = 30_000;
+const IDLE_PING_INTERVAL = 300_000; // 5 minutes when no viewers
 const SCROLLBACK_MAX = 512 * 1024;
 
 function base64urlEncode(data: Uint8Array): string {
@@ -74,6 +75,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const reconnectDelayRef = useRef<number>(RECONNECT.initialDelay);
   const pingIntervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
+  const viewersRef = useRef(0);
   const clientIdRef = useRef<string>(crypto.randomUUID());
   const e2eRef = useRef<E2ESession | null>(null);
   const e2eKeyPairRef = useRef<{ publicKeyJwk: JsonWebKey; privateKey: CryptoKey } | null>(null);
@@ -99,6 +101,20 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
       clearInterval(pingIntervalRef.current);
       pingIntervalRef.current = undefined;
     }
+  }, []);
+
+  /** Restart the ping timer with an interval based on viewer count. */
+  const adjustPingInterval = useCallback(() => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+    clearInterval(pingIntervalRef.current);
+    const interval = viewersRef.current > 0 ? PING_INTERVAL : IDLE_PING_INTERVAL;
+    pingIntervalRef.current = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
+      }
+    }, interval);
   }, []);
 
   // Define connectWebSocket as a regular function, store in ref
@@ -221,11 +237,12 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
             }),
           );
 
+          // Start with idle ping interval — adjustPingInterval switches to active when viewers join
           pingIntervalRef.current = setInterval(() => {
             if (ws.readyState === WebSocket.OPEN) {
               ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
             }
-          }, PING_INTERVAL);
+          }, IDLE_PING_INTERVAL);
 
           // Initiate E2E key exchange
           e2eRef.current = null;
@@ -250,7 +267,9 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
 
         case 'client_joined':
           if (msg.role === 'viewer') {
-            setViewers((v) => v + 1);
+            const wasIdle = viewersRef.current === 0;
+            viewersRef.current++;
+            setViewers(viewersRef.current);
             setConnectedDevices((prev) => [
               ...prev.filter((d) => d.clientId !== msg.clientId),
               {
@@ -261,6 +280,9 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
               },
             ]);
             optionsRef.current.onViewerJoined?.(msg.clientId);
+
+            // Switch to active ping interval when first viewer joins
+            if (wasIdle) adjustPingInterval();
 
             // Re-send key exchange so new viewer can establish E2E
             if (e2eKeyPairRef.current && ws.readyState === WebSocket.OPEN) {
@@ -276,17 +298,25 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
           break;
 
         case 'client_left':
-          setViewers((v) => Math.max(0, v - 1));
+          viewersRef.current = Math.max(0, viewersRef.current - 1);
+          setViewers(viewersRef.current);
           if ('clientId' in msg) {
             setConnectedDevices((prev) =>
               prev.filter((d) => d.clientId !== (msg as { clientId: string }).clientId),
             );
           }
           optionsRef.current.onViewerLeft?.();
+
+          // Switch to idle ping interval when last viewer leaves
+          if (viewersRef.current === 0) adjustPingInterval();
           break;
 
-        case 'session_info':
-          setViewers(msg.clients.filter((c) => c.role === 'viewer').length);
+        case 'session_info': {
+          const count = msg.clients.filter((c) => c.role === 'viewer').length;
+          const wasIdle = viewersRef.current === 0;
+          viewersRef.current = count;
+          setViewers(count);
+          if ((wasIdle && count > 0) || (!wasIdle && count === 0)) adjustPingInterval();
           setConnectedDevices(
             msg.clients
               .filter((c) => c.role === 'viewer')
@@ -298,6 +328,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
               })),
           );
           break;
+        }
 
         case 'pty_resize':
           if ('cols' in msg && 'rows' in msg) {
@@ -492,6 +523,7 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
 
     sessionRef.current = null;
     setSessionId(null);
+    viewersRef.current = 0;
     setViewers(0);
     setConnectedDevices([]);
     updateStatus('disconnected');

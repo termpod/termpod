@@ -256,6 +256,8 @@ export function useRelayBridge(
   isRelayAllowedRef.current = bridgeOptions?.isRelayAllowed ?? true;
   const localViewersRef = useRef(localServer.localViewers);
   localViewersRef.current = localServer.localViewers;
+  const relayViewersRef = useRef(relay.viewers);
+  relayViewersRef.current = relay.viewers;
 
   useEffect(() => {
     if (!session || session.exited) {
@@ -296,10 +298,9 @@ export function useRelayBridge(
         }
       }
 
-      // Always send via relay when allowed — viewers may be relay-only
-      // (e.g. transport override, or local/WebRTC unavailable on their end).
-      // The viewer-side shouldAcceptData filter prevents duplicate processing.
-      if (isRelayAllowedRef.current) {
+      // Send via relay only when relay viewers are connected.
+      // Skipping when viewers=0 eliminates thousands of wasted DO requests/day.
+      if (isRelayAllowedRef.current && relayViewersRef.current > 0) {
         sendTerminalData(data);
       }
     };
