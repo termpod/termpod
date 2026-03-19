@@ -184,8 +184,12 @@ pub async fn start_local_server(app: AppHandle) -> Result<LocalServerInfo, Strin
     // Register mDNS service with randomized name to avoid leaking hostname
     let service_name = format!("TP-{}", &generate_auth_secret()[..8]);
 
-    // Note: We no longer blindly pkill all dns-sd processes.
-    // The dns-sd child process PID is tracked in ServerState and killed on cleanup.
+    // Kill any stale dns-sd processes from previous runs that weren't cleaned up
+    // (e.g. after a crash). Without this, stale Bonjour registrations accumulate
+    // and mobile clients may try to resolve dead services.
+    let _ = std::process::Command::new("pkill")
+        .args(["-f", "dns-sd -R .* _termpod._tcp"])
+        .output();
 
     log::info!("[LocalServer] Registering mDNS via dns-sd: {} on port {}", service_name, port);
 

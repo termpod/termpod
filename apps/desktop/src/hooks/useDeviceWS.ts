@@ -72,12 +72,18 @@ async function sendEncrypted(
   }
 }
 
-/** Called by useLocalServer when the local server finishes starting and the auth secret is available. */
-export function sendLocalAuthSecretToRelay(): void {
+/**
+ * Called by useLocalServer when the local server finishes starting and the auth secret is available.
+ * Also called after E2E key exchange completes with a viewer.
+ * Retries briefly if conditions aren't yet met (race between server start and E2E setup).
+ */
+export function sendLocalAuthSecretToRelay(retries = 3): void {
   const secret = getLocalAuthSecret();
 
   if (secret && _deviceWS?.readyState === WebSocket.OPEN && _e2eSessions && _e2eSessions.size > 0) {
     sendEncrypted(_deviceWS, _e2eSessions, { type: 'local_auth_secret', secret });
+  } else if (retries > 0) {
+    setTimeout(() => sendLocalAuthSecretToRelay(retries - 1), 500);
   }
 }
 
@@ -265,19 +271,11 @@ export function useDeviceWS(
               // Flush queued messages to this viewer
               if (ws.readyState === WebSocket.OPEN) {
                 await flushPendingEncrypted(ws, e2eSessionsRef.current);
-
-                // Send local auth secret now that E2E is established
-                const secret = getLocalAuthSecret();
-
-                if (secret) {
-                  await sendEncrypted(
-                    ws,
-                    e2eSessionsRef.current,
-                    { type: 'local_auth_secret', secret },
-                    fromClientId,
-                  );
-                }
               }
+
+              // Send local auth secret now that E2E is established.
+              // Uses retry to handle the race where start_local_server hasn't completed yet.
+              sendLocalAuthSecretToRelay();
             });
           }
           break;

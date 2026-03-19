@@ -93,9 +93,18 @@ export function useLocalServer(options: UseLocalServerOptions) {
           sendLocalAuthSecretToRelay();
         }
       })
-      .catch((err) => {
-        // Server might already be running — that's fine
-        console.warn('[LocalServer] Start:', err);
+      .catch(async () => {
+        // Server already running — retrieve the auth secret from the existing server
+        try {
+          const secret = await invoke<string>('get_local_auth_secret');
+
+          if (!cancelled && secret) {
+            setLocalAuthSecret(secret);
+            sendLocalAuthSecretToRelay();
+          }
+        } catch {
+          // Server not running either — nothing to do
+        }
       });
 
     return () => {
@@ -103,139 +112,174 @@ export function useLocalServer(options: UseLocalServerOptions) {
     };
   }, []);
 
-  // Listen for events from the Rust local WS server
+  // Listen for events from the Rust local WS server.
+  // Uses a `mounted` flag to handle React StrictMode's mount/unmount/mount cycle:
+  // if cleanup runs before async listen() Promises resolve, the unlisten function
+  // is called immediately when the Promise does resolve, preventing leaked listeners.
   useEffect(() => {
+    let mounted = true;
     const unlisten: (() => void)[] = [];
 
-    listen<ViewerEvent>('local-ws-viewer-joined', (event) => {
-      const sid = optionsRef.current.sessionId;
-
-      if (event.payload.sessionId === sid) {
-        setLocalViewers((v) => v + 1);
-        setLocalDevices((prev) => [
-          ...prev.filter((d) => d.clientId !== event.payload.clientId),
-          {
-            clientId: event.payload.clientId,
-            device: event.payload.device,
-            transport: 'local',
-            connectedAt: new Date().toISOString(),
-          },
-        ]);
-        optionsRef.current.onViewerJoined?.();
-
-        // Initiate E2E key exchange with the new viewer
-        generateKeyPair().then((kp) => {
-          pendingKeyPairs.set(event.payload.clientId, kp);
-          invoke('local_server_send_to_client', {
-            clientId: event.payload.clientId,
-            json: JSON.stringify({
-              type: 'key_exchange',
-              publicKey: kp.publicKeyJwk,
-              sessionId: sid,
-            }),
-          }).catch(() => {});
-        });
-      }
-    }).then((fn) => unlisten.push(fn));
-
-    listen<ViewerEvent>('local-ws-viewer-left', (event) => {
-      const sid = optionsRef.current.sessionId;
-
-      if (event.payload.sessionId === sid) {
-        setLocalViewers((v) => Math.max(0, v - 1));
-        setLocalDevices((prev) => prev.filter((d) => d.clientId !== event.payload.clientId));
-        localE2ESessions.delete(event.payload.clientId);
-        pendingKeyPairs.delete(event.payload.clientId);
-        optionsRef.current.onViewerLeft?.();
-      }
-    }).then((fn) => unlisten.push(fn));
-
-    listen<InputEvent>('local-ws-input', (event) => {
-      const sid = optionsRef.current.sessionId;
-
-      if (event.payload.sessionId === sid) {
-        // Reject plaintext frames when any local E2E session is active (prevent downgrade attack)
-        if (localE2ESessions.size > 0) {
-          console.warn('[LocalServer] Rejecting plaintext frame — E2E encryption is active');
-          return;
+    function addListener<T>(promise: Promise<() => void>) {
+      promise.then((fn) => {
+        if (mounted) {
+          unlisten.push(fn);
+        } else {
+          fn(); // Effect already cleaned up — unlisten immediately
         }
+      });
+    }
 
-        const bytes = new Uint8Array(event.payload.data);
-        optionsRef.current.onViewerInput?.(new TextDecoder().decode(bytes));
-      }
-    }).then((fn) => unlisten.push(fn));
+    addListener(
+      listen<ViewerEvent>('local-ws-viewer-joined', (event) => {
+        const sid = optionsRef.current.sessionId;
 
-    listen<ResizeEvent>('local-ws-resize', (event) => {
-      const sid = optionsRef.current.sessionId;
+        if (event.payload.sessionId === sid) {
+          setLocalViewers((v) => v + 1);
+          setLocalDevices((prev) => [
+            ...prev.filter((d) => d.clientId !== event.payload.clientId),
+            {
+              clientId: event.payload.clientId,
+              device: event.payload.device,
+              transport: 'local',
+              connectedAt: new Date().toISOString(),
+            },
+          ]);
+          optionsRef.current.onViewerJoined?.();
 
-      if (event.payload.sessionId === sid) {
-        optionsRef.current.onViewerResize?.(event.payload.cols, event.payload.rows);
-      }
-    }).then((fn) => unlisten.push(fn));
+          // Initiate E2E key exchange with the new viewer
+          generateKeyPair().then((kp) => {
+            pendingKeyPairs.set(event.payload.clientId, kp);
+            invoke('local_server_send_to_client', {
+              clientId: event.payload.clientId,
+              json: JSON.stringify({
+                type: 'key_exchange',
+                publicKey: kp.publicKeyJwk,
+                sessionId: sid,
+              }),
+            }).catch(() => {});
+          });
+        }
+      }),
+    );
 
-    listen<CreateSessionEvent>('local-ws-create-session', (event) => {
-      optionsRef.current.onCreateSessionRequest?.(event.payload.requestId, event.payload.clientId);
-    }).then((fn) => unlisten.push(fn));
+    addListener(
+      listen<ViewerEvent>('local-ws-viewer-left', (event) => {
+        const sid = optionsRef.current.sessionId;
 
-    listen<DeleteSessionEvent>('local-ws-delete-session', (event) => {
-      optionsRef.current.onDeleteSession?.(event.payload.sessionId);
-    }).then((fn) => unlisten.push(fn));
+        if (event.payload.sessionId === sid) {
+          setLocalViewers((v) => Math.max(0, v - 1));
+          setLocalDevices((prev) => prev.filter((d) => d.clientId !== event.payload.clientId));
+          localE2ESessions.delete(event.payload.clientId);
+          pendingKeyPairs.delete(event.payload.clientId);
+          optionsRef.current.onViewerLeft?.();
+        }
+      }),
+    );
+
+    addListener(
+      listen<InputEvent>('local-ws-input', (event) => {
+        const sid = optionsRef.current.sessionId;
+
+        if (event.payload.sessionId === sid) {
+          // Reject plaintext frames when any local E2E session is active (prevent downgrade attack)
+          if (localE2ESessions.size > 0) {
+            console.warn('[LocalServer] Rejecting plaintext frame — E2E encryption is active');
+            return;
+          }
+
+          const bytes = new Uint8Array(event.payload.data);
+          optionsRef.current.onViewerInput?.(new TextDecoder().decode(bytes));
+        }
+      }),
+    );
+
+    addListener(
+      listen<ResizeEvent>('local-ws-resize', (event) => {
+        const sid = optionsRef.current.sessionId;
+
+        if (event.payload.sessionId === sid) {
+          optionsRef.current.onViewerResize?.(event.payload.cols, event.payload.rows);
+        }
+      }),
+    );
+
+    addListener(
+      listen<CreateSessionEvent>('local-ws-create-session', (event) => {
+        optionsRef.current.onCreateSessionRequest?.(
+          event.payload.requestId,
+          event.payload.clientId,
+        );
+      }),
+    );
+
+    addListener(
+      listen<DeleteSessionEvent>('local-ws-delete-session', (event) => {
+        optionsRef.current.onDeleteSession?.(event.payload.sessionId);
+      }),
+    );
 
     // Handle E2E key exchange ack from local viewers
-    listen<KeyExchangeEvent>('local-ws-key-exchange', (event) => {
-      const { clientId, json } = event.payload;
+    addListener(
+      listen<KeyExchangeEvent>('local-ws-key-exchange', (event) => {
+        const { clientId, json } = event.payload;
 
-      try {
-        const msg = JSON.parse(json);
+        try {
+          const msg = JSON.parse(json);
 
-        if (msg.type === 'key_exchange_ack' && msg.publicKey) {
-          const kp = pendingKeyPairs.get(clientId);
+          if (msg.type === 'key_exchange_ack' && msg.publicKey) {
+            const kp = pendingKeyPairs.get(clientId);
 
-          if (kp) {
-            const sid = msg.sessionId || optionsRef.current.sessionId || '';
-            deriveSessionKey(kp.privateKey, msg.publicKey, sid)
-              .then((e2eSession) => {
-                localE2ESessions.set(clientId, e2eSession);
-                pendingKeyPairs.delete(clientId);
-                console.log('[LocalServer] E2E encryption active for local viewer', clientId);
+            if (kp) {
+              const sid = msg.sessionId || optionsRef.current.sessionId || '';
+              deriveSessionKey(kp.privateKey, msg.publicKey, sid)
+                .then((e2eSession) => {
+                  localE2ESessions.set(clientId, e2eSession);
+                  pendingKeyPairs.delete(clientId);
+                  console.log('[LocalServer] E2E encryption active for local viewer', clientId);
+                })
+                .catch((err) => {
+                  console.error('[LocalServer] E2E key derivation failed:', err);
+                });
+            }
+          }
+        } catch {
+          // Ignore malformed JSON
+        }
+      }),
+    );
+
+    // Handle E2E encrypted input from local viewers
+    addListener(
+      listen<EncryptedInputEvent>('local-ws-encrypted-input', (event) => {
+        const sid = optionsRef.current.sessionId;
+
+        if (event.payload.sessionId === sid) {
+          const encrypted = new Uint8Array(event.payload.data);
+
+          // Find the E2E session for this viewer (try all local sessions)
+          for (const [, e2eSession] of localE2ESessions) {
+            decryptFrame(e2eSession, encrypted)
+              .then((plaintext) => {
+                const inner = decodeBinaryFrame(plaintext);
+
+                if (inner.channel === Channel.TERMINAL_DATA) {
+                  optionsRef.current.onViewerInput?.(new TextDecoder().decode(inner.data));
+                } else if (inner.channel === Channel.TERMINAL_RESIZE) {
+                  optionsRef.current.onViewerResize?.(inner.cols, inner.rows);
+                }
               })
-              .catch((err) => {
-                console.error('[LocalServer] E2E key derivation failed:', err);
+              .catch(() => {
+                // Wrong key — try next session or silently drop
               });
           }
         }
-      } catch {
-        // Ignore malformed JSON
-      }
-    }).then((fn) => unlisten.push(fn));
-
-    // Handle E2E encrypted input from local viewers
-    listen<EncryptedInputEvent>('local-ws-encrypted-input', (event) => {
-      const sid = optionsRef.current.sessionId;
-
-      if (event.payload.sessionId === sid) {
-        const encrypted = new Uint8Array(event.payload.data);
-
-        // Find the E2E session for this viewer (try all local sessions)
-        for (const [, e2eSession] of localE2ESessions) {
-          decryptFrame(e2eSession, encrypted)
-            .then((plaintext) => {
-              const inner = decodeBinaryFrame(plaintext);
-
-              if (inner.channel === Channel.TERMINAL_DATA) {
-                optionsRef.current.onViewerInput?.(new TextDecoder().decode(inner.data));
-              } else if (inner.channel === Channel.TERMINAL_RESIZE) {
-                optionsRef.current.onViewerResize?.(inner.cols, inner.rows);
-              }
-            })
-            .catch(() => {
-              // Wrong key — try next session or silently drop
-            });
-        }
-      }
-    }).then((fn) => unlisten.push(fn));
+      }),
+    );
 
     return () => {
+      mounted = false;
+
       for (const fn of unlisten) {
         fn();
       }

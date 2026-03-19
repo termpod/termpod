@@ -175,6 +175,10 @@ final class DeviceTransportManager: ObservableObject {
         localWS = nil
         localConnected = false
         localWSPendingAuth = false
+        resolveConnection?.cancel()
+        resolveConnection = nil
+        resolveTimeoutTask?.cancel()
+        pendingBrowseResults = []
 
         deviceWS?.cancel(with: .goingAway, reason: nil)
         deviceWS = nil
@@ -209,6 +213,10 @@ final class DeviceTransportManager: ObservableObject {
         localWS = nil
         localConnected = false
         localWSPendingAuth = false
+        resolveConnection?.cancel()
+        resolveConnection = nil
+        resolveTimeoutTask?.cancel()
+        pendingBrowseResults = []
 
         deviceWS?.cancel(with: .goingAway, reason: nil)
         deviceWS = nil
@@ -735,6 +743,10 @@ final class DeviceTransportManager: ObservableObject {
                     self.localConnected = false
                     self.resolvedHost = nil
                     self.resolvedPort = nil
+                    self.resolveConnection?.cancel()
+                    self.resolveConnection = nil
+                    self.resolveTimeoutTask?.cancel()
+                    self.pendingBrowseResults = []
                     self.updateActiveTransport()
 
                     // Device WS was on WiFi — force reconnect on cellular
@@ -754,7 +766,10 @@ final class DeviceTransportManager: ObservableObject {
     // MARK: - Bonjour Discovery + Local WebSocket
 
     private func startBonjourDiscovery() {
-        guard browser == nil else { return }
+        guard browser == nil else {
+            log("Bonjour: already running")
+            return
+        }
 
         let params = NWParameters()
         params.includePeerToPeer = false
@@ -767,32 +782,93 @@ final class DeviceTransportManager: ObservableObject {
             }
         }
 
-        browser?.stateUpdateHandler = { _ in }
+        browser?.stateUpdateHandler = { [weak self] state in
+            Task { @MainActor in
+                switch state {
+                case .ready:
+                    self?.log("Bonjour: browser ready")
+                case .failed(let error):
+                    self?.log("Bonjour: browser FAILED — \(error)")
+                case .cancelled:
+                    self?.log("Bonjour: browser cancelled")
+                case .waiting(let error):
+                    self?.log("Bonjour: browser waiting — \(error) (check local network permission)")
+                default:
+                    self?.log("Bonjour: browser state \(state)")
+                }
+            }
+        }
         browser?.start(queue: .main)
+        log("Bonjour: started discovery for _termpod._tcp")
     }
+
+    /// Bonjour services pending resolution — when one fails, we try the next.
+    private var pendingBrowseResults: [NWBrowser.Result] = []
 
     private func handleBrowseResults(_ results: Set<NWBrowser.Result>) {
         if results.isEmpty {
+            log("Bonjour: no services found (clearing local)")
             localConnected = false
             localWS?.cancel(with: .goingAway, reason: nil)
             localWS = nil
+            pendingBrowseResults = []
             updateActiveTransport()
             return
         }
 
+        log("Bonjour: found \(results.count) service(s), localWS=\(localWS != nil)")
         guard localWS == nil else { return }
 
-        for result in results {
-            if case .service(_, _, _, _) = result.endpoint {
-                resolveEndpoint(result: result)
-                return
-            }
+        let services = results.filter {
+            if case .service = $0.endpoint { return true }
+            return false
         }
+
+        pendingBrowseResults = Array(services)
+        resolveNextPendingService()
     }
 
+    /// Try to resolve the next pending Bonjour service. Called initially and on resolution failure.
+    private func resolveNextPendingService() {
+        guard localWS == nil, let next = pendingBrowseResults.first else {
+            if pendingBrowseResults.isEmpty && localWS == nil {
+                log("Bonjour: all services failed to resolve")
+            }
+            return
+        }
+
+        pendingBrowseResults.removeFirst()
+
+        if case .service(let name, let type, let domain, let interface) = next.endpoint {
+            log("Bonjour: resolving \(name).\(type)\(domain) iface=\(String(describing: interface))")
+        }
+
+        resolveEndpoint(result: next)
+    }
+
+    /// Active resolution connection — kept so we can cancel it on timeout.
+    private var resolveConnection: NWConnection?
+    private var resolveTimeoutTask: Task<Void, Never>?
+
     private func resolveEndpoint(result: NWBrowser.Result) {
+        // Cancel any in-flight resolution
+        resolveConnection?.cancel()
+        resolveTimeoutTask?.cancel()
+
         let params = NWParameters.tcp
         let connection = NWConnection(to: result.endpoint, using: params)
+        resolveConnection = connection
+
+        // Timeout: if resolution doesn't complete in 5s, try the next service
+        resolveTimeoutTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled else { return }
+            guard let self, self.resolveConnection === connection else { return }
+            self.log("Bonjour: resolve timeout — trying next service")
+            connection.cancel()
+            self.resolveConnection = nil
+            self.resolveNextPendingService()
+        }
 
         connection.stateUpdateHandler = { [weak self] state in
             switch state {
@@ -802,47 +878,71 @@ final class DeviceTransportManager: ObservableObject {
                     return
                 }
 
+                // Extract host/port info from the connection path before dispatching to MainActor
+                var hostStr: String?
+                var portValue: UInt16?
+                var rejected = false
+
                 if let path = connection.currentPath,
                    let endpoint = path.remoteEndpoint,
                    case .hostPort(let host, let port) = endpoint {
                     // Reject non-WiFi paths (e.g. anpi0 Apple Nearby P2P)
                     if !path.usesInterfaceType(.wifi) && !path.usesInterfaceType(.wiredEthernet) {
-                        Task { @MainActor in
-                            self.log("Rejecting local endpoint — not on WiFi/Ethernet")
+                        rejected = true
+                    } else {
+                        switch host {
+                        case .ipv4(let addr):
+                            let raw = "\(addr)"
+                            hostStr = raw.components(separatedBy: "%").first ?? raw
+                        case .ipv6(let addr):
+                            let raw = "\(addr)"
+                            let clean = raw.components(separatedBy: "%").first ?? raw
+                            hostStr = "[\(clean)]"
+                        case .name(let name, _):
+                            hostStr = name
+                        @unknown default:
+                            hostStr = "unknown"
                         }
-                        connection.cancel()
-                        return
-                    }
-
-                    let hostStr: String
-
-                    switch host {
-                    case .ipv4(let addr):
-                        let raw = "\(addr)"
-                        hostStr = raw.components(separatedBy: "%").first ?? raw
-                    case .ipv6(let addr):
-                        let raw = "\(addr)"
-                        let clean = raw.components(separatedBy: "%").first ?? raw
-                        hostStr = "[\(clean)]"
-                    case .name(let name, _):
-                        hostStr = name
-                    @unknown default:
-                        hostStr = "unknown"
-                    }
-
-                    Task { @MainActor in
-                        self.resolvedHost = hostStr
-                        self.resolvedPort = port.rawValue
-                        self.connectLocalWS()
+                        portValue = port.rawValue
                     }
                 }
 
                 connection.cancel()
 
-            case .failed:
+                Task { @MainActor in
+                    self.resolveTimeoutTask?.cancel()
+                    self.resolveConnection = nil
+
+                    if rejected {
+                        self.log("Bonjour: rejecting endpoint — not WiFi/Ethernet")
+                        self.resolveNextPendingService()
+                    } else if let host = hostStr, let port = portValue {
+                        self.log("Bonjour: resolved \(host):\(port)")
+                        self.pendingBrowseResults = []
+                        self.resolvedHost = host
+                        self.resolvedPort = port
+                        self.connectLocalWS()
+                    } else {
+                        self.log("Bonjour: resolve ready but no hostPort endpoint")
+                        self.resolveNextPendingService()
+                    }
+                }
+
+            case .failed(let error):
+                Task { @MainActor in
+                    self?.resolveTimeoutTask?.cancel()
+                    self?.log("Bonjour: resolve FAILED — \(error)")
+                    self?.resolveConnection = nil
+                    self?.resolveNextPendingService()
+                }
                 connection.cancel()
 
-            case .cancelled, .setup, .preparing, .waiting:
+            case .waiting(let error):
+                Task { @MainActor in
+                    self?.log("Bonjour: resolve waiting — \(error)")
+                }
+
+            case .cancelled, .setup, .preparing:
                 break
 
             @unknown default:
@@ -856,7 +956,10 @@ final class DeviceTransportManager: ObservableObject {
     private func connectLocalWS() {
         guard let host = resolvedHost, let port = resolvedPort,
               let url = URL(string: "ws://\(host):\(port)")
-        else { return }
+        else {
+            log("connectLocalWS: no host/port (host=\(resolvedHost ?? "nil") port=\(resolvedPort.map(String.init) ?? "nil"))")
+            return
+        }
 
         // Don't connect without auth secret — server will reject us
         guard localAuthSecret != nil else {
@@ -924,6 +1027,7 @@ final class DeviceTransportManager: ObservableObject {
 
             switch type {
             case "auth_ok":
+                log("Local WS: auth_ok received")
                 // Local WS auth confirmed — now send hello
                 if localWSPendingAuth, let ws = localWS {
                     localWSPendingAuth = false
@@ -931,6 +1035,7 @@ final class DeviceTransportManager: ObservableObject {
                 }
 
             case "ready":
+                log("Local WS: ready — setting localConnected=true")
                 localConnected = true
                 updateActiveTransport()
                 // Re-subscribe all active sessions
@@ -1045,10 +1150,15 @@ final class DeviceTransportManager: ObservableObject {
     }
 
     private func handleLocalDisconnect() {
+        log("Local WS: disconnected (was connected=\(localConnected))")
         localWS = nil
         localConnected = false
         localWSPendingAuth = false
         localCrypto.reset()
+        resolveConnection?.cancel()
+        resolveConnection = nil
+        resolveTimeoutTask?.cancel()
+        pendingBrowseResults = []
         // Keep session handlers intact — on reconnect, the `ready` handler
         // re-subscribes all sessions. Sessions fall back to relay in the meantime.
         updateActiveTransport()
@@ -1285,7 +1395,7 @@ final class DeviceTransportManager: ObservableObject {
         case "local_auth_secret":
             if let secret = json["secret"] as? String {
                 self.localAuthSecret = secret
-                log("Received local auth secret (encrypted)")
+                log("Received local auth secret (localWS=\(localWS != nil) host=\(resolvedHost ?? "nil") port=\(resolvedPort.map(String.init) ?? "nil"))")
                 if localWS == nil && resolvedHost != nil {
                     connectLocalWS()
                 }
