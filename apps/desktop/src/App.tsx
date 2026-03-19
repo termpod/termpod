@@ -54,8 +54,6 @@ import {
 import { loadSessionState, saveSessionState, saveSessionStateSync } from './lib/sessionState';
 import { useProfiles } from './hooks/useProfiles';
 import type { TerminalProfile } from './hooks/useProfiles';
-import { usePaneLayout, findNeighborPane } from './hooks/usePaneLayout';
-import { PaneContainer } from './components/PaneContainer';
 
 export function App() {
   const auth = useAuth();
@@ -85,10 +83,6 @@ export function App() {
     reset: resetSettings,
     defaults: settingsDefaults,
   } = useSettings();
-  const paneLayout = usePaneLayout();
-  const paneLayoutRef = useRef(paneLayout);
-  paneLayoutRef.current = paneLayout;
-  const splitChildIds = paneLayout.getSplitChildIds();
   const updater = useUpdater();
   const customThemes = useSyncExternalStore(subscribeCustomThemes, getCustomThemesSnapshot);
 
@@ -408,9 +402,6 @@ export function App() {
         stopRecording(id);
       }
 
-      // Clean up pane tree entry if this was a tab root
-      paneLayoutRef.current.removeTabTree(id);
-
       const { wasLast } = closeSession(id);
 
       if (wasLast && settings.closeWindowOnLastTab) {
@@ -435,12 +426,6 @@ export function App() {
       new Notification('Process Exited', {
         body: session?.processName || session?.name || 'Terminal',
       });
-    }
-
-    // If this session is a pane in a split, remove it from the tree first
-    const result = paneLayoutRef.current.closePane(id);
-    if (result.removedFromTree && result.promotedSessionId) {
-      paneLayoutRef.current.setFocusedPane(result.promotedSessionId);
     }
 
     handleCloseSession(id);
@@ -986,87 +971,6 @@ export function App() {
         invoke('open_url', { url: 'https://github.com/termpod/termpod/issues' });
         break;
 
-      case 'split_right': {
-        if (!activeId) break;
-        // Use focusedPaneId only if it belongs to the active tab
-        const activeLeafs = new Set(paneLayout.getLeafIdsForTab(activeId));
-        const focusedId =
-          paneLayout.focusedPaneId && activeLeafs.has(paneLayout.focusedPaneId)
-            ? paneLayout.focusedPaneId
-            : activeId;
-        const focusedSession = sessions.find((s) => s.id === focusedId);
-        createSession({
-          shell: settings.shellPath,
-          cwd: focusedSession?.cwd,
-          activate: false,
-        }).then((newSession) => {
-          if (newSession) {
-            paneLayout.splitPane(focusedId, 'horizontal', newSession.id);
-          }
-        });
-        break;
-      }
-
-      case 'split_down': {
-        if (!activeId) break;
-        const activeLeafs2 = new Set(paneLayout.getLeafIdsForTab(activeId));
-        const focusedId =
-          paneLayout.focusedPaneId && activeLeafs2.has(paneLayout.focusedPaneId)
-            ? paneLayout.focusedPaneId
-            : activeId;
-        const focusedSession = sessions.find((s) => s.id === focusedId);
-        createSession({
-          shell: settings.shellPath,
-          cwd: focusedSession?.cwd,
-          activate: false,
-        }).then((newSession) => {
-          if (newSession) {
-            paneLayout.splitPane(focusedId, 'vertical', newSession.id);
-          }
-        });
-        break;
-      }
-
-      case 'close_pane': {
-        const focusedId = paneLayout.focusedPaneId;
-        if (!focusedId || !activeId) break;
-        if (!paneLayout.hasSplits(activeId)) {
-          // No splits — close the whole tab
-          handleCloseSession(activeId);
-          break;
-        }
-        const result = paneLayout.closePane(focusedId);
-        if (result.removedFromTree) {
-          // Only kill the PTY session — don't run full handleCloseSession
-          // which would also remove the tab tree and trigger tab-level logic
-          closeSession(focusedId);
-          if (result.promotedSessionId) {
-            paneLayout.setFocusedPane(result.promotedSessionId);
-            const promoted = sessions.find((s) => s.id === result.promotedSessionId);
-            promoted?.termRef.current?.fit();
-            promoted?.termRef.current?.focus();
-          }
-        }
-        break;
-      }
-
-      case 'focus_pane_left':
-      case 'focus_pane_right':
-      case 'focus_pane_up':
-      case 'focus_pane_down': {
-        if (!activeId) break;
-        const direction = menuId.replace('focus_pane_', '') as 'left' | 'right' | 'up' | 'down';
-        const currentFocus = paneLayout.focusedPaneId || activeId;
-        const tree = paneLayout.getTree(activeId);
-        const neighbor = findNeighborPane(tree, currentFocus, direction);
-        if (neighbor) {
-          paneLayout.setFocusedPane(neighbor);
-          const neighborSession = sessions.find((s) => s.id === neighbor);
-          neighborSession?.termRef.current?.focus();
-        }
-        break;
-      }
-
       default:
         if (menuId.startsWith('theme_')) {
           const themeKey = menuId.slice(6);
@@ -1115,13 +1019,6 @@ export function App() {
     'zoom_out',
     'zoom_reset',
     'find',
-    'split_right',
-    'split_down',
-    'close_pane',
-    'focus_pane_left',
-    'focus_pane_right',
-    'focus_pane_up',
-    'focus_pane_down',
   ]);
 
   useEffect(() => {
@@ -1196,7 +1093,7 @@ export function App() {
   return (
     <div className="app" style={appThemeStyles as React.CSSProperties}>
       <TabBar
-        sessions={sessions.filter((s) => !splitChildIds.has(s.id))}
+        sessions={sessions}
         activeId={activeId}
         onSelect={switchSession}
         onClose={handleCloseSession}
@@ -1260,23 +1157,11 @@ export function App() {
         </div>
       )}
       <div className="terminal-area">
-        {(() => {
-          // Sessions in the active tab's pane tree (may be multiple when split)
-          const activeLeafIds = activeId
-            ? new Set(paneLayout.getLeafIdsForTab(activeId))
-            : new Set<string>();
-          const activeHasSplits = activeId ? paneLayout.hasSplits(activeId) : false;
-
-          const renderTerminalPanel = (
-            session: (typeof sessions)[number],
-            visible: boolean,
-            inSplit: boolean,
-          ) => (
+        {sessions.map((session) => (
             <TerminalPanel
               key={session.id}
               session={session}
-              visible={visible}
-              splitMode={inSplit}
+              visible={session.id === activeId}
               onTermReady={markTermReady}
               fontSize={settings.fontSize}
               fontFamily={settings.fontFamily}
@@ -1362,44 +1247,7 @@ export function App() {
                 setShowWorkflows(true);
               }}
             />
-          );
-
-          return (
-            <>
-              {/* Non-active sessions: keep mounted but hidden (preserves xterm/WebGL state) */}
-              {sessions
-                .filter((s) => !activeLeafIds.has(s.id))
-                .map((session) => renderTerminalPanel(session, false, false))}
-
-              {/* Active tab: split pane tree or single pane */}
-              {activeId && activeHasSplits ? (
-                <PaneContainer
-                  node={paneLayout.getTree(activeId)}
-                  renderPane={(sessionId) => {
-                    const session = sessions.find((s) => s.id === sessionId);
-                    if (!session) return null;
-                    return renderTerminalPanel(session, true, true);
-                  }}
-                  focusedPaneId={paneLayout.focusedPaneId}
-                  onFocusPane={paneLayout.setFocusedPane}
-                  onUpdateRatio={paneLayout.updateRatio}
-                  onDragEnd={() => {
-                    // Fit all terminals in the active tree after drag resize
-                    if (!activeId) return;
-                    for (const id of paneLayout.getLeafIdsForTab(activeId)) {
-                      const s = sessions.find((x) => x.id === id);
-                      s?.termRef.current?.fit();
-                    }
-                  }}
-                />
-              ) : (
-                sessions
-                  .filter((s) => activeLeafIds.has(s.id))
-                  .map((session) => renderTerminalPanel(session, session.id === activeId, false))
-              )}
-            </>
-          );
-        })()}
+        ))}
         {showDevicesPanel && (
           <ConnectedDevicesPanel
             sessionDevices={sessionDevices}

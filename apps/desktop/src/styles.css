@@ -2099,65 +2099,8 @@ body,
   inset: 0;
 }
 
-.terminal-panel.terminal-panel-split {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
 .terminal-panel.transparent .xterm {
   opacity: var(--terminal-opacity, 1);
-}
-
-/* ── Split Panes ── */
-.pane-container {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-
-.pane-container-horizontal {
-  flex-direction: row;
-}
-
-.pane-container-vertical {
-  flex-direction: column;
-}
-
-.pane-leaf {
-  position: relative;
-  overflow: hidden;
-  min-width: 80px;
-  min-height: 40px;
-  width: 100%;
-  height: 100%;
-}
-
-.pane-divider {
-  flex-shrink: 0;
-  background: var(--border);
-  z-index: 1;
-  transition: background 0.15s;
-}
-
-.pane-divider:hover,
-.pane-divider-dragging {
-  background: var(--accent);
-}
-
-.pane-divider-horizontal {
-  width: 4px;
-  cursor: col-resize;
-}
-
-.pane-divider-vertical {
-  height: 4px;
-  cursor: row-resize;
-}
-
-.pane-leaf-focused {
-  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 /* Style xterm custom scrollbar */
