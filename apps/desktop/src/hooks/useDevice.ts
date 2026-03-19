@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { authFetch } from './useAuth';
 
+const HEARTBEAT_INTERVAL = 5 * 60_000; // 5 minutes — safety net, Device WS is the primary presence signal
+const POLL_INTERVAL = 5 * 60_000; // 5 minutes — safety net, Device WS pushes create_session_request in real-time
 const DEVICE_ID_KEY = 'termpod-device-id';
 
 function getOrCreateDeviceId(): string {
@@ -77,10 +79,37 @@ export function useDevice(isAuthenticated: boolean, onCreateSessionRequest?: () 
       })
       .catch(() => {});
 
-    // No heartbeat or polling needed — the Device WS connection signals
-    // online/offline state, and create_session_request is pushed via WS.
+    // Heartbeat — safety net in case Device WS close event is missed
+    const heartbeatInterval = setInterval(() => {
+      deviceFetch(`/devices/${deviceId}/heartbeat`, 'POST').catch(() => {});
+    }, HEARTBEAT_INTERVAL);
+
+    // Poll for pending session requests — safety net for missed WS pushes
+    const pollPending = async () => {
+      try {
+        const res = await deviceFetch(`/devices/${deviceId}/pending-requests`);
+
+        if (res.ok) {
+          const { requests } = (await res.json()) as { requests: { id: string }[] };
+
+          if (requests.length > 0) {
+            await deviceFetch(`/devices/${deviceId}/pending-requests`, 'DELETE');
+
+            for (const _req of requests) {
+              onCreateRef.current?.();
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    const pollInterval = setInterval(pollPending, POLL_INTERVAL);
 
     return () => {
+      clearInterval(heartbeatInterval);
+      clearInterval(pollInterval);
       deviceFetch(`/devices/${deviceId}/offline`, 'POST').catch(() => {});
     };
   }, [isAuthenticated, deviceId, flushPending]);
