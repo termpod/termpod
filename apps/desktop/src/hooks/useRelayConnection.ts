@@ -142,6 +142,8 @@ export function useRelayConnection(options: UseRelayConnectionOptions = {}) {
 
               if (inner.channel === Channel.TERMINAL_DATA) {
                 optionsRef.current.onViewerInput?.(new TextDecoder().decode(inner.data));
+              } else if (inner.channel === Channel.TERMINAL_RESIZE) {
+                optionsRef.current.onViewerResize?.(inner.cols, inner.rows);
               }
             })
             .catch((err) => {

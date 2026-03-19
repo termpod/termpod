@@ -296,8 +296,10 @@ export function useRelayBridge(
         }
       }
 
-      // Send via relay ONLY if no better transport has viewers AND relay is allowed
-      if (!hasLocal && !hasWebRTC && isRelayAllowedRef.current) {
+      // Always send via relay when allowed — viewers may be relay-only
+      // (e.g. transport override, or local/WebRTC unavailable on their end).
+      // The viewer-side shouldAcceptData filter prevents duplicate processing.
+      if (isRelayAllowedRef.current) {
         sendTerminalData(data);
       }
     };
